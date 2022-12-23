@@ -74,7 +74,7 @@ func _process(delta):
 		#print(i.get_name())
 		if (get_linear_velocity().length() > crashspeed and i.get_name() != "Rocket"):
 			death()
-		if(i.get_name() == "Moon" and get_linear_velocity().length() < landingspeed and flagplaced == false and landattemptnow == false):
+		if((i.get_name() == "Moon" or i.get_name() == "Mars")  and get_linear_velocity().length() < landingspeed and flagplaced == false and landattemptnow == false):
 			#print("LANDED!")
 			moonland()
 	if !moontimer.is_stopped() and footoverlaps.size() < 2:
@@ -91,11 +91,7 @@ func death():
 	$ExplosionSound.play()
 	get_node("SkullSprite").show()
 	set_process(false)
-#	deathtimer.active 
-#	Timer
 	deathtimer.start()
-	#while(deathtimer.get_wait_time() > 0.1):
-	#print(deathtimer.get_wait_time())
 
 func moonland():
 	print("START MOONLAND")
@@ -106,8 +102,7 @@ func moonland():
 	moontimer.start()
 
 func flagplanted():
-	globalvar.finaltime = get_node("../../MoonSpace/CanvasLayer/TimeLabel").get('time')
-	#finaltime = get_node("../../CanvasLayer/TimeLabel").time
+	globalvar.finaltime = get_node("../CanvasLayer").get_node("TimeLabel").get('time')
 	flagplaced = true
 	print("FLAG PLACED")
 	#get_tree().get_root().set_disable_input(false)

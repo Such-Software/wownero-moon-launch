@@ -45,7 +45,6 @@ func labelanim():
 	get_node("Label_Score").get_node("AnimationPlayer").seek(0)
 	get_node("Label_Score").show()
 	get_node("Label_Score").get_node("AnimationPlayer").play("scroll")
-#	labeltimer.set_active(true)
 	labeltimer.start()
 	print("label anim started")
 

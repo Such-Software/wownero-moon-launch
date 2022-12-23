@@ -10,6 +10,7 @@ radius = 57.0
 radius = 180.0
 
 [node name="Mars" type="KinematicBody2D"]
+collision_layer = 2
 script = ExtResource( 2 )
 
 [node name="Sprite" type="Sprite" parent="."]
@@ -19,7 +20,12 @@ texture = ExtResource( 1 )
 [node name="MarsCollision" type="CollisionShape2D" parent="."]
 shape = SubResource( 1 )
 
-[node name="GravityArea" type="Area2D" parent="."]
+[node name="Area2D" type="Area2D" parent="."]
+space_override = 1
+gravity_point = true
+gravity = 40.0
+linear_damp = 0.0
+angular_damp = 0.0
 
-[node name="GravityCollision" type="CollisionShape2D" parent="GravityArea"]
+[node name="CollisionShape2D" type="CollisionShape2D" parent="Area2D"]
 shape = SubResource( 2 )

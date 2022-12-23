@@ -10,6 +10,7 @@ radius = 40.0
 radius = 100.0
 
 [node name="Moon" type="KinematicBody2D"]
+collision_layer = 2
 script = ExtResource( 1 )
 
 [node name="Sprite" type="Sprite" parent="."]
