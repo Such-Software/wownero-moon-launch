@@ -36,6 +36,7 @@ func _ready():
 	moontimer.set_one_shot(true)
 	moontimer.connect("timeout", self, "flagplanted")
 	add_child(moontimer)
+	globalvar.connect("sendDeath",self,'death')
 	#print(get_node("../../MoonSpace").get_name())
 
 func _integrate_forces(state):
@@ -74,7 +75,7 @@ func _process(delta):
 		#print(i.get_name())
 		if (get_linear_velocity().length() > crashspeed and i.get_name() != "Rocket"):
 			death()
-		if((i.get_name() == "Moon" or i.get_name() == "Mars")  and get_linear_velocity().length() < landingspeed and flagplaced == false and landattemptnow == false):
+		if((i.get_name() == "Moon" or i.get_name() == "Mars" or i.get_name() == "Venus")  and get_linear_velocity().length() < landingspeed and flagplaced == false and landattemptnow == false):
 			#print("LANDED!")
 			moonland()
 	if !moontimer.is_stopped() and footoverlaps.size() < 2:
@@ -84,6 +85,7 @@ func _process(delta):
 
 
 func death():
+	globalvar.disconnect("sendDeath",self,'death')
 	moontimer.disconnect("timeout", self, "flagplanted")
 	get_node("ExplosionSprite").show()
 	get_node("RocketSprite").hide()

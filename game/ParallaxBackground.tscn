@@ -11,7 +11,7 @@
 position = Vector2( 435, 359 )
 texture = ExtResource( 1 )
 region_enabled = true
-region_rect = Rect2( 0, 0, 5000, 5000 )
+region_rect = Rect2( 0, 0, 10000, 10000 )
 
 [node name="SunParallax" type="ParallaxLayer" parent="."]
 

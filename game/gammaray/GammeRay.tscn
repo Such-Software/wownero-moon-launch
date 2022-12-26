@@ -1,0 +1,88 @@
+[gd_scene load_steps=11 format=2]
+
+[ext_resource path="res://game/gammaray/GammeRay.gd" type="Script" id=1]
+[ext_resource path="res://art/glowingCircle.png" type="Texture" id=2]
+
+[sub_resource type="Gradient" id=2]
+offsets = PoolRealArray( 0, 0.767742, 1 )
+colors = PoolColorArray( 1, 1, 1, 1, 1, 1, 1, 1, 0.968627, 0.980392, 0.988235, 0 )
+
+[sub_resource type="GradientTexture" id=3]
+gradient = SubResource( 2 )
+
+[sub_resource type="Curve" id=4]
+_data = [ Vector2( 0, 1 ), 0.0, 0.0, 0, 0, Vector2( 0.522472, 0.504545 ), 0.0, 0.0, 0, 0, Vector2( 1, 0 ), 0.0, 0.0, 0, 0 ]
+
+[sub_resource type="CurveTexture" id=5]
+curve = SubResource( 4 )
+
+[sub_resource type="ParticlesMaterial" id=6]
+flag_disable_z = true
+gravity = Vector3( 0, 0, 0 )
+initial_velocity = 120.0
+orbit_velocity = 0.0
+orbit_velocity_random = 0.0
+scale = 0.7
+scale_curve = SubResource( 5 )
+color_ramp = SubResource( 3 )
+
+[sub_resource type="ParticlesMaterial" id=7]
+flag_disable_z = true
+gravity = Vector3( 0, 0, 0 )
+initial_velocity = 250.0
+orbit_velocity = 0.0
+orbit_velocity_random = 0.0
+scale = 0.7
+scale_curve = SubResource( 5 )
+color_ramp = SubResource( 3 )
+
+[sub_resource type="ParticlesMaterial" id=8]
+emission_shape = 2
+emission_box_extents = Vector3( 1, 1, 1 )
+flag_disable_z = true
+gravity = Vector3( 0, 98, 0 )
+orbit_velocity = 0.0
+orbit_velocity_random = 0.0
+tangential_accel = 100.0
+
+[sub_resource type="Environment" id=9]
+background_mode = 4
+glow_levels/4 = true
+glow_intensity = 0.15
+glow_blend_mode = 0
+glow_hdr_luminance_cap = 1.0
+glow_hdr_scale = 1.0
+glow_bicubic_upscale = true
+
+[node name="GammeRay" type="RayCast2D"]
+enabled = true
+cast_to = Vector2( 100, 0 )
+script = ExtResource( 1 )
+
+[node name="Line2D" type="Line2D" parent="."]
+points = PoolVector2Array( 0, 0, 100, 0 )
+default_color = Color( 0.5, 3, 6, 1 )
+
+[node name="Tween" type="Tween" parent="."]
+
+[node name="CastingParticles2D" type="Particles2D" parent="."]
+emitting = false
+lifetime = 0.3
+process_material = SubResource( 6 )
+texture = ExtResource( 2 )
+
+[node name="CollisionParticles2D" type="Particles2D" parent="."]
+emitting = false
+lifetime = 0.3
+process_material = SubResource( 7 )
+texture = ExtResource( 2 )
+
+[node name="BeamParticles2D" type="Particles2D" parent="."]
+emitting = false
+lifetime = 0.3
+local_coords = false
+process_material = SubResource( 8 )
+texture = ExtResource( 2 )
+
+[node name="WorldEnvironment" type="WorldEnvironment" parent="."]
+environment = SubResource( 9 )

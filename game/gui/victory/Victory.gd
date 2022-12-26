@@ -91,4 +91,7 @@ func _on_Label_Quit_pressed():
 	get_tree().change_scene("res://game/gui/menu/Menu.tscn")
 
 func _on_Label_NextLevel_pressed():
-	get_tree().change_scene("res://game/levels/2/Level2.tscn")
+	match(globalvar.nowlevel):
+		1:get_tree().change_scene("res://game/levels/2/Level2.tscn")
+		2:get_tree().change_scene("res://game/levels/3/Level3.tscn")
+		
