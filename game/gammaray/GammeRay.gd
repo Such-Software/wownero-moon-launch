@@ -13,19 +13,19 @@ func _ready():
 func move_landR():
 	randomize()
 	if (randf()<0.5):
-		global_position.x = -700
-	if global_position.x < 0 :
+		global_position.x -= 700
 		rotation_degrees = rand_range(-45,45)
 	else:
+		global_position.x += 700
 		rotation_degrees = rand_range(135,225)
 
 func move_tandB():
 	randomize()
 	if (randf()<0.5):
-		global_position.y = -400
-	if global_position.x < 0 :
+		global_position.y -= 400
 		rotation_degrees = rand_range(45,135)
 	else:
+		global_position.y += 400
 		rotation_degrees = rand_range(-45,-135)
 
 func _physics_process(delta):

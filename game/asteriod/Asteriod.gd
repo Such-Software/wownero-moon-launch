@@ -17,17 +17,17 @@ func _physics_process(delta):
 func move_landR():
 	randomize()
 	if (randf()<0.5):
-		global_position.x = -700
-	if global_position.x < 0 :
+		global_position.x -= 700
 		dir = Vector2(1,rand_range(-1,1))
 	else:
+		global_position.y += 700
 		dir = Vector2(-1,rand_range(-1,1))
 
 func move_tandB():
 	randomize()
 	if (randf()<0.5):
-		global_position.y = -400
-	if global_position.y < 0 :
-		dir = Vector2(rand_range(-1,1),-1)
-	else:
+		global_position.y -= 400
 		dir = Vector2(rand_range(-1,1),1)
+	else:
+		global_position.y += 400
+		dir = Vector2(rand_range(-1,1),-1)

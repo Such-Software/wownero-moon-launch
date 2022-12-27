@@ -19,10 +19,10 @@ func add_laser():
 func set_position(data):
 	randomize()
 	if randf()<0.5:
-		data.global_position = $Rocket.global_position+ Vector2(700,rand_range(-400,400))
+		data.global_position = $Rocket.global_position+ Vector2(0,rand_range(-400,400))
 		data.move_landR()
 	else:
-		data.global_position = $Rocket.global_position+ Vector2(rand_range(-700,700),400)
+		data.global_position = $Rocket.global_position+ Vector2(rand_range(-700,700),0)
 		data.move_tandB()
 
 func add_asteriod():
@@ -34,7 +34,7 @@ func add_asteriod():
 
 func _on_Timer_timeout():
 	add_laser()
-	$RayTimer.wait_time= rand_range(3,6)
+	$RayTimer.wait_time= rand_range(4,6)
 
 func _on_AsteriodTimer_timeout():
 	add_asteriod()
