@@ -75,7 +75,7 @@ func _process(delta):
 		#print(i.get_name())
 		if (get_linear_velocity().length() > crashspeed and i.get_name() != "Rocket"):
 			death()
-		if((i.get_name() == "Moon" or i.get_name() == "Mars" or i.get_name() == "Venus")  and get_linear_velocity().length() < landingspeed and flagplaced == false and landattemptnow == false):
+		if((i.get_name() == "Moon" or i.get_name() == "Mars" or i.get_name() == "Venus" or i.get_name() == "IO")  and get_linear_velocity().length() < landingspeed and flagplaced == false and landattemptnow == false):
 			#print("LANDED!")
 			moonland()
 	if !moontimer.is_stopped() and footoverlaps.size() < 2:

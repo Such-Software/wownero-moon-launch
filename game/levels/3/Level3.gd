@@ -13,14 +13,12 @@ func add_laser():
 	randomize()
 	var g_ray = gammaray.instance()
 	add_child(g_ray)
-	g_ray.global_position = $Rocket.global_position+ Vector2(700,rand_range(-400,400))
-	if (randf()<0.5):
-		g_ray.global_position.x = -700
-	if g_ray.global_position.x < 0 :
-		g_ray.rotation_degrees = rand_range(-45,45)
+	if randf()<0.5:
+		g_ray.global_position = $Rocket.global_position+ Vector2(700,rand_range(-400,400))
+		g_ray.move_landR()
 	else:
-#		g_ray.growing_value = -1
-		g_ray.rotation_degrees = rand_range(135,225)
+		g_ray.global_position = $Rocket.global_position+ Vector2(rand_range(-700,700),400)
+		g_ray.move_tandB()
 
 func _on_Timer_timeout():
 	add_laser()

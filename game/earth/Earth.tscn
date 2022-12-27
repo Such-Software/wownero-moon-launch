@@ -9,6 +9,7 @@ radius = 80.0
 radius = 300.0
 
 [node name="Earth" type="KinematicBody2D"]
+collision_layer = 2
 __meta__ = {
 "_edit_group_": true
 }

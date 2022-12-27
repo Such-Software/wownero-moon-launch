@@ -94,4 +94,5 @@ func _on_Label_NextLevel_pressed():
 	match(globalvar.nowlevel):
 		1:get_tree().change_scene("res://game/levels/2/Level2.tscn")
 		2:get_tree().change_scene("res://game/levels/3/Level3.tscn")
+		3:get_tree().change_scene("res://game/levels/4/Level4.tscn")
 		

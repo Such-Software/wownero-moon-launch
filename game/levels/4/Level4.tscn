@@ -4,13 +4,13 @@
 [ext_resource path="res://game/TextsIngame.tscn" type="PackedScene" id=2]
 [ext_resource path="res://game/earth/Earth.tscn" type="PackedScene" id=3]
 [ext_resource path="res://game/rocket/Rocket.tscn" type="PackedScene" id=4]
-[ext_resource path="res://game/venus/Venus.tscn" type="PackedScene" id=5]
-[ext_resource path="res://game/levels/3/Level3.gd" type="Script" id=6]
+[ext_resource path="res://game/levels/4/Level4.gd" type="Script" id=5]
+[ext_resource path="res://game/moon/Io.tscn" type="PackedScene" id=6]
 [ext_resource path="res://game/martian/Martian.tscn" type="PackedScene" id=7]
 [ext_resource path="res://art/ancientbgm.ogg" type="AudioStream" id=8]
 
-[node name="VenusSpace" type="Node2D"]
-script = ExtResource( 6 )
+[node name="IOSpace" type="Node2D"]
+script = ExtResource( 5 )
 
 [node name="ParallaxBackground" parent="." instance=ExtResource( 1 )]
 
@@ -19,12 +19,12 @@ script = ExtResource( 6 )
 [node name="Earth" parent="." instance=ExtResource( 3 )]
 position = Vector2( 304, 391 )
 
+[node name="IO" parent="." instance=ExtResource( 6 )]
+position = Vector2( 1703, -92 )
+
 [node name="Rocket" parent="." instance=ExtResource( 4 )]
 position = Vector2( 337, 298 )
 rotation = 0.303687
-
-[node name="Venus" parent="." instance=ExtResource( 5 )]
-position = Vector2( 1760, -119 )
 
 [node name="martians" type="Node2D" parent="."]
 
@@ -32,13 +32,13 @@ position = Vector2( 1760, -119 )
 position = Vector2( 1665, 250 )
 
 [node name="Martian2" parent="martians" instance=ExtResource( 7 )]
-position = Vector2( 1310, -358 )
+position = Vector2( 1487, -383 )
 
 [node name="Martian3" parent="martians" instance=ExtResource( 7 )]
-position = Vector2( 1838, -548 )
+position = Vector2( 1894, -402 )
 
 [node name="Martian4" parent="martians" instance=ExtResource( 7 )]
-position = Vector2( 2222, -270 )
+position = Vector2( 2067, -3.00003 )
 
 [node name="Martian5" parent="martians" instance=ExtResource( 7 )]
 position = Vector2( 1360, 3.99998 )
@@ -46,11 +46,15 @@ position = Vector2( 1360, 3.99998 )
 [node name="Martian6" parent="martians" instance=ExtResource( 7 )]
 position = Vector2( 1061, 310 )
 
-[node name="Timer" type="Timer" parent="."]
+[node name="RayTimer" type="Timer" parent="."]
+autostart = true
+
+[node name="AsteriodTimer" type="Timer" parent="."]
 autostart = true
 
 [node name="AudioStreamPlayer2D" type="AudioStreamPlayer2D" parent="."]
 stream = ExtResource( 8 )
 autoplay = true
 
-[connection signal="timeout" from="Timer" to="." method="_on_Timer_timeout"]
+[connection signal="timeout" from="RayTimer" to="." method="_on_Timer_timeout"]
+[connection signal="timeout" from="AsteriodTimer" to="." method="_on_AsteriodTimer_timeout"]

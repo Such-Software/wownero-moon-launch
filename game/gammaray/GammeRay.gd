@@ -10,6 +10,24 @@ func _ready():
 	set_is_casting(false)
 	queue_free()
 
+func move_landR():
+	randomize()
+	if (randf()<0.5):
+		global_position.x = -700
+	if global_position.x < 0 :
+		rotation_degrees = rand_range(-45,45)
+	else:
+		rotation_degrees = rand_range(135,225)
+
+func move_tandB():
+	randomize()
+	if (randf()<0.5):
+		global_position.y = -400
+	if global_position.x < 0 :
+		rotation_degrees = rand_range(45,135)
+	else:
+		rotation_degrees = rand_range(-45,-135)
+
 func _physics_process(delta):
 	var cast_point := cast_to
 	force_raycast_update()
@@ -22,7 +40,7 @@ func _physics_process(delta):
 		if get_collider().name == 'Rocket':
 			globalvar.emit_signal("sendDeath")
 	cast_to.x += 4*growing_value
-	$Line2D.points[0].x += 1*growing_value
+#	$Line2D.points[0].x += 1*growing_value
 	$Line2D.points[1] = cast_point
 	$BeamParticles2D.position = cast_point*0.5
 	$BeamParticles2D.process_material.emission_box_extents.x = cast_point.length() *0.5
