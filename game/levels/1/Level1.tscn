@@ -28,3 +28,5 @@ rotation = 0.628319
 [node name="AudioStreamPlayer" type="AudioStreamPlayer" parent="."]
 stream = ExtResource( 10 )
 autoplay = true
+
+[editable path="Rocket"]
