@@ -38,6 +38,7 @@ func _ready():
 	labelanim()
 	set_process(true)
 	set_process_input(true)
+	save_game()
 
 
 func labelanim():
@@ -96,3 +97,15 @@ func _on_Label_NextLevel_pressed():
 		2:get_tree().change_scene("res://game/levels/3/Level3.tscn")
 		3:get_tree().change_scene("res://game/levels/4/Level4.tscn")
 		
+func save():
+	var save_dict = {
+		'level':globalvar.nowlevel+1
+	}
+	return save_dict
+	
+func save_game():
+	var save_game = File.new()
+	save_game.open('user://savegame.json',File.WRITE)
+	save_game.store_line(to_json(save()))
+	print(save())
+	save_game.close()

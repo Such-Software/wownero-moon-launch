@@ -1,4 +1,4 @@
-[gd_scene load_steps=11 format=2]
+[gd_scene load_steps=13 format=2]
 
 [ext_resource path="res://game/gui/victory/Victory.gd" type="Script" id=1]
 [ext_resource path="res://art/starfield.jpg" type="Texture" id=2]
@@ -46,6 +46,14 @@ tracks/0/keys = {
 "update": 0,
 "values": [ 0.0, 1.0 ]
 }
+
+[sub_resource type="DynamicFont" id=6]
+size = 22
+font_data = ExtResource( 4 )
+
+[sub_resource type="DynamicFont" id=7]
+size = 22
+font_data = ExtResource( 4 )
 
 [node name="Victory" type="Node2D"]
 script = ExtResource( 1 )
@@ -100,27 +108,33 @@ anims/scroll = SubResource( 2 )
 
 [node name="ScoreNode" type="Node2D" parent="."]
 
-[node name="ButtonNode" type="Node2D" parent="."]
+[node name="ButtonNode" type="VBoxContainer" parent="."]
+margin_left = 235.0
+margin_top = 168.0
+margin_right = 809.0
+margin_bottom = 442.0
+custom_constants/separation = 30
+alignment = 1
 
-[node name="Label_Quit" type="Button" parent="ButtonNode"]
-margin_left = 208.0
-margin_top = 267.0
-margin_right = 419.0
-margin_bottom = 297.0
-rect_scale = Vector2( 3, 3 )
+[node name="Label_Quit" type="MenuButton" parent="ButtonNode"]
+margin_top = 76.0
+margin_right = 574.0
+margin_bottom = 122.0
 mouse_filter = 1
 size_flags_vertical = 0
-text = "Press \"Q\" to quit"
+custom_colors/font_color = Color( 1, 0, 0, 1 )
+custom_fonts/font = SubResource( 6 )
+text = "Quit"
 
-[node name="Label_NextLevel" type="Button" parent="ButtonNode"]
-margin_left = 210.0
-margin_top = 369.0
-margin_right = 421.0
-margin_bottom = 399.0
-rect_scale = Vector2( 3, 3 )
+[node name="Label_NextLevel" type="MenuButton" parent="ButtonNode"]
+margin_top = 152.0
+margin_right = 574.0
+margin_bottom = 198.0
 mouse_filter = 1
 size_flags_vertical = 0
-text = "Press \"N\" to Next Level"
+custom_colors/font_color = Color( 0, 1, 0.305882, 1 )
+custom_fonts/font = SubResource( 7 )
+text = "Next Level"
 
 [node name="VictorySound" type="AudioStreamPlayer" parent="."]
 stream = ExtResource( 6 )
