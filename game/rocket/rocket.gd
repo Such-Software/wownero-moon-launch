@@ -16,6 +16,8 @@ var landattempttimer
 var landattemptnow = false
 var flagplaced = false
 
+var target = null
+
 func _ready():
 	# Turn on processes and monitors
 	set_process(true)
@@ -38,6 +40,9 @@ func _ready():
 	add_child(moontimer)
 	globalvar.connect("sendDeath",self,'death')
 	#print(get_node("../../MoonSpace").get_name())
+	for i in get_parent().get_children():
+		if i.is_in_group('targets'):
+			target = i
 
 func _integrate_forces(state):
 	if Input.is_action_pressed("thrust"):
@@ -62,8 +67,9 @@ func _integrate_forces(state):
 	var t = int(Input.is_action_pressed("ui_right")) - int(Input.is_action_pressed("ui_left"))
 	set_applied_torque(torque * t)
 
-
 func _process(delta):
+	if target:
+		$arrow.look_at(target.global_position)
 	shipoverlaps = get_node("ShipArea").get_overlapping_bodies()
 	footoverlaps = get_node("FootArea").get_overlapping_bodies()
 	if (shipoverlaps.size() > 1):
@@ -80,7 +86,6 @@ func _process(delta):
 		moontimer.stop()
 		moontimer.set_wait_time(moontimerdefault)
 		landattemptnow = false
-
 
 func death():
 	globalvar.disconnect("sendDeath",self,'death')

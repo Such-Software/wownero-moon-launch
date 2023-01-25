@@ -1,6 +1,5 @@
 extends Node2D
 
-
 func _ready():
 	globalvar.nowlevel = 1
 	var space = get_world_2d().get_space()

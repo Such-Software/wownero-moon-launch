@@ -9,7 +9,7 @@ radius = 85.0
 [sub_resource type="CircleShape2D" id=2]
 radius = 300.0
 
-[node name="Venus" type="KinematicBody2D"]
+[node name="Venus" type="KinematicBody2D" groups=["targets"]]
 script = ExtResource( 2 )
 __meta__ = {
 "_edit_group_": true

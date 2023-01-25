@@ -34,8 +34,8 @@ func add_asteriod():
 
 func _on_Timer_timeout():
 	add_laser()
-	$RayTimer.wait_time= rand_range(4,6)
+	$RayTimer.wait_time= rand_range(4,7)
 
 func _on_AsteriodTimer_timeout():
 	add_asteriod()
-	$AsteriodTimer.wait_time = rand_range(1,3)
+	$AsteriodTimer.wait_time = rand_range(4,7)

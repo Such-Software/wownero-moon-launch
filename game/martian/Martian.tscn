@@ -36,7 +36,7 @@ visible = false
 position = Vector2( -41, 1 )
 frames = SubResource( 2 )
 animation = "exhaust"
-frame = 1
+frame = 2
 playing = true
 
 [node name="martianCollision" type="CollisionShape2D" parent="."]

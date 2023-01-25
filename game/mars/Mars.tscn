@@ -9,7 +9,7 @@ radius = 57.0
 [sub_resource type="CircleShape2D" id=2]
 radius = 180.0
 
-[node name="Mars" type="KinematicBody2D"]
+[node name="Mars" type="KinematicBody2D" groups=["targets"]]
 collision_layer = 2
 script = ExtResource( 2 )
 
