@@ -1,7 +1,6 @@
-[gd_scene load_steps=3 format=2]
+[gd_scene load_steps=2 format=2]
 
 [ext_resource path="res://art/starfield.jpg" type="Texture" id=1]
-[ext_resource path="res://art/sun.jpg" type="Texture" id=2]
 
 [node name="ParallaxBackground" type="ParallaxBackground"]
 
@@ -14,8 +13,3 @@ region_enabled = true
 region_rect = Rect2( 0, 0, 10000, 10000 )
 
 [node name="SunParallax" type="ParallaxLayer" parent="."]
-
-[node name="Sun" type="Sprite" parent="SunParallax"]
-position = Vector2( -1.00001, 0.999997 )
-scale = Vector2( 0.18, 0.18 )
-texture = ExtResource( 2 )
