@@ -1,4 +1,4 @@
-[gd_scene load_steps=6 format=2]
+[gd_scene load_steps=7 format=2]
 
 [ext_resource path="res://game/gui/help/Help.gd" type="Script" id=1]
 [ext_resource path="res://art/starfield.jpg" type="Texture" id=2]
@@ -6,6 +6,10 @@
 
 [sub_resource type="DynamicFont" id=1]
 size = 34
+font_data = ExtResource( 4 )
+
+[sub_resource type="DynamicFont" id=3]
+size = 23
 font_data = ExtResource( 4 )
 
 [sub_resource type="DynamicFont" id=2]
@@ -36,6 +40,14 @@ Objective - land your rocket gently on the moon!"
 align = 1
 valign = 1
 
+[node name="LinkButton" type="LinkButton" parent="."]
+margin_left = 313.0
+margin_top = 422.0
+margin_right = 718.0
+margin_bottom = 464.0
+custom_fonts/font = SubResource( 3 )
+text = "Link to See Our Privacy Policy"
+
 [node name="Button" type="Button" parent="."]
 margin_left = 337.0
 margin_top = 479.0
@@ -45,4 +57,5 @@ custom_fonts/font = SubResource( 2 )
 text = "Return to main menu"
 flat = true
 
+[connection signal="pressed" from="LinkButton" to="." method="_on_LinkButton_pressed"]
 [connection signal="pressed" from="Button" to="." method="_on_Button_pressed"]
