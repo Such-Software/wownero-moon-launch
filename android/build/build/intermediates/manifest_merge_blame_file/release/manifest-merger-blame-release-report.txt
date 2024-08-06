@@ -1,0 +1,129 @@
+1<?xml version="1.0" encoding="utf-8"?>
+2<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+3    package="meowlet.tabbylabs.com"
+4    android:installLocation="auto"
+5    android:versionCode="33"
+6    android:versionName="1.0" > <!-- glEsVersion is modified by the exporter, changing this value here has no effect. -->
+7    <uses-sdk
+8        android:minSdkVersion="19"
+9        android:targetSdkVersion="33" />
+10
+11    <supports-screens
+11-->/home/jw/src/MeowletMoonLaunch/android/build/AndroidManifest.xml:12:5-16:40
+12        android:largeScreens="true"
+12-->/home/jw/src/MeowletMoonLaunch/android/build/AndroidManifest.xml:15:9-36
+13        android:normalScreens="true"
+13-->/home/jw/src/MeowletMoonLaunch/android/build/AndroidManifest.xml:14:9-37
+14        android:smallScreens="true"
+14-->/home/jw/src/MeowletMoonLaunch/android/build/AndroidManifest.xml:13:9-36
+15        android:xlargeScreens="true" />
+15-->/home/jw/src/MeowletMoonLaunch/android/build/AndroidManifest.xml:16:9-37
+16
+17    <uses-feature
+17-->/home/jw/src/MeowletMoonLaunch/android/build/src/release/AndroidManifest.xml:10:5-78
+18        android:glEsVersion="0x00030000"
+18-->/home/jw/src/MeowletMoonLaunch/android/build/src/release/AndroidManifest.xml:10:19-51
+19        android:required="true" />
+19-->/home/jw/src/MeowletMoonLaunch/android/build/src/release/AndroidManifest.xml:10:52-75
+20
+21    <application
+21-->/home/jw/src/MeowletMoonLaunch/android/build/AndroidManifest.xml:30:5-94:19
+22        android:allowBackup="false"
+22-->/home/jw/src/MeowletMoonLaunch/android/build/AndroidManifest.xml:30:68-95
+23        android:appComponentFactory="androidx.core.app.CoreComponentFactory"
+23-->[androidx.core:core:1.2.0] /home/jw/.gradle/caches/transforms-3/9bcb1a65f5938aad264f4d73e9a06f28/transformed/core-1.2.0/AndroidManifest.xml:24:18-86
+24        android:hasFragileUserData="false"
+24-->/home/jw/src/MeowletMoonLaunch/android/build/AndroidManifest.xml:30:118-152
+25        android:icon="@mipmap/icon"
+25-->/home/jw/src/MeowletMoonLaunch/android/build/AndroidManifest.xml:30:238-265
+26        android:isGame="true"
+26-->/home/jw/src/MeowletMoonLaunch/android/build/AndroidManifest.xml:30:96-117
+27        android:label="@string/godot_project_name_string"
+27-->/home/jw/src/MeowletMoonLaunch/android/build/AndroidManifest.xml:30:18-67
+28        android:requestLegacyExternalStorage="false" >
+28-->/home/jw/src/MeowletMoonLaunch/android/build/AndroidManifest.xml:30:153-197
+29        <activity
+29-->/home/jw/src/MeowletMoonLaunch/android/build/AndroidManifest.xml:65:9-88:20
+30            android:name="com.godot.game.GodotApp"
+30-->/home/jw/src/MeowletMoonLaunch/android/build/AndroidManifest.xml:66:13-37
+31            android:configChanges="orientation|keyboardHidden|screenSize|smallestScreenSize|density|keyboard|navigation|screenLayout|uiMode"
+31-->/home/jw/src/MeowletMoonLaunch/android/build/AndroidManifest.xml:73:13-141
+32            android:excludeFromRecents="false"
+32-->/home/jw/src/MeowletMoonLaunch/android/build/AndroidManifest.xml:70:13-47
+33            android:exported="true"
+33-->/home/jw/src/MeowletMoonLaunch/android/build/AndroidManifest.xml:71:13-36
+34            android:label="@string/godot_project_name_string"
+34-->/home/jw/src/MeowletMoonLaunch/android/build/AndroidManifest.xml:67:13-62
+35            android:launchMode="singleTask"
+35-->/home/jw/src/MeowletMoonLaunch/android/build/AndroidManifest.xml:69:13-44
+36            android:resizeableActivity="true"
+36-->/home/jw/src/MeowletMoonLaunch/android/build/AndroidManifest.xml:74:13-47
+37            android:screenOrientation="landscape"
+37-->/home/jw/src/MeowletMoonLaunch/android/build/AndroidManifest.xml:72:13-50
+38            android:theme="@style/GodotAppSplashTheme" >
+38-->/home/jw/src/MeowletMoonLaunch/android/build/AndroidManifest.xml:68:13-55
+39            <intent-filter>
+39-->/home/jw/src/MeowletMoonLaunch/android/build/AndroidManifest.xml:80:13-87:29
+40                <action android:name="android.intent.action.MAIN" />
+40-->/home/jw/src/MeowletMoonLaunch/android/build/AndroidManifest.xml:81:17-69
+40-->/home/jw/src/MeowletMoonLaunch/android/build/AndroidManifest.xml:81:25-66
+41
+42                <category android:name="android.intent.category.LAUNCHER" />
+42-->/home/jw/src/MeowletMoonLaunch/android/build/AndroidManifest.xml:82:17-77
+42-->/home/jw/src/MeowletMoonLaunch/android/build/AndroidManifest.xml:82:27-74
+43
+44                <!--
+45                Enable access to OpenXR on Oculus mobile devices, no-op on other Android
+46                platforms.
+47                -->
+48                <category android:name="com.oculus.intent.category.VR" />
+48-->/home/jw/src/MeowletMoonLaunch/android/build/AndroidManifest.xml:86:17-74
+48-->/home/jw/src/MeowletMoonLaunch/android/build/AndroidManifest.xml:86:27-71
+49            </intent-filter>
+50        </activity>
+51        <!-- Records the version of the Godot editor used for building -->
+52        <meta-data
+53            android:name="org.godotengine.editor.version"
+54            android:value="3.5.3.stable" /> <!-- Records the version of the Godot library -->
+55        <meta-data
+55-->[godot-lib.release.aar] /home/jw/.gradle/caches/transforms-3/c204f6256ab1c893863f649b4d178444/transformed/jetified-godot-lib.release/AndroidManifest.xml:14:9-16:44
+56            android:name="org.godotengine.library.version"
+56-->[godot-lib.release.aar] /home/jw/.gradle/caches/transforms-3/c204f6256ab1c893863f649b4d178444/transformed/jetified-godot-lib.release/AndroidManifest.xml:15:13-59
+57            android:value="3.5.3.stable" />
+57-->[godot-lib.release.aar] /home/jw/.gradle/caches/transforms-3/c204f6256ab1c893863f649b4d178444/transformed/jetified-godot-lib.release/AndroidManifest.xml:16:13-41
+58
+59        <service android:name="org.godotengine.godot.GodotDownloaderService" />
+59-->[godot-lib.release.aar] /home/jw/.gradle/caches/transforms-3/c204f6256ab1c893863f649b4d178444/transformed/jetified-godot-lib.release/AndroidManifest.xml:18:9-80
+59-->[godot-lib.release.aar] /home/jw/.gradle/caches/transforms-3/c204f6256ab1c893863f649b4d178444/transformed/jetified-godot-lib.release/AndroidManifest.xml:18:18-77
+60
+61        <activity
+61-->[godot-lib.release.aar] /home/jw/.gradle/caches/transforms-3/c204f6256ab1c893863f649b4d178444/transformed/jetified-godot-lib.release/AndroidManifest.xml:20:9-24:75
+62            android:name="org.godotengine.godot.utils.ProcessPhoenix"
+62-->[godot-lib.release.aar] /home/jw/.gradle/caches/transforms-3/c204f6256ab1c893863f649b4d178444/transformed/jetified-godot-lib.release/AndroidManifest.xml:21:13-70
+63            android:exported="false"
+63-->[godot-lib.release.aar] /home/jw/.gradle/caches/transforms-3/c204f6256ab1c893863f649b4d178444/transformed/jetified-godot-lib.release/AndroidManifest.xml:22:13-37
+64            android:process=":phoenix"
+64-->[godot-lib.release.aar] /home/jw/.gradle/caches/transforms-3/c204f6256ab1c893863f649b4d178444/transformed/jetified-godot-lib.release/AndroidManifest.xml:23:13-39
+65            android:theme="@android:style/Theme.Translucent.NoTitleBar" />
+65-->[godot-lib.release.aar] /home/jw/.gradle/caches/transforms-3/c204f6256ab1c893863f649b4d178444/transformed/jetified-godot-lib.release/AndroidManifest.xml:24:13-72
+66
+67        <provider
+67-->[godot-lib.release.aar] /home/jw/.gradle/caches/transforms-3/c204f6256ab1c893863f649b4d178444/transformed/jetified-godot-lib.release/AndroidManifest.xml:26:9-34:20
+68            android:name="androidx.core.content.FileProvider"
+68-->[godot-lib.release.aar] /home/jw/.gradle/caches/transforms-3/c204f6256ab1c893863f649b4d178444/transformed/jetified-godot-lib.release/AndroidManifest.xml:27:13-62
+69            android:authorities="meowlet.tabbylabs.com.fileprovider"
+69-->[godot-lib.release.aar] /home/jw/.gradle/caches/transforms-3/c204f6256ab1c893863f649b4d178444/transformed/jetified-godot-lib.release/AndroidManifest.xml:28:13-64
+70            android:exported="false"
+70-->[godot-lib.release.aar] /home/jw/.gradle/caches/transforms-3/c204f6256ab1c893863f649b4d178444/transformed/jetified-godot-lib.release/AndroidManifest.xml:29:13-37
+71            android:grantUriPermissions="true" >
+71-->[godot-lib.release.aar] /home/jw/.gradle/caches/transforms-3/c204f6256ab1c893863f649b4d178444/transformed/jetified-godot-lib.release/AndroidManifest.xml:30:13-47
+72            <meta-data
+72-->[godot-lib.release.aar] /home/jw/.gradle/caches/transforms-3/c204f6256ab1c893863f649b4d178444/transformed/jetified-godot-lib.release/AndroidManifest.xml:31:13-33:64
+73                android:name="android.support.FILE_PROVIDER_PATHS"
+73-->[godot-lib.release.aar] /home/jw/.gradle/caches/transforms-3/c204f6256ab1c893863f649b4d178444/transformed/jetified-godot-lib.release/AndroidManifest.xml:32:17-67
+74                android:resource="@xml/godot_provider_paths" />
+74-->[godot-lib.release.aar] /home/jw/.gradle/caches/transforms-3/c204f6256ab1c893863f649b4d178444/transformed/jetified-godot-lib.release/AndroidManifest.xml:33:17-61
+75        </provider>
+76    </application>
+77
+78</manifest>
