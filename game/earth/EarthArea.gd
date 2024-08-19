@@ -1,16 +1,16 @@
 extends Area2D
 
-# class member variables go here, for example:
+
+# Declare member variables here. Examples:
 # var a = 2
-# var b = "textvar"
+# var b = "text"
 
-func _process(delta):
-	#pass
-	print(is_gravity_a_point())
 
+# Called when the node enters the scene tree for the first time.
 func _ready():
-	# Called every time the node is added to the scene.
-	# Initialization here
-#	set_fixed_process(true)
-	set_gravity_is_point(true)
-	set_gravity(9.8)
+	pass # Replace with function body.
+
+
+# Called every frame. 'delta' is the elapsed time since the previous frame.
+#func _process(delta):
+#	pass
