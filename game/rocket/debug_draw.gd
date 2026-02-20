@@ -26,11 +26,11 @@ func _input(event):
 
 func _process(delta):
 	global_rotation = 0
-	update()
+	queue_redraw()
 
 func _draw():
-	draw_arrow(parent.get_linear_velocity(), Vector2(), 1.0, 'YELLOW')
-	draw_arrow(parent.get_applied_force(), Vector2(), 0.5, 'RED')
+	draw_arrow(parent.linear_velocity, Vector2(), 1.0, 'YELLOW')
+	draw_arrow(parent.constant_force, Vector2(), 0.5, 'RED')
 
 func draw_arrow(vector, pos, scale, color):
 	color = colors[color]
@@ -45,6 +45,6 @@ func draw_triangle(pos, dir, size, color):
 	var a = pos + dir * size
 	var b = pos + dir.rotated(2*PI/3) * size
 	var c = pos + dir.rotated(4*PI/3) * size
-	var points = PoolVector2Array([a, b, c])
-	draw_polygon(points, PoolColorArray([color]))
+	var points = PackedVector2Array([a, b, c])
+	draw_polygon(points, PackedColorArray([color]))
 

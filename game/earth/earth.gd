@@ -1,9 +1,10 @@
-extends KinematicBody2D
+extends CharacterBody2D
 
 # class member variables go here, for example:
 # var a = 2
 # var b = "textvar"
 
 func _process(delta):
-	move_and_slide(Vector2(0.1,0.2))
+	set_velocity(Vector2(0.1,0.2))
+	move_and_slide()
 	#pass

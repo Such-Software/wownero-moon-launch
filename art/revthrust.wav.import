@@ -1,13 +1,14 @@
 [remap]
 
 importer="wav"
-type="AudioStreamSample"
-path="res://.import/revthrust.wav-90a9528171f523666abaae3e657d7f54.sample"
+type="AudioStreamWAV"
+uid="uid://bnk2yis7rhash"
+path="res://.godot/imported/revthrust.wav-90a9528171f523666abaae3e657d7f54.sample"
 
 [deps]
 
 source_file="res://art/revthrust.wav"
-dest_files=[ "res://.import/revthrust.wav-90a9528171f523666abaae3e657d7f54.sample" ]
+dest_files=["res://.godot/imported/revthrust.wav-90a9528171f523666abaae3e657d7f54.sample"]
 
 [params]
 

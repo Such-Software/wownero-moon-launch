@@ -1,23 +1,23 @@
 extends Node
 
-# class member variables go here, for example:
-# var a = 2
-# var b = "textvar"
 signal sendDeath
 
-var nowlevel = 1 
-
+var nowlevel = 1
 var finaltime = 0
 
 func _ready():
 	load_game()
 
 func load_game():
-	var save_game = File.new()
-	if not save_game.file_exists('user://savegame.json'):
+	if not FileAccess.file_exists('user://savegame.json'):
 		return
-	save_game.open('user://savegame.json',File.READ)
-	nowlevel = int(parse_json(save_game.get_as_text())['level'])
-	print(parse_json(save_game.get_as_text())['level'])
+	var save_game = FileAccess.open('user://savegame.json', FileAccess.READ)
+	var json = JSON.new()
+	var result = json.parse(save_game.get_as_text())
+	if result == OK:
+		var data = json.get_data()
+		if data is Dictionary and data.has('level'):
+			nowlevel = int(data['level'])
+			print(data['level'])
 	save_game.close()
 	

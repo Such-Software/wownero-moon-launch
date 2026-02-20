@@ -3,7 +3,7 @@ extends Control
 
 
 func _on_Button_pressed():
-	get_tree().change_scene("res://game/gui/menu/Menu.tscn")
+	get_tree().change_scene_to_file("res://game/gui/menu/Menu.tscn")
 
 
 func _on_LinkButton_pressed():

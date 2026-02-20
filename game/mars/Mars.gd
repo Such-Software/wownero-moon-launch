@@ -1,5 +1,6 @@
-extends KinematicBody2D
+extends CharacterBody2D
 
 func _physics_process(delta):
-	move_and_slide(Vector2(0.8,0.8))
+	set_velocity(Vector2(0.8,0.8))
+	move_and_slide()
 

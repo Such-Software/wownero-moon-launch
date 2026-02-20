@@ -19,21 +19,21 @@ func _ready():
 	finaltime = globalvar.finaltime
 	nowlevel = globalvar.nowlevel
 	$Label_Level.text = "Level " + str(nowlevel) + " Complete!"
-	get_node("Label_Score").set_text("Final Time: " + str(finaltime))
+	get_node("Label_Score").text = "Final Time: " + str(finaltime)
 	labeltimer = Timer.new()
 	labeltimer.set_wait_time(2.5)
 	labeltimer.set_one_shot(true)
-	labeltimer.connect("timeout", self, "astroanim")
+	labeltimer.connect("timeout", astroanim)
 	add_child(labeltimer)
 	astrotimer = Timer.new()
 	astrotimer.set_wait_time(2.5)
 	astrotimer.set_one_shot(true)
-	astrotimer.connect("timeout", self, "colors")
+	astrotimer.connect("timeout", colors)
 	add_child(astrotimer)
 	colortimer = Timer.new()
 	colortimer.set_wait_time(1)
 	colortimer.set_one_shot(true)
-	colortimer.connect("timeout", self, "presskey")
+	colortimer.connect("timeout", presskey)
 	add_child(colortimer)
 	labelanim()
 	set_process(true)
@@ -66,12 +66,12 @@ func colors():
 		var new_color2 = randf()
 		var new_color3 = randf()
 		var new_color = Color(new_color1, new_color2, new_color3, 1)
-		var text = get_node("Label_Score").get_text()
+		var text = get_node("Label_Score").text
 		templabels.append(Label.new())
-		templabels[-1].set_name("templabel"+String(i))
-		templabels[-1].set_text(text)
+		templabels[-1].set_name("templabel" + str(i))
+		templabels[-1].text = text
 		templabels[-1].set_position(Vector2(new_x, new_y))  #-- NOTE: Automatically converted by Godot 2 to 3 converter, please review
-		templabels[-1].add_color_override("font_color", new_color)
+		templabels[-1].add_theme_color_override("font_color", new_color)
 		get_node("ScoreNode").add_child(templabels[-1])
 #	colortimer.set_active(true)
 	colortimer.start()
@@ -86,16 +86,16 @@ func presskey():
 
 func _process(delta):
 	if done == true and Input.is_action_pressed("quit"):
-		get_tree().change_scene("res://game/gui/menu/Menu.tscn")
+		get_tree().change_scene_to_file("res://game/gui/menu/Menu.tscn")
 
 func _on_Label_Quit_pressed():
-	get_tree().change_scene("res://game/gui/menu/Menu.tscn")
+	get_tree().change_scene_to_file("res://game/gui/menu/Menu.tscn")
 
 func _on_Label_NextLevel_pressed():
 	match(globalvar.nowlevel):
-		1:get_tree().change_scene("res://game/levels/2/Level2.tscn")
-		2:get_tree().change_scene("res://game/levels/3/Level3.tscn")
-		3:get_tree().change_scene("res://game/levels/4/Level4.tscn")
+		1:get_tree().change_scene_to_file("res://game/levels/2/Level2.tscn")
+		2:get_tree().change_scene_to_file("res://game/levels/3/Level3.tscn")
+		3:get_tree().change_scene_to_file("res://game/levels/4/Level4.tscn")
 		
 func save():
 	var save_dict = {
@@ -104,8 +104,7 @@ func save():
 	return save_dict
 	
 func save_game():
-	var save_game = File.new()
-	save_game.open('user://savegame.json',File.WRITE)
-	save_game.store_line(to_json(save()))
+	var save_game = FileAccess.open('user://savegame.json', FileAccess.WRITE)
+	save_game.store_line(JSON.stringify(save()))
 	print(save())
 	save_game.close()

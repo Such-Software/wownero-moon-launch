@@ -34,4 +34,4 @@ func _on_Resume_pressed():
 
 func _on_backtomenu_pressed():
 	_on_Resume_pressed()
-	get_tree().change_scene("res://game/gui/menu/Menu.tscn")
+	get_tree().change_scene_to_file("res://game/gui/menu/Menu.tscn")

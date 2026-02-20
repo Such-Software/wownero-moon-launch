@@ -1,12 +1,12 @@
 extends RayCast2D
 
-var is_casting = false setget set_is_casting
+var is_casting = false: set = set_is_casting
 
 var growing_value = 1
 
 func _ready():
 	set_is_casting(true)
-	yield(get_tree().create_timer(10),"timeout")
+	await get_tree().create_timer(10).timeout
 	set_is_casting(false)
 	queue_free()
 
@@ -14,22 +14,22 @@ func move_landR():
 	randomize()
 	if (randf()<0.5):
 		global_position.x -= 700
-		rotation_degrees = rand_range(-45,45)
+		rotation_degrees = randf_range(-45,45)
 	else:
 		global_position.x += 700
-		rotation_degrees = rand_range(135,225)
+		rotation_degrees = randf_range(135,225)
 
 func move_tandB():
 	randomize()
 	if (randf()<0.5):
 		global_position.y -= 400
-		rotation_degrees = rand_range(45,135)
+		rotation_degrees = randf_range(45,135)
 	else:
 		global_position.y += 400
-		rotation_degrees = rand_range(-45,-135)
+		rotation_degrees = randf_range(-45,-135)
 
 func _physics_process(delta):
-	var cast_point := cast_to
+	var cast_point := target_position
 	force_raycast_update()
 	$CollisionParticles2D.emitting = is_colliding()
 	
@@ -39,7 +39,7 @@ func _physics_process(delta):
 		$CollisionParticles2D.position = cast_point
 		if get_collider().name == 'Rocket':
 			globalvar.emit_signal("sendDeath")
-	cast_to.x += 4*growing_value
+	target_position.x += 4*growing_value
 #	$Line2D.points[0].x += 1*growing_value
 	$Line2D.points[1] = cast_point
 	$BeamParticles2D.position = cast_point*0.5
@@ -57,11 +57,9 @@ func set_is_casting(cast):
 	set_physics_process(is_casting)
 	
 func appear():
-	$Tween.stop_all()
-	$Tween.interpolate_property($Line2D,"width",0,10,1)
-	$Tween.start()
-	
+	var tween = create_tween()
+	tween.tween_property($Line2D, "width", 10, 1.0).from(0)
+
 func disappear():
-	$Tween.stop_all()
-	$Tween.interpolate_property($Line2D,"width",10,0,0.1)
-	$Tween.start()
+	var tween = create_tween()
+	tween.tween_property($Line2D, "width", 0, 0.1).from(10)

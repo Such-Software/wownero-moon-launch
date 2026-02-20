@@ -1,14 +1,7 @@
-extends VButtonArray
-
-# class member variables go here, for example:
-# var a = 2
-# var b = "textvar"
+extends VBoxContainer
 
 func _ready():
-	# Called every time the node is added to the scene.
-	# Initialization here
 	pass
 
-
 func _on_MenuButton_pressed():
-	get_tree().change_scene("res://game/gui/menu/Menu.tscn")
+	get_tree().change_scene_to_file("res://game/gui/menu/Menu.tscn")

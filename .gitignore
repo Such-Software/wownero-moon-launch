@@ -1,0 +1,37 @@
+# Godot 4 - generated files
+.godot/
+.import/
+
+# Godot uid files (auto-generated)
+*.uid
+
+# Mono/C#
+.mono/
+data_*/
+mono_crash.*.json
+
+# Export builds
+*.aab
+*.apk
+*.apk.idsig
+*.ipa
+*.dmg
+*.exe
+*.x86_64
+*.pck
+
+# Android build artifacts
+android/build/
+android/.build_version
+
+# OS/editor junk
+.DS_Store
+Thumbs.db
+*.swp
+*~
+.vscode/
+
+# Screenshots (optional - remove this line if you want them tracked)
+# screenshots/
+*.tmp
+.syncthing*
