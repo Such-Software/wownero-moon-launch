@@ -3,6 +3,7 @@ extends Node
 
 
 func _on_Label_Quit_pressed():
+	pass
 
 
 

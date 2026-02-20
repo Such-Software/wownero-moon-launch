@@ -1,4 +1,4 @@
-[gd_scene load_steps=11 format=3]
+[gd_scene load_steps=12 format=3]
 
 [ext_resource type="Script" path="res://game/gui/victory/Victory.gd" id="1"]
 [ext_resource type="Texture2D" path="res://art/starfield.jpg" id="2"]

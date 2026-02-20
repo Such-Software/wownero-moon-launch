@@ -21,12 +21,15 @@ globalvar="*res://globalvar.gd"
 
 [display]
 
+window/size/viewport_width=1024
+window/size/viewport_height=600
 window/stretch/mode="canvas_items"
+window/stretch/aspect="expand"
+window/handheld/orientation=1
 
 [dotnet]
 
-project/assembly_name="MoonLaunch"
-
+project/assembly_name="Wownero Moon Launch"
 
 [input]
 
@@ -49,4 +52,3 @@ quit={
 [input_devices]
 
 pointing/emulate_touch_from_mouse=true
-

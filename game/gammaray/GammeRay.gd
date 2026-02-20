@@ -38,7 +38,7 @@ func _physics_process(delta):
 		$CollisionParticles2D.global_rotation = get_collision_normal().angle()
 		$CollisionParticles2D.position = cast_point
 		if get_collider().name == 'Rocket':
-			globalvar.emit_signal("sendDeath")
+			globalvar.sendDeath.emit()
 	target_position.x += 4*growing_value
 #	$Line2D.points[0].x += 1*growing_value
 	$Line2D.points[1] = cast_point

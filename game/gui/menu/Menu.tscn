@@ -1,4 +1,4 @@
-[gd_scene load_steps=12 format=3 uid="uid://menu001"]
+[gd_scene load_steps=13 format=3]
 
 [ext_resource type="Texture2D" path="res://art/starfield.jpg" id="1"]
 [ext_resource type="Script" path="res://game/gui/menu/Menu.gd" id="2"]
