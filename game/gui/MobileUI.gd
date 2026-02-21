@@ -6,6 +6,7 @@ extends CanvasLayer
 
 const VirtualJoystickScript = preload("res://game/gui/VirtualJoystick.gd")
 const ThrustButtonScript = preload("res://game/gui/ThrustButton.gd")
+const BS = preload("res://game/gui/ButtonStyles.gd")
 
 var is_mobile: bool = false
 var _joystick: Control = null
@@ -19,6 +20,14 @@ var _touch_button_names := ["left", "right", "up", "down", "menu"]
 func _ready() -> void:
 	# Detect platform: true on Android, iOS, Web on mobile
 	is_mobile = OS.has_feature("mobile") or OS.has_feature("android") or OS.has_feature("ios")
+
+	# Style the pause popup buttons
+	var resume_btn = get_node_or_null("popupMenu/Resume")
+	var back_btn = get_node_or_null("popupMenu/backtomenu")
+	if resume_btn:
+		BS.apply_space_style(resume_btn, Color.GREEN)
+	if back_btn:
+		BS.apply_space_style(back_btn, Color.RED)
 
 	if is_mobile:
 		_setup_mobile()

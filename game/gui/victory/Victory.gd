@@ -1,5 +1,7 @@
 extends Node2D
 
+const BS = preload("res://game/gui/ButtonStyles.gd")
+
 var finaltime
 var nowlevel  
 var timerflag = false
@@ -19,7 +21,7 @@ func _ready():
 	finaltime = globalvar.finaltime
 	nowlevel = globalvar.nowlevel
 	$Label_Level.text = "Level " + str(nowlevel) + " Complete!"
-	get_node("Label_Score").text = "Final Time: " + str(finaltime)
+	get_node("Label_Score").text = "Final Time: %.2f" % finaltime
 	labeltimer = Timer.new()
 	labeltimer.set_wait_time(2.5)
 	labeltimer.set_one_shot(true)
@@ -58,7 +60,7 @@ func astroanim():
 
 func colors():
 #	get_node("Sample_victory").stop_all()
-	for i in range(77):
+	for i in range(15):
 		var new_x = randf()*800
 		var new_y = randf()*600
 		var new_pos = Vector2(new_x, new_y)
@@ -78,10 +80,11 @@ func colors():
 
 
 func presskey():
-	#get_node("ButtonNode").set_z(0)
 	get_node("ButtonNode").show()
 	get_node("ButtonNode").set_process(true)
-	#get_node("ButtonNode/QuitArray/Label_Quit").set_as_toplevel(true)
+	# Style the victory buttons
+	BS.apply_space_style($ButtonNode/Label_Quit, Color.RED)
+	BS.apply_space_style($ButtonNode/Label_NextLevel, Color.GREEN)
 	done = true
 
 func _process(delta):

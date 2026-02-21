@@ -1,5 +1,10 @@
 extends Control
 
+const BS = preload("res://game/gui/ButtonStyles.gd")
+
+
+func _ready() -> void:
+	BS.apply_space_style($Button, Color.CYAN)
 
 
 func _on_Button_pressed():
@@ -7,4 +12,4 @@ func _on_Button_pressed():
 
 
 func _on_LinkButton_pressed():
-	OS.shell_open("https://tabbylabs.com/mml_privacy.html")
+	OS.shell_open("https://git.wownero.com/wownero/wownero-moon-launch")

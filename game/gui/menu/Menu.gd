@@ -1,12 +1,15 @@
 extends Control
 
-# class member variables go here, for example:
-# var a = 2
-# var b = "textvar"
+const BS = preload("res://game/gui/ButtonStyles.gd")
+
 
 func _ready():
 	$RocketSprite/AnimationPlayer.play("move")
 	globalvar.load_game()
+	# Style menu buttons
+	BS.apply_space_style($VButtonArray/PlayButton, Color.GREEN)
+	BS.apply_space_style($VButtonArray/HelpButton, Color.CYAN)
+	BS.apply_space_style($VButtonArray/QuitButton, Color.RED)
 
 func _on_QuitButton_pressed():
 	get_tree().quit()

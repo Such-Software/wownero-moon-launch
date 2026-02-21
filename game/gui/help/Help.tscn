@@ -26,10 +26,12 @@ offset_right = 1022.0
 offset_bottom = 480.0
 theme_override_fonts/font = SubResource("FontVar_1")
 theme_override_font_sizes/font_size = 34
-text = "Use W/UpArrow to activate forward boosters.
-Use S/DownArrow to activate reverse boosters.
-A/LeftArrow and D/RightArrow to adjust bearing.
-Objective - land your rocket gently on the moon!"
+text = "Use Up Arrow to activate forward boosters.
+Use Down Arrow to activate reverse boosters.
+Left Arrow and Right Arrow to adjust bearing.
+Objective - land your rocket gently on the target!
+
+On mobile: use the virtual joystick and thrust buttons."
 horizontal_alignment = 1
 vertical_alignment = 1
 
@@ -41,7 +43,7 @@ offset_right = 718.0
 offset_bottom = 446.0
 theme_override_fonts/font = SubResource("FontVar_1")
 theme_override_font_sizes/font_size = 23
-text = "Link to See Our Privacy Policy"
+text = "Project Repository"
 
 [node name="Button" type="Button" parent="."]
 offset_left = 337.0

@@ -16,6 +16,12 @@ func _physics_process(delta):
 	set_velocity(motion)
 	move_and_slide()
 	motion = velocity
+	# Kill the rocket on contact
+	for i in get_slide_collision_count():
+		var collision = get_slide_collision(i)
+		if collision.get_collider().name == "Rocket":
+			globalvar.sendDeath.emit()
+			return
 	
 func _on_detectArea_body_entered(body):
 	if body.name == "Rocket":
