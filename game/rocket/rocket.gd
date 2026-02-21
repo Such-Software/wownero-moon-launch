@@ -71,7 +71,7 @@ func _process(delta):
 		$arrow.look_at(target.global_position)
 	shipoverlaps = get_node("ShipArea").get_overlapping_bodies()
 	footoverlaps = get_node("FootArea").get_overlapping_bodies()
-	if (shipoverlaps.size() > 1):
+	if (shipoverlaps.size() > 0):
 		get_node("RocketSprite").hide()
 		death()
 	else:

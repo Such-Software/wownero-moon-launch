@@ -135,11 +135,13 @@ collision_mask = 3
 script = ExtResource("1")
 
 [node name="RevThrust" type="GPUParticles2D" parent="."]
+local_coords = true
 amount = 200
 process_material = SubResource("6")
 
 [node name="RearThrust" type="GPUParticles2D" parent="."]
 position = Vector2( 0, 14 )
+local_coords = true
 amount = 200
 process_material = SubResource("13")
 
@@ -167,11 +169,13 @@ libraries = {
 }
 
 [node name="ShipArea" type="Area2D" parent="."]
+collision_mask = 2
 
 [node name="CollisionPolygon2D" type="CollisionPolygon2D" parent="ShipArea"]
 polygon = PackedVector2Array( 0, -20, -7, -10, -9, 0, -5, 13, -5, 13, 5, 13, 9, 0, 7, -10 )
 
 [node name="FootArea" type="Area2D" parent="."]
+collision_mask = 2
 
 [node name="CollisionPolygon2D" type="CollisionPolygon2D" parent="FootArea"]
 polygon = PackedVector2Array( -4, 14, 4, 14, 5, 20, -5, 20 )
