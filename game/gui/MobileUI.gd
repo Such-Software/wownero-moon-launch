@@ -1,5 +1,90 @@
 extends CanvasLayer
 
+## UI overlay controller.
+## On mobile: hides old TouchScreenButtons, creates virtual joystick + thrust buttons.
+## On desktop: hides all touch controls, adds Escape key for pause menu.
+
+const VirtualJoystickScript = preload("res://game/gui/VirtualJoystick.gd")
+const ThrustButtonScript = preload("res://game/gui/ThrustButton.gd")
+
+var is_mobile: bool = false
+var _joystick: Control = null
+var _thrust_btn: Control = null
+var _reverse_btn: Control = null
+
+# List of old TouchScreenButton node names to hide/disable
+var _touch_button_names := ["left", "right", "up", "down", "menu"]
+
+
+func _ready() -> void:
+	# Detect platform: true on Android, iOS, Web on mobile
+	is_mobile = OS.has_feature("mobile") or OS.has_feature("android") or OS.has_feature("ios")
+
+	if is_mobile:
+		_setup_mobile()
+	else:
+		_setup_desktop()
+
+
+func _setup_mobile() -> void:
+	# Hide the old TouchScreenButton nodes
+	for btn_name in _touch_button_names:
+		var btn = get_node_or_null(btn_name)
+		if btn:
+			btn.visible = false
+
+	# Create virtual joystick (bottom-left)
+	_joystick = Control.new()
+	_joystick.set_script(VirtualJoystickScript)
+	_joystick.name = "VirtualJoystick"
+	add_child(_joystick)
+	# Position: bottom-left with some padding
+	# Joystick size is 140x140, place at bottom-left
+	_joystick.position = Vector2(20, 430)
+
+	# Create thrust button (right side, upper)
+	_thrust_btn = Control.new()
+	_thrust_btn.set_script(ThrustButtonScript)
+	_thrust_btn.name = "ThrustBtn"
+	_thrust_btn.set("action_name", "thrust")
+	_thrust_btn.set("arrow_up", true)
+	add_child(_thrust_btn)
+	_thrust_btn.position = Vector2(920, 350)
+
+	# Create reverse thrust button (right side, lower)
+	_reverse_btn = Control.new()
+	_reverse_btn.set_script(ThrustButtonScript)
+	_reverse_btn.name = "ReverseBtn"
+	_reverse_btn.set("action_name", "revthrust")
+	_reverse_btn.set("arrow_up", false)
+	add_child(_reverse_btn)
+	_reverse_btn.position = Vector2(920, 460)
+
+
+func _setup_desktop() -> void:
+	# Hide ALL touch buttons on desktop — keyboard only
+	for btn_name in _touch_button_names:
+		var btn = get_node_or_null(btn_name)
+		if btn:
+			btn.visible = false
+
+
+func _unhandled_input(event: InputEvent) -> void:
+	# Escape key toggles pause menu on any platform
+	if event is InputEventKey and event.pressed and event.keycode == KEY_ESCAPE:
+		_toggle_pause()
+		get_viewport().set_input_as_handled()
+
+
+func _toggle_pause() -> void:
+	if get_tree().paused:
+		_on_Resume_pressed()
+	else:
+		_on_menu_pressed()
+
+
+# --- Signal callbacks (kept for scene signal connections) ---
+
 func _on_left_pressed():
 	Input.action_press("ui_left")
 

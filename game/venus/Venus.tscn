@@ -9,7 +9,8 @@ radius = 85.0
 [sub_resource type="CircleShape2D" id="2"]
 radius = 300.0
 
-[node name="Venus" type="CharacterBody2D" groups=["targets"]]
+[node name="Venus" type="StaticBody2D" groups=["targets"]]
+collision_layer = 2
 script = ExtResource("2")
 __meta__ = {
 "_edit_group_": true

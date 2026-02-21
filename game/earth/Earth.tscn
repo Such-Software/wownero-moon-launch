@@ -8,7 +8,7 @@ radius = 80.0
 [sub_resource type="CircleShape2D" id="2"]
 radius = 300.0
 
-[node name="Earth" type="CharacterBody2D"]
+[node name="Earth" type="StaticBody2D"]
 collision_layer = 2
 __meta__ = {
 "_edit_group_": true
