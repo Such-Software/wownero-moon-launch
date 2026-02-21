@@ -81,7 +81,7 @@ func _process(delta):
 			death()
 		if((i.get_name() == "Moon" or i.get_name() == "Mars" or i.get_name() == "Venus" or i.get_name() == "IO")  and linear_velocity.length() < landingspeed and flagplaced == false and landattemptnow == false):
 			moonland()
-	if !moontimer.is_stopped() and footoverlaps.size() < 2:
+	if !moontimer.is_stopped() and footoverlaps.size() < 1:
 		moontimer.stop()
 		moontimer.set_wait_time(moontimerdefault)
 		landattemptnow = false

@@ -3,7 +3,7 @@ extends StaticBody2D
 ## Slow circular orbit around Earth (or origin if no Earth found).
 var orbit_center: Vector2 = Vector2.ZERO
 var orbit_radius: float = 0.0
-var orbit_speed: float = 0.1  # radians per second (~63s per revolution)
+var orbit_speed: float = 0.015  # radians per second (~7 min per revolution)
 var orbit_angle: float = 0.0
 
 
