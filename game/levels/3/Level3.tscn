@@ -7,7 +7,7 @@
 [ext_resource type="PackedScene" path="res://game/venus/Venus.tscn" id="5"]
 [ext_resource type="Script" path="res://game/levels/3/Level3.gd" id="6"]
 [ext_resource type="PackedScene" path="res://game/martian/Martian.tscn" id="7"]
-[ext_resource type="AudioStream" path="res://art/ancientbgm.ogg" id="8"]
+[ext_resource type="AudioStream" path="res://art/audio/ancientbgm.ogg" id="8"]
 [ext_resource type="PackedScene" path="res://game/BackgroundStars.tscn" id="9"]
 
 [node name="VenusSpace" type="Node2D"]

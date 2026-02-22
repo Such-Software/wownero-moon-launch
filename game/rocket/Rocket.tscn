@@ -1,15 +1,15 @@
 [gd_scene load_steps=24 format=3]
 
 [ext_resource type="Script" path="res://game/rocket/rocket.gd" id="1"]
-[ext_resource type="Texture2D" path="res://art/rocket.png" id="2"]
+[ext_resource type="Texture2D" path="res://art/ship/rocket.png" id="2"]
 [ext_resource type="PackedScene" path="res://game/rocket/DebugDraw.tscn" id="3"]
-[ext_resource type="Texture2D" path="res://art/skull.png" id="4"]
-[ext_resource type="Texture2D" path="res://art/explosjon3.png" id="5"]
-[ext_resource type="Texture2D" path="res://art/Cartoon-Astronaut.png" id="6"]
-[ext_resource type="AudioStream" path="res://art/thrust.wav" id="7"]
-[ext_resource type="AudioStream" path="res://art/revthrust.wav" id="8"]
-[ext_resource type="AudioStream" path="res://art/explosion.wav" id="9"]
-[ext_resource type="Texture2D" path="res://art/arrow.png" id="10"]
+[ext_resource type="Texture2D" path="res://art/characters/skull.png" id="4"]
+[ext_resource type="Texture2D" path="res://art/effects/explosjon3.png" id="5"]
+[ext_resource type="Texture2D" path="res://art/characters/Cartoon-Astronaut.png" id="6"]
+[ext_resource type="AudioStream" path="res://art/audio/thrust.wav" id="7"]
+[ext_resource type="AudioStream" path="res://art/audio/revthrust.wav" id="8"]
+[ext_resource type="AudioStream" path="res://art/audio/explosion.wav" id="9"]
+[ext_resource type="Texture2D" path="res://art/ship/arrow.png" id="10"]
 
 [sub_resource type="Gradient" id="11"]
 colors = PackedColorArray( 0.0845346, 0.492188, 0.0384521, 1, 0.382167, 0.871094, 0.0476379, 1 )

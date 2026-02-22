@@ -1,7 +1,7 @@
 [gd_scene load_steps=5 format=3]
 
 [ext_resource type="Script" path="res://game/moon/Io.gd" id="1"]
-[ext_resource type="Texture2D" path="res://art/io.png" id="2"]
+[ext_resource type="Texture2D" path="res://art/planets/io.png" id="2"]
 
 [sub_resource type="CircleShape2D" id="1"]
 radius = 48.0104

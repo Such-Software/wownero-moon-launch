@@ -7,7 +7,7 @@
 [ext_resource type="Script" path="res://game/levels/2/Level2.gd" id="5"]
 [ext_resource type="PackedScene" path="res://game/mars/Mars.tscn" id="6"]
 [ext_resource type="PackedScene" path="res://game/martian/Martian.tscn" id="7"]
-[ext_resource type="AudioStream" path="res://art/ancientbgm.ogg" id="8"]
+[ext_resource type="AudioStream" path="res://art/audio/ancientbgm.ogg" id="8"]
 [ext_resource type="PackedScene" path="res://game/BackgroundStars.tscn" id="9"]
 
 [node name="MarsSpace" type="Node2D"]

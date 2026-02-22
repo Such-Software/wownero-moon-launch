@@ -1,10 +1,10 @@
 [gd_scene load_steps=12 format=3]
 
 [ext_resource type="Script" path="res://game/gui/victory/Victory.gd" id="1"]
-[ext_resource type="Texture2D" path="res://art/starfield.jpg" id="2"]
-[ext_resource type="Texture2D" path="res://art/Cartoon-Astronaut.png" id="3"]
+[ext_resource type="Texture2D" path="res://art/backgrounds/starfield.jpg" id="2"]
+[ext_resource type="Texture2D" path="res://art/characters/Cartoon-Astronaut.png" id="3"]
 [ext_resource type="FontFile" path="res://fonts/Computer Speak v0.3.ttf" id="4"]
-[ext_resource type="AudioStream" path="res://art/victory.wav" id="6"]
+[ext_resource type="AudioStream" path="res://art/audio/victory.wav" id="6"]
 
 [sub_resource type="Animation" id="Animation_grow"]
 resource_name = "grow"

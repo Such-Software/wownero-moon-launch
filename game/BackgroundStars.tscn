@@ -1,6 +1,6 @@
 [gd_scene load_steps=5 format=3]
 
-[ext_resource type="Texture2D" path="res://art/star.png" id="1"]
+[ext_resource type="Texture2D" path="res://art/effects/star.png" id="1"]
 
 [sub_resource type="Curve" id="1"]
 _data = [ Vector2( 0, 0 ), 0.0, 0.0, 0, 0, Vector2( 0.248804, 1 ), 0.0, 0.0, 0, 0, Vector2( 0.502392, 0 ), 0.0, 0.0, 0, 0, Vector2( 0.746412, 1 ), 0.0, 0.0, 0, 0, Vector2( 1, 0 ), 0.0, 0.0, 0, 0 ]

@@ -1,10 +1,10 @@
 [gd_scene load_steps=10 format=3]
 
-[ext_resource type="Texture2D" path="res://art/Ship1/Ship1.png" id="1"]
-[ext_resource type="Texture2D" path="res://art/Ship1/Exhaust/Normal_flight/Exhaust1/exhaust2.png" id="2"]
-[ext_resource type="Texture2D" path="res://art/Ship1/Exhaust/Normal_flight/Exhaust1/exhaust4.png" id="3"]
-[ext_resource type="Texture2D" path="res://art/Ship1/Exhaust/Normal_flight/Exhaust1/exhaust3.png" id="4"]
-[ext_resource type="Texture2D" path="res://art/Ship1/Exhaust/Normal_flight/Exhaust1/exhaust1.png" id="5"]
+[ext_resource type="Texture2D" path="res://art/ship/Ship1/Ship1.png" id="1"]
+[ext_resource type="Texture2D" path="res://art/ship/Ship1/Exhaust/Normal_flight/Exhaust1/exhaust2.png" id="2"]
+[ext_resource type="Texture2D" path="res://art/ship/Ship1/Exhaust/Normal_flight/Exhaust1/exhaust4.png" id="3"]
+[ext_resource type="Texture2D" path="res://art/ship/Ship1/Exhaust/Normal_flight/Exhaust1/exhaust3.png" id="4"]
+[ext_resource type="Texture2D" path="res://art/ship/Ship1/Exhaust/Normal_flight/Exhaust1/exhaust1.png" id="5"]
 [ext_resource type="Script" path="res://game/martian/Martian.gd" id="6"]
 
 [sub_resource type="SpriteFrames" id="2"]

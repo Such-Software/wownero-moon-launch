@@ -1,7 +1,7 @@
 [gd_scene load_steps=11 format=3]
 
 [ext_resource type="Script" path="res://game/gammaray/GammeRay.gd" id="1"]
-[ext_resource type="Texture2D" path="res://art/glowingCircle.png" id="2"]
+[ext_resource type="Texture2D" path="res://art/effects/glowingCircle.png" id="2"]
 
 [sub_resource type="Gradient" id="2"]
 offsets = PackedFloat32Array( 0, 0.767742, 1 )

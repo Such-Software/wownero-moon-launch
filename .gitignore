@@ -25,8 +25,8 @@ android/build/
 android/.build_version
 
 # OS/editor junk
-.DS_Store
-Thumbs.db
+**/.DS_Store
+**/Thumbs.db
 *.swp
 *~
 .vscode/

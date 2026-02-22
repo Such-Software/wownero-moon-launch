@@ -1,12 +1,12 @@
 [gd_scene load_steps=13 format=3]
 
-[ext_resource type="Texture2D" path="res://art/starfield.jpg" id="1"]
+[ext_resource type="Texture2D" path="res://art/backgrounds/starfield.jpg" id="1"]
 [ext_resource type="Script" path="res://game/gui/menu/Menu.gd" id="2"]
 [ext_resource type="FontFile" path="res://fonts/Computer Speak v0.3.ttf" id="3"]
-[ext_resource type="Texture2D" path="res://art/Earth-800px.png" id="4"]
-[ext_resource type="Texture2D" path="res://art/rocket.png" id="5"]
-[ext_resource type="Texture2D" path="res://art/1311069131-800px.png" id="6"]
-[ext_resource type="AudioStream" path="res://art/introwavybgm.ogg" id="7"]
+[ext_resource type="Texture2D" path="res://art/planets/Earth-800px.png" id="4"]
+[ext_resource type="Texture2D" path="res://art/ship/rocket.png" id="5"]
+[ext_resource type="Texture2D" path="res://art/planets/1311069131-800px.png" id="6"]
+[ext_resource type="AudioStream" path="res://art/audio/introwavybgm.ogg" id="7"]
 
 [sub_resource type="Animation" id="Animation_reset"]
 length = 0.001
