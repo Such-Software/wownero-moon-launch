@@ -1,12 +1,16 @@
 extends RigidBody2D
 
-# Ship control variables
+# Ship control variables — base values overridden by upgrades in _ready()
 var thrust = Vector2(0, 350)
 var torque = 5000
 var shipoverlaps
 var footoverlaps
-var crashspeed = 100
-var landingspeed = 40
+var crashspeed = 100.0
+var landingspeed = 40.0
+# Fuel — base values overridden by upgrades in _ready()
+var fuel: float = 100.0
+var max_fuel: float = 100.0
+var fuel_drain: float = 12.0  # fuel units per second while thrusting
 # Timer variables
 var deathtimer 
 var moontimer
@@ -19,6 +23,15 @@ var flagplaced = false
 var target = null
 
 func _ready():
+	# Add to group so HUD widgets (FuelBar etc.) can find us
+	add_to_group("rocket")
+	# Apply upgrades from globalvar
+	thrust = Vector2(0, globalvar.get_thrust_force())
+	max_fuel = globalvar.get_max_fuel()
+	fuel = max_fuel
+	fuel_drain = globalvar.get_fuel_drain()
+	crashspeed = globalvar.get_crash_speed()
+	landingspeed = globalvar.get_landing_speed()
 	# Turn on processes and monitors
 	set_process(true)
 	contact_monitor = true
@@ -45,16 +58,21 @@ func _ready():
 			target = i
 
 func _integrate_forces(state):
-	if Input.is_action_pressed("thrust"):
+	var dt = state.step
+	var has_fuel = fuel > 0.0
+
+	if has_fuel and Input.is_action_pressed("thrust"):
 		constant_force = state.total_gravity - thrust.rotated(rotation)
 		get_node("RearThrust").show()
 		get_node("RevThrust").hide()
+		fuel -= fuel_drain * dt
 		if not $ThrustSound.playing:
 			$ThrustSound.play()
-	elif Input.is_action_pressed("revthrust"):
+	elif has_fuel and Input.is_action_pressed("revthrust"):
 		constant_force = state.total_gravity + thrust.rotated(rotation)
 		get_node("RearThrust").hide()
 		get_node("RevThrust").show()
+		fuel -= fuel_drain * dt
 		if not $ThrustSound.playing:
 			$ThrustSound.play()
 	else:
@@ -62,6 +80,8 @@ func _integrate_forces(state):
 		get_node("RearThrust").hide()
 		get_node("RevThrust").hide()
 		$ThrustSound.stop()
+
+	fuel = maxf(fuel, 0.0)
 
 	var t = int(Input.is_action_pressed("ui_right")) - int(Input.is_action_pressed("ui_left"))
 	constant_torque = torque * t

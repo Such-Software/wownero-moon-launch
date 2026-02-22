@@ -17,7 +17,6 @@ func add_laser():
 	randomize_spawn_position(g_ray)
 
 func randomize_spawn_position(data):
-	randomize()
 	if randf()<0.5:
 		data.global_position = $Rocket.global_position+ Vector2(0,randf_range(-400,400))
 		data.move_landR()
@@ -27,7 +26,6 @@ func randomize_spawn_position(data):
 
 func add_asteriod():
 	var ast = asteriod.instantiate()
-	randomize()
 	if randf() < 0.5:ast = asteriod2.instantiate()
 	add_child(ast)
 	randomize_spawn_position(ast)

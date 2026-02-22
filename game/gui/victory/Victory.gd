@@ -20,7 +20,10 @@ func _ready():
 	get_node("ButtonNode").hide()
 	finaltime = globalvar.finaltime
 	nowlevel = globalvar.nowlevel
-	$Label_Level.text = "Level " + str(nowlevel) + " Complete!"
+	if nowlevel >= globalvar.MAX_LEVEL:
+		$Label_Level.text = "All Levels Complete!"
+	else:
+		$Label_Level.text = "Level " + str(nowlevel) + " Complete!"
 	get_node("Label_Score").text = "Final Time: %.2f" % finaltime
 	labeltimer = Timer.new()
 	labeltimer.set_wait_time(2.5)
@@ -40,7 +43,7 @@ func _ready():
 	labelanim()
 	set_process(true)
 	set_process_input(true)
-	save_game()
+	globalvar.save_game()
 
 
 func labelanim():
@@ -84,6 +87,10 @@ func presskey():
 	get_node("ButtonNode").set_process(true)
 	# Style the victory buttons
 	BS.apply_space_style($ButtonNode/Label_Quit, Color.RED)
+	if globalvar.nowlevel >= globalvar.MAX_LEVEL:
+		$ButtonNode/Label_NextLevel.text = "Upgrade Shop"
+	else:
+		$ButtonNode/Label_NextLevel.text = "Upgrade Shop"
 	BS.apply_space_style($ButtonNode/Label_NextLevel, Color.GREEN)
 	done = true
 
@@ -95,19 +102,5 @@ func _on_Label_Quit_pressed():
 	get_tree().change_scene_to_file("res://game/gui/menu/Menu.tscn")
 
 func _on_Label_NextLevel_pressed():
-	match(globalvar.nowlevel):
-		1:get_tree().change_scene_to_file("res://game/levels/2/Level2.tscn")
-		2:get_tree().change_scene_to_file("res://game/levels/3/Level3.tscn")
-		3:get_tree().change_scene_to_file("res://game/levels/4/Level4.tscn")
-		
-func save():
-	var save_dict = {
-		'level':globalvar.nowlevel+1
-	}
-	return save_dict
-	
-func save_game():
-	var save_game = FileAccess.open('user://savegame.json', FileAccess.WRITE)
-	save_game.store_line(JSON.stringify(save()))
-	print(save())
-	save_game.close()
+	# Always go to the upgrade shop between levels
+	get_tree().change_scene_to_file("res://game/gui/shop/UpgradeShop.tscn")

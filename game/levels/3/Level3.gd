@@ -10,7 +10,6 @@ func _ready():
 	set_process(true)
 
 func add_laser():
-	randomize()
 	var g_ray = gammaray.instantiate()
 	add_child(g_ray)
 	if randf()<0.5:

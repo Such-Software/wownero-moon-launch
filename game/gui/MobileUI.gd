@@ -6,12 +6,16 @@ extends CanvasLayer
 
 const VirtualJoystickScript = preload("res://game/gui/VirtualJoystick.gd")
 const ThrustButtonScript = preload("res://game/gui/ThrustButton.gd")
+const FuelBarScript = preload("res://game/gui/hud/FuelBar.gd")
+const WalletHUDScript = preload("res://game/gui/hud/WalletHUD.gd")
 const BS = preload("res://game/gui/ButtonStyles.gd")
 
 var is_mobile: bool = false
 var _joystick: Control = null
 var _thrust_btn: Control = null
 var _reverse_btn: Control = null
+var _fuel_bar: Control = null
+var _wallet_hud: Control = null
 
 # List of old TouchScreenButton node names to hide/disable
 var _touch_button_names := ["left", "right", "up", "down", "menu"]
@@ -33,6 +37,9 @@ func _ready() -> void:
 		_setup_mobile()
 	else:
 		_setup_desktop()
+
+	# HUD widgets — always visible on all platforms
+	_setup_hud()
 
 
 func _setup_mobile() -> void:
@@ -76,6 +83,22 @@ func _setup_desktop() -> void:
 		var btn = get_node_or_null(btn_name)
 		if btn:
 			btn.visible = false
+
+
+func _setup_hud() -> void:
+	# Fuel bar — top-left below the time/velocity labels
+	_fuel_bar = Control.new()
+	_fuel_bar.set_script(FuelBarScript)
+	_fuel_bar.name = "FuelBar"
+	add_child(_fuel_bar)
+	_fuel_bar.position = Vector2(20, 10)
+
+	# Wallet display — top-left, below fuel bar
+	_wallet_hud = Control.new()
+	_wallet_hud.set_script(WalletHUDScript)
+	_wallet_hud.name = "WalletHUD"
+	add_child(_wallet_hud)
+	_wallet_hud.position = Vector2(20, 30)
 
 
 func _unhandled_input(event: InputEvent) -> void:
