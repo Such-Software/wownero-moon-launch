@@ -22,40 +22,34 @@ scale = Vector2(1.18066, 1)
 texture = ExtResource("2")
 
 [node name="Label" type="Label" parent="."]
-offset_right = 1022.0
-offset_bottom = 480.0
+layout_mode = 0
+offset_left = 30.0
+offset_top = 30.0
+offset_right = 994.0
+offset_bottom = 420.0
 theme_override_fonts/font = SubResource("FontVar_1")
-theme_override_font_sizes/font_size = 34
+theme_override_font_sizes/font_size = 26
 text = "Use Up Arrow to activate forward boosters.
 Use Down Arrow to activate reverse boosters.
 Left Arrow and Right Arrow to adjust bearing.
-Objective - land your rocket gently on the target!
+
+Objective: Land your rocket gently on the target!
 
 On mobile: use the virtual joystick and thrust buttons."
 horizontal_alignment = 1
 vertical_alignment = 1
-
-[node name="LinkButton" type="LinkButton" parent="."]
-modulate = Color(0.239216, 0.545098, 1, 1)
-offset_left = 313.0
-offset_top = 404.0
-offset_right = 718.0
-offset_bottom = 446.0
-theme_override_fonts/font = SubResource("FontVar_1")
-theme_override_font_sizes/font_size = 23
-text = "Project Repository"
+autowrap_mode = 2
 
 [node name="Button" type="Button" parent="."]
-offset_left = 337.0
-offset_top = 479.0
-offset_right = 700.0
-offset_bottom = 539.0
+offset_left = 300.0
+offset_top = 460.0
+offset_right = 724.0
+offset_bottom = 530.0
 theme_override_colors/font_focus_color = Color(1, 0.972549, 0, 1)
 theme_override_colors/font_color = Color(0.909804, 0, 1, 1)
 theme_override_fonts/font = SubResource("FontVar_1")
-theme_override_font_sizes/font_size = 30
-text = "Return to main menu"
+theme_override_font_sizes/font_size = 28
+text = "Return to Main Menu"
 flat = true
 
-[connection signal="pressed" from="LinkButton" to="." method="_on_LinkButton_pressed"]
 [connection signal="pressed" from="Button" to="." method="_on_Button_pressed"]

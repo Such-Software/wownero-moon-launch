@@ -3,15 +3,15 @@
 importer="texture"
 type="CompressedTexture2D"
 uid="uid://bqvvwqis3cdk5"
-path="res://.godot/imported/exhaust4.png-331f470d6c7ed07168933b8a5418c300.ctex"
+path="res://.godot/imported/exhaust4.png-35e42c0198ff0b8559e2ca33699d3e0d.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://art/Ship1/Exhaust/Normal_flight/Exhaust2/exhaust4.png"
-dest_files=["res://.godot/imported/exhaust4.png-331f470d6c7ed07168933b8a5418c300.ctex"]
+source_file="res://art/ship/Ship1/Exhaust/Normal_flight/Exhaust2/exhaust4.png"
+dest_files=["res://.godot/imported/exhaust4.png-35e42c0198ff0b8559e2ca33699d3e0d.ctex"]
 
 [params]
 

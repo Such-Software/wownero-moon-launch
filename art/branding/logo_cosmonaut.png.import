@@ -3,15 +3,15 @@
 importer="texture"
 type="CompressedTexture2D"
 uid="uid://cvtuidymob4g2"
-path="res://.godot/imported/logo_cosmonaut.png-542c46329cd1c4c9a67102866c5bc155.ctex"
+path="res://.godot/imported/logo_cosmonaut.png-f1537bf27f0866b906d6b3323697d73d.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://art/logo_cosmonaut.png"
-dest_files=["res://.godot/imported/logo_cosmonaut.png-542c46329cd1c4c9a67102866c5bc155.ctex"]
+source_file="res://art/branding/logo_cosmonaut.png"
+dest_files=["res://.godot/imported/logo_cosmonaut.png-f1537bf27f0866b906d6b3323697d73d.ctex"]
 
 [params]
 

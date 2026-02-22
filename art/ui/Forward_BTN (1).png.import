@@ -3,15 +3,15 @@
 importer="texture"
 type="CompressedTexture2D"
 uid="uid://sd643wa2bxcp"
-path="res://.godot/imported/Forward_BTN (1).png-a8425ada6d746e08df30fd51bc398929.ctex"
+path="res://.godot/imported/Forward_BTN (1).png-4ba0206312a604ce83e686e82cbbc088.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://art/Forward_BTN (1).png"
-dest_files=["res://.godot/imported/Forward_BTN (1).png-a8425ada6d746e08df30fd51bc398929.ctex"]
+source_file="res://art/ui/Forward_BTN (1).png"
+dest_files=["res://.godot/imported/Forward_BTN (1).png-4ba0206312a604ce83e686e82cbbc088.ctex"]
 
 [params]
 

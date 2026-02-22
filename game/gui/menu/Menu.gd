@@ -21,8 +21,8 @@ func _build_level_select() -> void:
 	_level_select_container.name = "LevelSelect"
 	_level_select_container.visible = false
 	_level_select_container.set_anchors_preset(Control.PRESET_CENTER)
-	_level_select_container.position = Vector2(380, 100)
-	_level_select_container.add_theme_constant_override("separation", 12)
+	_level_select_container.position = Vector2(200, 60)
+	_level_select_container.add_theme_constant_override("separation", 8)
 	add_child(_level_select_container)
 
 	# Header label

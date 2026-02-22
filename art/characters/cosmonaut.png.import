@@ -3,15 +3,15 @@
 importer="texture"
 type="CompressedTexture2D"
 uid="uid://vf4dvyuekfon"
-path="res://.godot/imported/cosmonaut.png-1d7da122d34ce2a62eb287d74e7f5c61.ctex"
+path="res://.godot/imported/cosmonaut.png-15e1e6dc98c0bceb0ea55395956322d4.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://art/cosmonaut.png"
-dest_files=["res://.godot/imported/cosmonaut.png-1d7da122d34ce2a62eb287d74e7f5c61.ctex"]
+source_file="res://art/characters/cosmonaut.png"
+dest_files=["res://.godot/imported/cosmonaut.png-15e1e6dc98c0bceb0ea55395956322d4.ctex"]
 
 [params]
 

@@ -9,7 +9,3 @@ func _ready() -> void:
 
 func _on_Button_pressed():
 	get_tree().change_scene_to_file("res://game/gui/menu/Menu.tscn")
-
-
-func _on_LinkButton_pressed():
-	OS.shell_open("https://git.wownero.com/wownero/wownero-moon-launch")

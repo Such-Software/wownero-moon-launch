@@ -3,15 +3,15 @@
 importer="texture"
 type="CompressedTexture2D"
 uid="uid://dxpjn01r4rg7v"
-path="res://.godot/imported/logoadaptive_cosmonaut.png-c211738cca45cf088637d78555951bd8.ctex"
+path="res://.godot/imported/logoadaptive_cosmonaut.png-2c992ab71e60531bce5d8ed117be0510.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://art/logoadaptive_cosmonaut.png"
-dest_files=["res://.godot/imported/logoadaptive_cosmonaut.png-c211738cca45cf088637d78555951bd8.ctex"]
+source_file="res://art/branding/logoadaptive_cosmonaut.png"
+dest_files=["res://.godot/imported/logoadaptive_cosmonaut.png-2c992ab71e60531bce5d8ed117be0510.ctex"]
 
 [params]
 

@@ -49,10 +49,10 @@ func get_thrust_force() -> float:
 	return 350.0 + upgrades["thrust"] * 50.0
 
 func get_max_fuel() -> float:
-	return 100.0 + upgrades["fuel_capacity"] * 25.0
+	return 200.0 + upgrades["fuel_capacity"] * 40.0
 
 func get_fuel_drain() -> float:
-	return maxf(12.0 - upgrades["fuel_efficiency"] * 2.0, 4.0)
+	return maxf(8.0 - upgrades["fuel_efficiency"] * 1.5, 2.0)
 
 func get_crash_speed() -> float:
 	return 100.0 + upgrades["armor"] * 50.0

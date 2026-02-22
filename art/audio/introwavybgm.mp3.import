@@ -3,12 +3,12 @@
 importer="mp3"
 type="AudioStreamMP3"
 uid="uid://bs2ihhkiy5wb7"
-path="res://.godot/imported/introwavybgm.mp3-1362b874dec43b9366b4c7016aba491a.mp3str"
+path="res://.godot/imported/introwavybgm.mp3-bc82da809e9df515b9e3b484968d0774.mp3str"
 
 [deps]
 
-source_file="res://art/introwavybgm.mp3"
-dest_files=["res://.godot/imported/introwavybgm.mp3-1362b874dec43b9366b4c7016aba491a.mp3str"]
+source_file="res://art/audio/introwavybgm.mp3"
+dest_files=["res://.godot/imported/introwavybgm.mp3-bc82da809e9df515b9e3b484968d0774.mp3str"]
 
 [params]
 

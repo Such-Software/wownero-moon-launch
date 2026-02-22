@@ -3,12 +3,12 @@
 importer="wav"
 type="AudioStreamWAV"
 uid="uid://guyowh146ee8"
-path="res://.godot/imported/thrust.wav-cafb075fabf69dfce6c729c5cc9cb3dc.sample"
+path="res://.godot/imported/thrust.wav-6bca2bb3b427125fc39dbb0a18e66359.sample"
 
 [deps]
 
-source_file="res://art/thrust.wav"
-dest_files=["res://.godot/imported/thrust.wav-cafb075fabf69dfce6c729c5cc9cb3dc.sample"]
+source_file="res://art/audio/thrust.wav"
+dest_files=["res://.godot/imported/thrust.wav-6bca2bb3b427125fc39dbb0a18e66359.sample"]
 
 [params]
 

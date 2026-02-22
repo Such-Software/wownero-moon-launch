@@ -3,15 +3,15 @@
 importer="texture"
 type="CompressedTexture2D"
 uid="uid://ck6uw028s5gqk"
-path="res://.godot/imported/venus.png-df6a7da0e19c245934291d2ac3227c4d.ctex"
+path="res://.godot/imported/venus.png-bf13319ed25b7d869fa687409b7243e1.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://art/venus.png"
-dest_files=["res://.godot/imported/venus.png-df6a7da0e19c245934291d2ac3227c4d.ctex"]
+source_file="res://art/planets/venus.png"
+dest_files=["res://.godot/imported/venus.png-bf13319ed25b7d869fa687409b7243e1.ctex"]
 
 [params]
 

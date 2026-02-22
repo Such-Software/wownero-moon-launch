@@ -3,15 +3,15 @@
 importer="texture"
 type="CompressedTexture2D"
 uid="uid://k41wfcgnly0n"
-path="res://.godot/imported/mars.png-bda9c0110c8be8eb7ec64e669373ed94.ctex"
+path="res://.godot/imported/mars.png-f234f165ca05f6f91ae2ac7c833eb3e1.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://art/mars.png"
-dest_files=["res://.godot/imported/mars.png-bda9c0110c8be8eb7ec64e669373ed94.ctex"]
+source_file="res://art/planets/mars.png"
+dest_files=["res://.godot/imported/mars.png-f234f165ca05f6f91ae2ac7c833eb3e1.ctex"]
 
 [params]
 

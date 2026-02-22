@@ -2,16 +2,16 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://bh6cbhm2oy0ak"
-path="res://.godot/imported/exhaust3.png-377fc2ddc264d92da7a6d2e1231ba574.ctex"
+uid="uid://dy66aylnmicin"
+path="res://.godot/imported/monero.png-b807c568e8a47e59750324f1d766d76b.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://art/ship/Ship1/Exhaust/Turbo_flight/Exhaust1/exhaust3.png"
-dest_files=["res://.godot/imported/exhaust3.png-377fc2ddc264d92da7a6d2e1231ba574.ctex"]
+source_file="res://art/coins/monero.png"
+dest_files=["res://.godot/imported/monero.png-b807c568e8a47e59750324f1d766d76b.ctex"]
 
 [params]
 

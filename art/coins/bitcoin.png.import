@@ -2,16 +2,16 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://bh6cbhm2oy0ak"
-path="res://.godot/imported/exhaust3.png-377fc2ddc264d92da7a6d2e1231ba574.ctex"
+uid="uid://dgvnwt5hacvo6"
+path="res://.godot/imported/bitcoin.png-6ae07c4bb19f8a796ff1b4fe9983ecf8.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://art/ship/Ship1/Exhaust/Turbo_flight/Exhaust1/exhaust3.png"
-dest_files=["res://.godot/imported/exhaust3.png-377fc2ddc264d92da7a6d2e1231ba574.ctex"]
+source_file="res://art/coins/bitcoin.png"
+dest_files=["res://.godot/imported/bitcoin.png-6ae07c4bb19f8a796ff1b4fe9983ecf8.ctex"]
 
 [params]
 
