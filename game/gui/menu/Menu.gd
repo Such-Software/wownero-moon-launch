@@ -32,20 +32,15 @@ func _build_level_select() -> void:
 	header.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_level_select_container.add_child(header)
 
-	# Level buttons
-	var levels := [
-		["Level 1 — Moon", "res://game/levels/1/Level1.tscn"],
-		["Level 2 — Mars", "res://game/levels/2/Level2.tscn"],
-		["Level 3 — Venus", "res://game/levels/3/Level3.tscn"],
-		["Level 4 — Io", "res://game/levels/4/Level4.tscn"],
-	]
-	for entry in levels:
+	# Level buttons — generated from globalvar.LEVEL_SCENES
+	for level_num in globalvar.LEVEL_SCENES.keys():
 		var btn := Button.new()
-		btn.text = entry[0]
+		var level_name: String = globalvar.LEVEL_NAMES.get(level_num, str(level_num))
+		btn.text = "Level " + str(level_num) + " — " + level_name
 		btn.custom_minimum_size = Vector2(260, 40)
 		btn.flat = true
 		BS.apply_space_style(btn, Color.ORANGE)
-		var scene_path: String = entry[1]
+		var scene_path: String = globalvar.LEVEL_SCENES[level_num]
 		btn.pressed.connect(func(): get_tree().change_scene_to_file(scene_path))
 		_level_select_container.add_child(btn)
 
@@ -73,18 +68,8 @@ func _on_QuitButton_pressed():
 	get_tree().quit()
 
 func _on_PlayButton_pressed():
-	print("Play pressed! Level: ", globalvar.nowlevel)
-	match(globalvar.nowlevel):
-		1:
-			get_tree().change_scene_to_file("res://game/levels/1/Level1.tscn")
-		2:
-			get_tree().change_scene_to_file("res://game/levels/2/Level2.tscn")
-		3:
-			get_tree().change_scene_to_file("res://game/levels/3/Level3.tscn")
-		4:
-			get_tree().change_scene_to_file("res://game/levels/4/Level4.tscn")
-		_:
-			get_tree().change_scene_to_file("res://game/levels/1/Level1.tscn")
+	var scene := globalvar.get_level_scene(globalvar.nowlevel)
+	get_tree().change_scene_to_file(scene)
 
 func _on_HelpButton_pressed():
 	get_tree().change_scene_to_file("res://game/gui/help/Help.tscn")

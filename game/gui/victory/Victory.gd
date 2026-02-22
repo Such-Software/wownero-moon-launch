@@ -20,10 +20,8 @@ func _ready():
 	get_node("ButtonNode").hide()
 	finaltime = globalvar.finaltime
 	nowlevel = globalvar.nowlevel
-	if nowlevel >= globalvar.MAX_LEVEL:
-		$Label_Level.text = "All Levels Complete!"
-	else:
-		$Label_Level.text = "Level " + str(nowlevel) + " Complete!"
+	var level_name: String = globalvar.LEVEL_NAMES.get(nowlevel, str(nowlevel))
+	$Label_Level.text = "Level " + str(nowlevel) + " — " + level_name + " Complete!"
 	get_node("Label_Score").text = "Final Time: %.2f" % finaltime
 	labeltimer = Timer.new()
 	labeltimer.set_wait_time(2.5)
@@ -47,15 +45,12 @@ func _ready():
 
 
 func labelanim():
-	print("label anim started")
 	get_node("Label_Score").get_node("AnimationPlayer").seek(0)
 	get_node("Label_Score").show()
 	get_node("Label_Score").get_node("AnimationPlayer").play("scroll")
 	labeltimer.start()
-	print("label anim started")
 
 func astroanim():
-	print("astro anim started")
 	get_node("Sprite_Astronaut").get_node("AnimationPlayer").play("grow")
 	get_node("Sprite_Astronaut").show()
 	$VictorySound.play()
@@ -66,7 +61,7 @@ func colors():
 	for i in range(15):
 		var new_x = randf()*800
 		var new_y = randf()*600
-		var new_pos = Vector2(new_x, new_y)
+		var _new_pos = Vector2(new_x, new_y)
 		var new_color1 = randf()
 		var new_color2 = randf()
 		var new_color3 = randf()
@@ -87,14 +82,14 @@ func presskey():
 	get_node("ButtonNode").set_process(true)
 	# Style the victory buttons
 	BS.apply_space_style($ButtonNode/Label_Quit, Color.RED)
-	if globalvar.nowlevel >= globalvar.MAX_LEVEL:
+	if globalvar.has_next_level():
 		$ButtonNode/Label_NextLevel.text = "Upgrade Shop"
 	else:
-		$ButtonNode/Label_NextLevel.text = "Upgrade Shop"
+		$ButtonNode/Label_NextLevel.text = "Upgrades & Menu"
 	BS.apply_space_style($ButtonNode/Label_NextLevel, Color.GREEN)
 	done = true
 
-func _process(delta):
+func _process(_delta):
 	if done == true and Input.is_action_pressed("quit"):
 		get_tree().change_scene_to_file("res://game/gui/menu/Menu.tscn")
 

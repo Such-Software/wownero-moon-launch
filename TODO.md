@@ -6,51 +6,54 @@
 
 ## 🔧 Immediate Fixes & Technical Debt
 
-- [ ] **Debug level picker** — add a secret/debug menu to jump to any level (press D on main menu, or hold 3 fingers on mobile)
-- [ ] **Fix Level 4 completion** — Victory.gd has no `case 4` for Next Level button; pressing it does nothing. Should show "Game Complete" or loop to Level 1 with NG+ flag
-- [ ] **Fix save after Level 4** — saves `level: 5` which silently resets to Level 1 on Menu. Need proper "all levels complete" state
-- [ ] **Remove debug print in eartharea.gd** — `print(gravity_point)` runs every frame, spamming console
-- [ ] **Asteroid despawn** — asteroids never despawn and accelerate exponentially (`1.01^n`). Add max speed cap + despawn when off-screen by 1000px
-- [ ] **Gamma ray null check** — `get_collider().name` can crash if collider is freed. Add null guard
-- [ ] **Add Venus + Io orbits** — they're static unlike Moon/Mars. Give them slow orbital motion
-- [ ] **Git: delete old APK/AAB binaries** — `MoonLaunch.aab` and `.idsig` are in the repo, bloating it
-- [ ] **Remove `randomize()` calls** — unnecessary in Godot 4 (auto-seeded)
+- [x] **Debug level picker** — add a secret/debug menu to jump to any level (press D on main menu, or hold 3 fingers on mobile)
+- [x] **Fix Level 4 completion** — Victory.gd shows level name, routes to UpgradeShop. "Upgrades & Menu" at max level. Extensible for new levels.
+- [x] **Fix save after Level 4** — tracks `highest_level_completed`, caps save at MAX_LEVEL, `all_completed` flag
+- [x] **Remove debug prints** — all `print()` calls removed from game code
+- [x] **Asteroid despawn** — speed cap (300), reduced accel, despawn at 2000px from rocket
+- [x] **Gamma ray null check** — added collider null guard
+- [x] **Add Venus + Io orbits** — orbital scripts (Venus 0.008 rad/s, Io 0.010 rad/s)
+- [x] **Git: delete old APK/AAB binaries** — removed + .gitignore covers `*.aab`, `*.apk`, `*.apk.idsig`
+- [x] **Remove `randomize()` calls** — removed from all files (Godot 4 auto-seeds)
+- [x] **Art folder reorganization** — moved to backgrounds/, planets/, ship/, asteroids/, coins/, characters/, effects/, ui/, audio/, branding/
+- [x] **Menu.gd uses globalvar.LEVEL_SCENES** — no more hardcoded match statements
+- [x] **Debug level picker reads from LEVEL_SCENES** — auto-updates when new levels are added
 
 ---
 
 ## 🎮 Gameplay — Core Loop
 
 ### Debug / Dev Tools
-- [ ] **Level select screen** — unlocked levels shown with star ratings, locked levels greyed out. Dev mode: hold Shift+Click to unlock all
+- [x] **Level select screen** — debug level picker (press D on menu), reads from globalvar.LEVEL_SCENES
 - [ ] **FPS/physics overlay** — toggle with F3 for debugging
 - [ ] **Free camera mode** — detach camera from rocket to inspect level layout
 
 ### Ship Upgrades (between levels)
-- [ ] **Upgrade shop screen** — spend collected crypto between levels
-- [ ] **Thrust power** — upgrade rocket engine force (350 → 400 → 500...)
-- [ ] **Fuel tank** — larger fuel capacity
+- [x] **Upgrade shop screen** — spend collected crypto between levels (UpgradeShop.gd/.tscn)
+- [x] **Thrust power** — upgrade rocket engine force (350 → 400 → 500...)
+- [x] **Fuel tank** — larger fuel capacity
 - [ ] **Shield** — absorb one hit from asteroid/martian/gamma ray before death
 - [ ] **Better rotation** — faster torque for tighter control
 - [ ] **Reverse thrust power** — separate upgrade from forward thrust
 - [ ] **Magnet** — auto-attract nearby crypto pickups
-- [ ] **Armor plating** — increase crash speed threshold (100 → 150 → 200)
-- [ ] **Landing gear** — increase landing speed threshold (40 → 60 → 80) for easier landings
+- [x] **Armor plating** — increase crash speed threshold (100 → 150 → 200)
+- [x] **Landing gear** — increase landing speed threshold (40 → 60 → 80) for easier landings
 
 ### Fuel System
-- [ ] **Fuel bar HUD** — display remaining fuel on screen
-- [ ] **Fuel consumption** — thrust drains fuel; no fuel = drift only
+- [x] **Fuel bar HUD** — display remaining fuel on screen (FuelBar.gd)
+- [x] **Fuel consumption** — thrust drains fuel; no fuel = drift only
 - [ ] **Fuel pickups** — floating fuel canisters in levels
-- [ ] **Fuel efficiency upgrade** — reduce drain rate
+- [x] **Fuel efficiency upgrade** — reduce drain rate (in upgrade shop)
 
 ### Crypto Collectibles
-- [ ] **WOW (Wownero)** — primary currency, common drop, used for upgrades
-- [ ] **XMR (Monero)** — rare, worth 10x WOW, purple ring glow
-- [ ] **BTC (Bitcoin)** — very rare, worth 50x WOW, golden glow
-- [ ] **DOGE** — uncommon, worth 5x WOW, such wow
-- [ ] **Floating crypto sprites** — spin slowly, bob up/down, sparkle effect
-- [ ] **Collection animation** — fly toward ship on pickup, +amount popup text
-- [ ] **Wallet HUD** — show current WOW balance during gameplay
-- [ ] **Crypto spawner** — place crypto along flight paths and near hazards (risk/reward)
+- [x] **WOW (Wownero)** — primary currency, common drop, used for upgrades
+- [x] **XMR (Monero)** — rare, worth 10x WOW, purple ring glow
+- [x] **BTC (Bitcoin)** — very rare, worth 50x WOW, golden glow
+- [x] **DOGE** — uncommon, worth 5x WOW, such wow
+- [x] **Floating crypto sprites** — spin slowly, bob up/down, self-drawing (CryptoPickup.gd)
+- [x] **Collection animation** — fly toward ship on pickup, +amount popup text
+- [x] **Wallet HUD** — show current WOW balance during gameplay (WalletHUD.gd)
+- [x] **Crypto spawner** — drop-in CryptoSpawner.gd with weighted random types + min spacing
 
 ### Scoring & Progression
 - [ ] **Star rating** — 1-3 stars per level based on time + fuel remaining + crypto collected
@@ -185,13 +188,13 @@
 - [ ] Performance: confetti labels on victory screen
 
 ### Known Bugs 🐛
-- [ ] Level 4 "Next Level" button does nothing (no case 4 in Victory.gd)
-- [ ] Completing Level 4 saves level=5, which resets to Level 1 on next launch
-- [ ] Asteroids accelerate forever with no speed cap or despawn
-- [ ] `eartharea.gd` prints to console every frame
-- [ ] Gamma ray `get_collider()` has no null check
-- [ ] Venus and Io don't orbit (static, unlike Moon/Mars)
-- [ ] `MoonLaunch.aab` and `.apk.idsig` still in repo (should be gitignored)
+- [x] ~~Level 4 "Next Level" button does nothing~~ — fixed, routes to UpgradeShop
+- [x] ~~Completing Level 4 saves level=5~~ — fixed, caps at MAX_LEVEL
+- [x] ~~Asteroids accelerate forever~~ — speed cap + despawn
+- [x] ~~`eartharea.gd` prints to console every frame~~ — removed
+- [x] ~~Gamma ray `get_collider()` has no null check~~ — null guard added
+- [x] ~~Venus and Io don't orbit~~ — orbital scripts added
+- [x] ~~`MoonLaunch.aab` and `.apk.idsig` still in repo~~ — deleted + gitignored
 
 ---
 

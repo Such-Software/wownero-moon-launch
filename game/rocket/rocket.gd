@@ -120,7 +120,7 @@ func death():
 	deathtimer.start()
 
 func moonland():
-	print("START MOONLAND")
+
 	#set_process(false)
 	landattemptnow = true
 #	moontimer.set_active(true)
@@ -130,7 +130,7 @@ func moonland():
 func flagplanted():
 	globalvar.finaltime = get_node("../CanvasLayer").get_node("TimeLabel").time
 	flagplaced = true
-	print("FLAG PLACED")
+
 	#get_tree().get_root().set_disable_input(false)
 	$CosmonautSprite.show()
 	get_tree().change_scene_to_file("res://game/gui/victory/Victory.tscn")

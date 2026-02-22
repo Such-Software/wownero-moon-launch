@@ -49,13 +49,16 @@ func _ready() -> void:
 		btn.flat = true
 		_upgrade_buttons[upgrade_name] = btn
 		_update_button(upgrade_name)
-		var uname := upgrade_name  # capture for lambda
+		var uname: String = upgrade_name  # capture for lambda
 		btn.pressed.connect(func(): _on_upgrade_pressed(uname))
 		vbox.add_child(btn)
 
 	# Continue button
 	var continue_btn := Button.new()
-	continue_btn.text = "Continue to Next Level"
+	if globalvar.has_next_level():
+		continue_btn.text = "Continue to Level " + str(globalvar.nowlevel + 1)
+	else:
+		continue_btn.text = "All levels cleared! Back to Menu"
 	continue_btn.custom_minimum_size = Vector2(624, 52)
 	continue_btn.flat = true
 	BS.apply_space_style(continue_btn, Color.GREEN)

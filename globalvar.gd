@@ -10,6 +10,7 @@ signal wallet_changed(new_total: int)
 var nowlevel: int = 1
 var finaltime: float = 0.0
 var all_completed: bool = false
+var highest_level_completed: int = 0  # Tracks progress for level select
 
 # --- Wallet (persisted) ---
 var wallet: int = 0  # WOW balance (all crypto converted to WOW on pickup)
@@ -89,23 +90,35 @@ const LEVEL_SCENES := {
 	3: "res://game/levels/3/Level3.tscn",
 	4: "res://game/levels/4/Level4.tscn",
 }
-const MAX_LEVEL := 4
+const MAX_LEVEL := 4  # Raise this as new levels are added
+
+const LEVEL_NAMES := {
+	1: "Moon",
+	2: "Mars",
+	3: "Venus",
+	4: "Io",
+}
 
 func get_level_scene(level: int) -> String:
 	return LEVEL_SCENES.get(level, LEVEL_SCENES[1])
 
 func get_next_level_scene() -> String:
 	if nowlevel >= MAX_LEVEL:
-		return ""  # no next level — game complete
+		return ""  # No more levels yet — expand LEVEL_SCENES to add more
 	return LEVEL_SCENES.get(nowlevel + 1, "")
+
+func has_next_level() -> bool:
+	return nowlevel < MAX_LEVEL
 
 # --- Save / Load ---
 func _ready():
 	load_game()
 
 func save_game() -> void:
+	highest_level_completed = maxi(highest_level_completed, nowlevel)
 	var data := {
 		"level": mini(nowlevel + 1, MAX_LEVEL),
+		"highest_completed": highest_level_completed,
 		"completed": nowlevel >= MAX_LEVEL or all_completed,
 		"wallet": wallet,
 		"upgrades": upgrades.duplicate(),
@@ -130,6 +143,7 @@ func load_game() -> void:
 	if not data is Dictionary:
 		return
 	nowlevel = int(data.get("level", 1))
+	highest_level_completed = int(data.get("highest_completed", 0))
 	all_completed = bool(data.get("completed", false))
 	wallet = int(data.get("wallet", 0))
 	var saved_upgrades = data.get("upgrades", {})
