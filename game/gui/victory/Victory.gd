@@ -2,8 +2,10 @@ extends Node2D
 
 const BS = preload("res://game/gui/ButtonStyles.gd")
 
-var finaltime
-var nowlevel  
+var finaltime: float
+var nowlevel: int
+var stars: int = 1
+var is_new_best: bool = false
 var timerflag = false
 var labeltimer
 var astrotimer
@@ -14,15 +16,33 @@ var done = false
 
 
 func _ready():
-#	set_process(true)
 	get_node("Sprite_Astronaut").hide()
 	get_node("Label_Score").hide()
 	get_node("ButtonNode").hide()
 	finaltime = globalvar.finaltime
 	nowlevel = globalvar.nowlevel
+	var fuel_pct: float = globalvar.level_fuel_remaining
+	var crypto: int = globalvar.level_crypto_collected
+
+	# Compute and record stars / best time
+	stars = globalvar.record_level_result(nowlevel, finaltime, fuel_pct, crypto)
+	var prev_best: float = globalvar.get_best_time(nowlevel)
+	is_new_best = (finaltime <= prev_best) or prev_best < 0
+
+	# Build the level complete header
 	var level_name: String = globalvar.LEVEL_NAMES.get(nowlevel, str(nowlevel))
 	$Label_Level.text = "Level " + str(nowlevel) + " — " + level_name + " Complete!"
-	get_node("Label_Score").text = "Final Time: %.2f" % finaltime
+
+	# Build the score text with stars and stats
+	var star_str := ""
+	for i in range(3):
+		star_str += "★" if i < stars else "☆"
+	var score_text := "Time: %.2f s   %s" % [finaltime, star_str]
+	if is_new_best:
+		score_text += "   NEW BEST!"
+	score_text += "\nFuel: %.0f%%   Crypto: +%d WOW" % [fuel_pct, crypto]
+	get_node("Label_Score").text = score_text
+
 	labeltimer = Timer.new()
 	labeltimer.set_wait_time(2.5)
 	labeltimer.set_one_shot(true)
@@ -42,6 +62,10 @@ func _ready():
 	set_process(true)
 	set_process_input(true)
 	globalvar.save_game()
+
+	# Submit score to the leaderboard (fire and forget)
+	ScoreClient.submit_score(nowlevel, finaltime, fuel_pct, crypto, stars)
+	ScoreClient.score_submitted.connect(_on_score_submitted, CONNECT_ONE_SHOT)
 
 
 func labelanim():
@@ -88,6 +112,18 @@ func presskey():
 		$ButtonNode/Label_NextLevel.text = "Upgrades & Menu"
 	BS.apply_space_style($ButtonNode/Label_NextLevel, Color.GREEN)
 	done = true
+
+
+func _on_score_submitted(success: bool, rank: int) -> void:
+	if success and rank > 0:
+		# Briefly show rank after confetti settles
+		var rank_label := Label.new()
+		rank_label.text = "Leaderboard Rank: #%d" % rank
+		rank_label.add_theme_color_override("font_color", Color(1, 0.85, 0.2))
+		rank_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		rank_label.set_anchors_preset(Control.PRESET_CENTER_BOTTOM)
+		rank_label.position = Vector2(512, 560)
+		add_child(rank_label)
 
 func _process(_delta):
 	if done == true and Input.is_action_pressed("quit"):

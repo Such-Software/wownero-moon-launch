@@ -12,6 +12,18 @@ var finaltime: float = 0.0
 var all_completed: bool = false
 var highest_level_completed: int = 0  # Tracks progress for level select
 
+# --- Per-run tracking (reset each level start) ---
+var level_crypto_collected: int = 0   # WOW earned this run
+var level_fuel_remaining: float = 0.0 # percentage at landing
+
+# --- Best times & stars per level (persisted) ---
+var best_times := {}  # { "1": 25.3, "2": 42.1, ... }
+var best_stars := {}  # { "1": 3, "2": 2, ... }
+
+# --- Player identity (persisted) ---
+var device_uuid: String = ""
+var nickname: String = "Cosmonaut"
+
 # --- Wallet (persisted) ---
 var wallet: int = 0  # WOW balance (all crypto converted to WOW on pickup)
 
@@ -107,6 +119,7 @@ func buy_upgrade(upgrade_name: String) -> bool:
 
 func add_crypto(amount: int) -> void:
 	wallet += amount
+	level_crypto_collected += amount
 	wallet_changed.emit(wallet)
 
 # --- Level config (eliminates hardcoded match statements) ---
@@ -136,9 +149,81 @@ func get_next_level_scene() -> String:
 func has_next_level() -> bool:
 	return nowlevel < MAX_LEVEL
 
+# --- Star rating ---
+# 3★ thresholds (seconds) — earn 3 stars if under this time, 2 stars if under 2x, else 1
+const STAR_3_TIME := {
+	1: 20.0,  # Moon
+	2: 30.0,  # Mars
+	3: 40.0,  # Venus
+	4: 50.0,  # Io
+}
+
+func compute_stars(level: int, time_s: float, fuel_pct: float, _crypto: int) -> int:
+	var threshold: float = STAR_3_TIME.get(level, 30.0)
+	var stars := 1
+	if time_s <= threshold:
+		stars = 3
+	elif time_s <= threshold * 2.0:
+		stars = 2
+	# Fuel bonus: 50%+ fuel remaining bumps up 1 star (cap at 3)
+	if fuel_pct >= 50.0 and stars < 3:
+		stars += 1
+	return stars
+
+func get_best_time(level: int) -> float:
+	## Returns best time for a level, or -1.0 if no record.
+	return float(best_times.get(str(level), -1.0))
+
+func get_best_stars(level: int) -> int:
+	return int(best_stars.get(str(level), 0))
+
+func record_level_result(level: int, time_s: float, fuel_pct: float, crypto: int) -> int:
+	## Record a level completion. Returns star count. Updates best time/stars if improved.
+	var stars := compute_stars(level, time_s, fuel_pct, crypto)
+	var key := str(level)
+	var prev_time: float = float(best_times.get(key, 999999.0))
+	if time_s < prev_time:
+		best_times[key] = time_s
+	var prev_stars: int = int(best_stars.get(key, 0))
+	if stars > prev_stars:
+		best_stars[key] = stars
+	return stars
+
+func reset_level_stats() -> void:
+	## Call at the start of each level to reset per-run tracking.
+	level_crypto_collected = 0
+	level_fuel_remaining = 0.0
+
+func get_platform_string() -> String:
+	## Returns platform identifier for leaderboard submissions.
+	match OS.get_name():
+		"Android": return "ANDROID"
+		"iOS": return "IOS"
+		"Web": return "WEB"
+		"macOS": return "MACOS"
+		"Linux": return "LINUX"
+		"Windows": return "WINDOWS"
+	return ""
+
 # --- Save / Load ---
 func _ready():
 	load_game()
+	# Ensure device has a UUID (generated once, persisted forever)
+	if device_uuid == "":
+		device_uuid = _generate_uuid()
+		save_game()
+
+func _generate_uuid() -> String:
+	## Generate a v4-style UUID from random bytes.
+	var rng := RandomNumberGenerator.new()
+	rng.randomize()
+	var parts: Array[String] = []
+	for i in range(16):
+		parts.append("%02x" % rng.randi_range(0, 255))
+	# Set version (4) and variant bits
+	parts[6] = "%02x" % ((int("0x" + parts[6]) & 0x0F) | 0x40)
+	parts[8] = "%02x" % ((int("0x" + parts[8]) & 0x3F) | 0x80)
+	return "%s%s%s%s-%s%s-%s%s-%s%s-%s%s%s%s%s%s" % parts
 
 func save_game() -> void:
 	highest_level_completed = maxi(highest_level_completed, nowlevel)
@@ -148,6 +233,10 @@ func save_game() -> void:
 		"completed": nowlevel >= MAX_LEVEL or all_completed,
 		"wallet": wallet,
 		"upgrades": upgrades.duplicate(),
+		"best_times": best_times.duplicate(),
+		"best_stars": best_stars.duplicate(),
+		"device_uuid": device_uuid,
+		"nickname": nickname,
 	}
 	var f := FileAccess.open("user://savegame.json", FileAccess.WRITE)
 	if f:
@@ -177,3 +266,11 @@ func load_game() -> void:
 		for key in upgrades.keys():
 			if saved_upgrades.has(key):
 				upgrades[key] = int(saved_upgrades[key])
+	var saved_times = data.get("best_times", {})
+	if saved_times is Dictionary:
+		best_times = saved_times
+	var saved_stars = data.get("best_stars", {})
+	if saved_stars is Dictionary:
+		best_stars = saved_stars
+	device_uuid = str(data.get("device_uuid", ""))
+	nickname = str(data.get("nickname", "Cosmonaut"))

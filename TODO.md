@@ -56,11 +56,11 @@
 - [x] **Crypto spawner** — drop-in CryptoSpawner.gd with weighted random types + min spacing
 
 ### Scoring & Progression
-- [ ] **Star rating** — 1-3 stars per level based on time + fuel remaining + crypto collected
-- [ ] **Best time per level** — save and display on level select
-- [ ] **Total crypto wallet** — persisted across sessions, shown in shop
+- [x] **Star rating** — 1-3 stars per level based on time + fuel remaining + crypto collected
+- [x] **Best time per level** — save and display on level select
+- [x] **Total crypto wallet** — persisted across sessions, shown in shop
 - [ ] **Achievements** — "First Landing", "Speed Demon" (under 10s), "Pacifist" (no deaths), "Crypto Whale" (1000 WOW), etc.
-- [ ] **Leaderboard** — local initially, online later (Wownero testnet integration?)
+- [x] **Leaderboard** — backend API at api.such.software, per-level rankings, auto-submit on victory
 
 ---
 

@@ -32,6 +32,8 @@ var target = null
 func _ready():
 	# Add to group so HUD widgets (FuelBar etc.) can find us
 	add_to_group("rocket")
+	# Reset per-level stats
+	globalvar.reset_level_stats()
 	# Apply upgrades from globalvar
 	thrust = Vector2(0, globalvar.get_thrust_force())
 	reverse_thrust = Vector2(0, globalvar.get_reverse_thrust_force())
@@ -189,6 +191,8 @@ func moonland():
 
 func flagplanted():
 	globalvar.finaltime = get_node("../CanvasLayer").get_node("TimeLabel").time
+	# Capture fuel remaining as a percentage
+	globalvar.level_fuel_remaining = (fuel / max_fuel) * 100.0
 	flagplaced = true
 
 	#get_tree().get_root().set_disable_input(false)
