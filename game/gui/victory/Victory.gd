@@ -13,6 +13,9 @@ var colortimer
 var finishtimer
 var templabels = []
 var done = false
+var _nick_row: HBoxContainer = null
+var _nick_edit: LineEdit = null
+var _editing_nick := false
 
 
 func _ready():
@@ -42,6 +45,9 @@ func _ready():
 		score_text += "   NEW BEST!"
 	score_text += "\nFuel: %.0f%%   Crypto: +%d WOW" % [fuel_pct, crypto]
 	get_node("Label_Score").text = score_text
+
+	# Build the nickname row (visible after presskey phase)
+	_build_nickname_row()
 
 	labeltimer = Timer.new()
 	labeltimer.set_wait_time(2.5)
@@ -104,6 +110,9 @@ func colors():
 func presskey():
 	get_node("ButtonNode").show()
 	get_node("ButtonNode").set_process(true)
+	# Show nickname row
+	if _nick_row:
+		_nick_row.visible = true
 	# Style the victory buttons
 	BS.apply_space_style($ButtonNode/Label_Quit, Color.RED)
 	if globalvar.has_next_level():
@@ -112,6 +121,98 @@ func presskey():
 		$ButtonNode/Label_NextLevel.text = "Upgrades & Menu"
 	BS.apply_space_style($ButtonNode/Label_NextLevel, Color.GREEN)
 	done = true
+
+
+func _build_nickname_row() -> void:
+	## Build a nickname display row: "🧑‍🚀 NickName  [🎲] [✏️]"
+	_nick_row = HBoxContainer.new()
+	_nick_row.name = "NicknameRow"
+	_nick_row.visible = false  # shown in presskey() phase
+	_nick_row.set_anchors_preset(Control.PRESET_CENTER_BOTTOM)
+	_nick_row.position = Vector2(340, 520)
+	_nick_row.add_theme_constant_override("separation", 8)
+	add_child(_nick_row)
+
+	var nick_label := Label.new()
+	nick_label.name = "NickLabel"
+	nick_label.text = globalvar.nickname
+	nick_label.add_theme_color_override("font_color", Color(0.6, 0.9, 1.0))
+	nick_label.add_theme_font_size_override("font_size", 16)
+	_nick_row.add_child(nick_label)
+
+	# Dice button — reroll random name
+	var dice_btn := Button.new()
+	dice_btn.text = "Reroll"
+	dice_btn.custom_minimum_size = Vector2(70, 28)
+	BS.apply_space_style(dice_btn, Color(1.0, 0.7, 0.1))
+	dice_btn.pressed.connect(_on_reroll_nickname)
+	_nick_row.add_child(dice_btn)
+
+	# Edit button — toggle inline text edit
+	var edit_btn := Button.new()
+	edit_btn.text = "Edit"
+	edit_btn.custom_minimum_size = Vector2(55, 28)
+	BS.apply_space_style(edit_btn, Color(0.5, 0.8, 1.0))
+	edit_btn.pressed.connect(_on_edit_nickname)
+	_nick_row.add_child(edit_btn)
+
+	# Hidden LineEdit for custom entry
+	_nick_edit = LineEdit.new()
+	_nick_edit.name = "NickEdit"
+	_nick_edit.visible = false
+	_nick_edit.custom_minimum_size = Vector2(180, 30)
+	_nick_edit.max_length = 20
+	_nick_edit.placeholder_text = "Enter nickname..."
+	_nick_edit.text = globalvar.nickname
+	_nick_edit.add_theme_color_override("font_color", Color.WHITE)
+	_nick_edit.add_theme_color_override("caret_color", Color.CYAN)
+	var edit_style := StyleBoxFlat.new()
+	edit_style.bg_color = Color(0.06, 0.06, 0.14, 0.95)
+	edit_style.border_color = Color.CYAN
+	edit_style.set_border_width_all(1)
+	edit_style.set_corner_radius_all(4)
+	edit_style.content_margin_left = 6
+	edit_style.content_margin_right = 6
+	_nick_edit.add_theme_stylebox_override("normal", edit_style)
+	_nick_edit.text_submitted.connect(_on_nickname_submitted)
+	_nick_row.add_child(_nick_edit)
+
+
+func _on_reroll_nickname() -> void:
+	globalvar.nickname = globalvar.generate_random_nickname()
+	globalvar.save_game()
+	_nick_row.get_node("NickLabel").text = globalvar.nickname
+	_nick_edit.text = globalvar.nickname
+
+
+func _on_edit_nickname() -> void:
+	_editing_nick = !_editing_nick
+	var nick_label: Label = _nick_row.get_node("NickLabel")
+	if _editing_nick:
+		nick_label.visible = false
+		_nick_edit.visible = true
+		_nick_edit.text = globalvar.nickname
+		_nick_edit.grab_focus()
+		_nick_edit.caret_column = _nick_edit.text.length()
+	else:
+		_apply_nickname(_nick_edit.text)
+
+
+func _on_nickname_submitted(new_text: String) -> void:
+	_apply_nickname(new_text)
+
+
+func _apply_nickname(raw: String) -> void:
+	var cleaned := raw.strip_edges().left(20)
+	if cleaned == "":
+		cleaned = globalvar.generate_random_nickname()
+	globalvar.nickname = cleaned
+	globalvar.save_game()
+	_editing_nick = false
+	var nick_label: Label = _nick_row.get_node("NickLabel")
+	nick_label.text = globalvar.nickname
+	nick_label.visible = true
+	_nick_edit.visible = false
 
 
 func _on_score_submitted(success: bool, rank: int) -> void:

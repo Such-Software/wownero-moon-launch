@@ -22,7 +22,31 @@ var best_stars := {}  # { "1": 3, "2": 2, ... }
 
 # --- Player identity (persisted) ---
 var device_uuid: String = ""
-var nickname: String = "Cosmonaut"
+var nickname: String = ""
+
+# --- Random nickname word lists ---
+const NICK_PREFIXES := [
+	"Satoshi", "Crypto", "Moon", "Stellar", "Cosmic", "Nebula",
+	"Astro", "Lunar", "Solar", "Galactic", "Quantum", "Orbital",
+	"Rocket", "Comet", "Nova", "Plasma", "Photon", "Ion",
+	"Turbo", "Hyper", "Zero", "Neon", "Warp", "Void",
+	"Echo", "Flux", "Omega", "Alpha", "Blitz", "Zen",
+]
+const NICK_SUFFIXES := [
+	"Pilot", "Whale", "Ape", "Hodler", "Miner", "Voyager",
+	"Ranger", "Knight", "Cadet", "Captain", "Scout", "Drifter",
+	"Walker", "Rider", "Hunter", "Guru", "Monk", "Sage",
+	"Fox", "Wolf", "Hawk", "Bear", "Bull", "Lynx",
+	"Bot", "Node", "Byte", "Core", "Spark", "Blaze",
+]
+
+func generate_random_nickname() -> String:
+	## Generate a random crypto/astro themed nickname like "MoonWhale" or "SatoshiPilot".
+	var rng := RandomNumberGenerator.new()
+	rng.randomize()
+	var prefix: String = NICK_PREFIXES[rng.randi_range(0, NICK_PREFIXES.size() - 1)]
+	var suffix: String = NICK_SUFFIXES[rng.randi_range(0, NICK_SUFFIXES.size() - 1)]
+	return prefix + suffix
 
 # --- Wallet (persisted) ---
 var wallet: int = 0  # WOW balance (all crypto converted to WOW on pickup)
@@ -211,7 +235,10 @@ func _ready():
 	# Ensure device has a UUID (generated once, persisted forever)
 	if device_uuid == "":
 		device_uuid = _generate_uuid()
-		save_game()
+	# Generate a random nickname on first launch
+	if nickname == "" or nickname == "Cosmonaut":
+		nickname = generate_random_nickname()
+	save_game()
 
 func _generate_uuid() -> String:
 	## Generate a v4-style UUID from random bytes.
@@ -273,4 +300,4 @@ func load_game() -> void:
 	if saved_stars is Dictionary:
 		best_stars = saved_stars
 	device_uuid = str(data.get("device_uuid", ""))
-	nickname = str(data.get("nickname", "Cosmonaut"))
+	nickname = str(data.get("nickname", ""))

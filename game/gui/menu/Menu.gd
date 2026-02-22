@@ -4,6 +4,9 @@ const BS = preload("res://game/gui/ButtonStyles.gd")
 
 var _level_select_visible := false
 var _level_select_container: VBoxContainer = null
+var _nick_label: Label = null
+var _nick_edit: LineEdit = null
+var _editing_nick := false
 
 func _ready():
 	$RocketSprite/AnimationPlayer.play("move")
@@ -12,7 +15,106 @@ func _ready():
 	BS.apply_space_style($VButtonArray/PlayButton, Color.GREEN)
 	BS.apply_space_style($VButtonArray/HelpButton, Color.CYAN)
 	BS.apply_space_style($VButtonArray/QuitButton, Color.RED)
+	_build_nickname_bar()
 	_build_level_select()
+
+
+func _build_nickname_bar() -> void:
+	## Nickname bar at bottom-left: "Pilot: NickName  [🎲] [✏️]"
+	var bar := HBoxContainer.new()
+	bar.name = "NicknameBar"
+	bar.set_anchors_preset(Control.PRESET_BOTTOM_LEFT)
+	bar.position = Vector2(12, -44)
+	bar.add_theme_constant_override("separation", 8)
+	add_child(bar)
+
+	var pilot_label := Label.new()
+	pilot_label.text = "Pilot:"
+	pilot_label.add_theme_color_override("font_color", Color(0.5, 0.5, 0.6))
+	pilot_label.add_theme_font_size_override("font_size", 14)
+	bar.add_child(pilot_label)
+
+	_nick_label = Label.new()
+	_nick_label.name = "NickLabel"
+	_nick_label.text = globalvar.nickname
+	_nick_label.add_theme_color_override("font_color", Color(0.6, 0.9, 1.0))
+	_nick_label.add_theme_font_size_override("font_size", 14)
+	bar.add_child(_nick_label)
+
+	# Dice button — reroll random name
+	var dice_btn := Button.new()
+	dice_btn.text = "Reroll"
+	dice_btn.custom_minimum_size = Vector2(65, 26)
+	BS.apply_space_style(dice_btn, Color(1.0, 0.7, 0.1))
+	dice_btn.add_theme_font_size_override("font_size", 12)
+	dice_btn.pressed.connect(_on_reroll_nickname)
+	bar.add_child(dice_btn)
+
+	# Edit button — toggle inline text edit
+	var edit_btn := Button.new()
+	edit_btn.text = "Edit"
+	edit_btn.custom_minimum_size = Vector2(50, 26)
+	BS.apply_space_style(edit_btn, Color(0.5, 0.8, 1.0))
+	edit_btn.add_theme_font_size_override("font_size", 12)
+	edit_btn.pressed.connect(_on_edit_nickname)
+	bar.add_child(edit_btn)
+
+	# Hidden LineEdit for custom entry
+	_nick_edit = LineEdit.new()
+	_nick_edit.name = "NickEdit"
+	_nick_edit.visible = false
+	_nick_edit.custom_minimum_size = Vector2(160, 26)
+	_nick_edit.max_length = 20
+	_nick_edit.placeholder_text = "Enter nickname..."
+	_nick_edit.text = globalvar.nickname
+	_nick_edit.add_theme_font_size_override("font_size", 14)
+	_nick_edit.add_theme_color_override("font_color", Color.WHITE)
+	_nick_edit.add_theme_color_override("caret_color", Color.CYAN)
+	var edit_style := StyleBoxFlat.new()
+	edit_style.bg_color = Color(0.06, 0.06, 0.14, 0.95)
+	edit_style.border_color = Color.CYAN
+	edit_style.set_border_width_all(1)
+	edit_style.set_corner_radius_all(4)
+	edit_style.content_margin_left = 6
+	edit_style.content_margin_right = 6
+	_nick_edit.add_theme_stylebox_override("normal", edit_style)
+	_nick_edit.text_submitted.connect(_on_nickname_submitted)
+	bar.add_child(_nick_edit)
+
+
+func _on_reroll_nickname() -> void:
+	globalvar.nickname = globalvar.generate_random_nickname()
+	globalvar.save_game()
+	_nick_label.text = globalvar.nickname
+	_nick_edit.text = globalvar.nickname
+
+
+func _on_edit_nickname() -> void:
+	_editing_nick = !_editing_nick
+	if _editing_nick:
+		_nick_label.visible = false
+		_nick_edit.visible = true
+		_nick_edit.text = globalvar.nickname
+		_nick_edit.grab_focus()
+		_nick_edit.caret_column = _nick_edit.text.length()
+	else:
+		_apply_nickname(_nick_edit.text)
+
+
+func _on_nickname_submitted(new_text: String) -> void:
+	_apply_nickname(new_text)
+
+
+func _apply_nickname(raw: String) -> void:
+	var cleaned := raw.strip_edges().left(20)
+	if cleaned == "":
+		cleaned = globalvar.generate_random_nickname()
+	globalvar.nickname = cleaned
+	globalvar.save_game()
+	_editing_nick = false
+	_nick_label.text = globalvar.nickname
+	_nick_label.visible = true
+	_nick_edit.visible = false
 
 
 func _build_level_select() -> void:
