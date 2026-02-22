@@ -8,6 +8,7 @@ const VirtualJoystickScript = preload("res://game/gui/VirtualJoystick.gd")
 const ThrustButtonScript = preload("res://game/gui/ThrustButton.gd")
 const FuelBarScript = preload("res://game/gui/hud/FuelBar.gd")
 const WalletHUDScript = preload("res://game/gui/hud/WalletHUD.gd")
+const DebugOverlayScript = preload("res://game/gui/hud/DebugOverlay.gd")
 const BS = preload("res://game/gui/ButtonStyles.gd")
 
 var is_mobile: bool = false
@@ -16,6 +17,7 @@ var _thrust_btn: Control = null
 var _reverse_btn: Control = null
 var _fuel_bar: Control = null
 var _wallet_hud: Control = null
+var _debug_overlay: Control = null
 
 # List of old TouchScreenButton node names to hide/disable
 var _touch_button_names := ["left", "right", "up", "down", "menu"]
@@ -86,19 +88,26 @@ func _setup_desktop() -> void:
 
 
 func _setup_hud() -> void:
-	# Fuel bar — top-left below the time/velocity labels
+	# Fuel bar — top-left, clear of the small menu button at (51,34)
 	_fuel_bar = Control.new()
 	_fuel_bar.set_script(FuelBarScript)
 	_fuel_bar.name = "FuelBar"
 	add_child(_fuel_bar)
-	_fuel_bar.position = Vector2(20, 10)
+	_fuel_bar.position = Vector2(120, 10)
 
-	# Wallet display — top-left, below fuel bar
+	# Wallet display — next to fuel bar
 	_wallet_hud = Control.new()
 	_wallet_hud.set_script(WalletHUDScript)
 	_wallet_hud.name = "WalletHUD"
 	add_child(_wallet_hud)
-	_wallet_hud.position = Vector2(20, 30)
+	_wallet_hud.position = Vector2(120, 28)
+
+	# Debug overlay — toggled with F3 (starts hidden)
+	_debug_overlay = Control.new()
+	_debug_overlay.set_script(DebugOverlayScript)
+	_debug_overlay.name = "DebugOverlay"
+	add_child(_debug_overlay)
+	_debug_overlay.position = Vector2(400, 10)
 
 
 func _unhandled_input(event: InputEvent) -> void:

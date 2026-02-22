@@ -6,9 +6,8 @@ var growing_value = 1
 
 func _ready():
 	set_is_casting(true)
-	await get_tree().create_timer(10).timeout
-	set_is_casting(false)
-	queue_free()
+	await get_tree().create_timer(4.0).timeout
+	_fade_out()
 
 func move_landR():
 	if (randf()<0.5):
@@ -26,7 +25,7 @@ func move_tandB():
 		global_position.y += 400
 		rotation_degrees = randf_range(-45,-135)
 
-func _physics_process(delta):
+func _physics_process(_delta):
 	var cast_point := target_position
 	force_raycast_update()
 	$CollisionParticles2D.emitting = is_colliding()
@@ -62,3 +61,30 @@ func appear():
 func disappear():
 	var tween = create_tween()
 	tween.tween_property($Line2D, "width", 0, 0.1).from(10)
+
+
+func _fade_out() -> void:
+	# Stop extending the beam
+	set_physics_process(false)
+	# Flicker the beam then fade it out
+	var line: Line2D = $Line2D
+	var fade := create_tween()
+	fade.set_ease(Tween.EASE_IN)
+	fade.set_trans(Tween.TRANS_SINE)
+	# Quick flicker
+	fade.tween_property(line, "default_color:a", 0.3, 0.06)
+	fade.tween_property(line, "default_color:a", 1.0, 0.06)
+	fade.tween_property(line, "default_color:a", 0.15, 0.06)
+	fade.tween_property(line, "default_color:a", 0.8, 0.06)
+	# Fade width and alpha to 0
+	fade.set_parallel(true)
+	fade.tween_property(line, "width", 0.0, 0.4)
+	fade.tween_property(line, "default_color:a", 0.0, 0.4)
+	# Stop all particles and remove
+	fade.set_parallel(false)
+	fade.tween_callback(func():
+		$BeamParticles2D.emitting = false
+		$CollisionParticles2D.emitting = false
+	)
+	fade.tween_interval(0.3)
+	fade.tween_callback(queue_free)

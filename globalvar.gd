@@ -23,6 +23,10 @@ var upgrades := {
 	"fuel_efficiency": 0, # -2 drain/s per level
 	"armor": 0,         # +50 crash speed threshold per level
 	"landing_gear": 0,  # +20 landing speed threshold per level
+	"shield": 0,        # absorb 1 hit per level (0 = no shield)
+	"rotation": 0,      # +1000 torque per level for tighter control
+	"reverse_thrust": 0, # +40 reverse thrust force per level
+	"magnet": 0,        # auto-attract crypto within 50+30*level px
 }
 
 # --- Upgrade costs (WOW) — cost increases per level ---
@@ -32,6 +36,10 @@ const UPGRADE_BASE_COSTS := {
 	"fuel_efficiency": 60,
 	"armor": 80,
 	"landing_gear": 45,
+	"shield": 100,
+	"rotation": 35,
+	"reverse_thrust": 55,
+	"magnet": 70,
 }
 const UPGRADE_MAX_LEVEL := 5
 
@@ -42,6 +50,10 @@ const UPGRADE_DESCRIPTIONS := {
 	"fuel_efficiency": "Fuel Efficiency — less fuel drain",
 	"armor": "Armor Plating — survive harder impacts",
 	"landing_gear": "Landing Gear — land at higher speed",
+	"shield": "Shield Generator — absorb hits before death",
+	"rotation": "Gyroscope — faster rotation control",
+	"reverse_thrust": "Retro Rockets — stronger reverse thrust",
+	"magnet": "Crypto Magnet — attract nearby pickups",
 }
 
 # --- Derived stats (computed from upgrades) ---
@@ -59,6 +71,20 @@ func get_crash_speed() -> float:
 
 func get_landing_speed() -> float:
 	return 40.0 + upgrades["landing_gear"] * 20.0
+
+func get_shield_hits() -> int:
+	return upgrades["shield"]  # 0 = no shield, 1-5 hits absorbed
+
+func get_torque() -> float:
+	return 5000.0 + upgrades["rotation"] * 1000.0
+
+func get_reverse_thrust_force() -> float:
+	return 350.0 + upgrades["reverse_thrust"] * 40.0
+
+func get_magnet_radius() -> float:
+	if upgrades["magnet"] <= 0:
+		return 0.0
+	return 50.0 + upgrades["magnet"] * 30.0
 
 func get_upgrade_cost(upgrade_name: String) -> int:
 	var base: int = UPGRADE_BASE_COSTS.get(upgrade_name, 100)

@@ -25,24 +25,24 @@
 
 ### Debug / Dev Tools
 - [x] **Level select screen** — debug level picker (press D on menu), reads from globalvar.LEVEL_SCENES
-- [ ] **FPS/physics overlay** — toggle with F3 for debugging
+- [x] **FPS/physics overlay** — toggle with F3 for debugging
 - [ ] **Free camera mode** — detach camera from rocket to inspect level layout
 
 ### Ship Upgrades (between levels)
 - [x] **Upgrade shop screen** — spend collected crypto between levels (UpgradeShop.gd/.tscn)
 - [x] **Thrust power** — upgrade rocket engine force (350 → 400 → 500...)
 - [x] **Fuel tank** — larger fuel capacity
-- [ ] **Shield** — absorb one hit from asteroid/martian/gamma ray before death
-- [ ] **Better rotation** — faster torque for tighter control
-- [ ] **Reverse thrust power** — separate upgrade from forward thrust
-- [ ] **Magnet** — auto-attract nearby crypto pickups
+- [x] **Shield** — absorb one hit from asteroid/martian/gamma ray before death
+- [x] **Better rotation** — faster torque for tighter control
+- [x] **Reverse thrust power** — separate upgrade from forward thrust
+- [x] **Magnet** — auto-attract nearby crypto pickups
 - [x] **Armor plating** — increase crash speed threshold (100 → 150 → 200)
 - [x] **Landing gear** — increase landing speed threshold (40 → 60 → 80) for easier landings
 
 ### Fuel System
 - [x] **Fuel bar HUD** — display remaining fuel on screen (FuelBar.gd)
 - [x] **Fuel consumption** — thrust drains fuel; no fuel = drift only
-- [ ] **Fuel pickups** — floating fuel canisters in levels
+- [x] **Fuel pickups** — floating fuel canisters in levels
 - [x] **Fuel efficiency upgrade** — reduce drain rate (in upgrade shop)
 
 ### Crypto Collectibles

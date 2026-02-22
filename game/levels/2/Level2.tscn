@@ -1,4 +1,4 @@
-[gd_scene load_steps=10 format=3]
+[gd_scene load_steps=12 format=3]
 
 [ext_resource type="PackedScene" path="res://game/ParallaxBackground.tscn" id="1"]
 [ext_resource type="PackedScene" path="res://game/TextsIngame.tscn" id="2"]
@@ -9,6 +9,8 @@
 [ext_resource type="PackedScene" path="res://game/martian/Martian.tscn" id="7"]
 [ext_resource type="AudioStream" path="res://art/audio/ancientbgm.ogg" id="8"]
 [ext_resource type="PackedScene" path="res://game/BackgroundStars.tscn" id="9"]
+[ext_resource type="PackedScene" path="res://game/crypto/CryptoSpawner.tscn" id="11"]
+[ext_resource type="PackedScene" path="res://game/fuel/FuelSpawner.tscn" id="12"]
 
 [node name="MarsSpace" type="Node2D"]
 script = ExtResource("5")
@@ -49,3 +51,14 @@ position = Vector2( 1016, -200 )
 [node name="AudioStreamPlayer" type="AudioStreamPlayer" parent="."]
 stream = ExtResource("8")
 autoplay = true
+
+[node name="CryptoSpawner" parent="." instance=ExtResource("11")]
+position = Vector2(650, 200)
+spawn_count = 4
+spawn_radius = 300.0
+
+[node name="FuelSpawner" parent="." instance=ExtResource("12")]
+position = Vector2(800, 250)
+spawn_count = 1
+spawn_radius = 200.0
+fuel_percent = 0.25

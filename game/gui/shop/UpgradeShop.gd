@@ -5,116 +5,255 @@ extends Control
 const BS = preload("res://game/gui/ButtonStyles.gd")
 
 var _upgrade_buttons := {}  # upgrade_name -> Button
+var _upgrade_pips := {}     # upgrade_name -> HBoxContainer of pip rects
 var _wallet_label: Label = null
 var _title_label: Label = null
 
+# Icons for each upgrade
+const UPGRADE_ICONS := {
+	"thrust": "▲",
+	"fuel_capacity": "⛽",
+	"fuel_efficiency": "⚡",
+	"armor": "🛡",
+	"landing_gear": "⬇",
+	"shield": "🟢",
+	"rotation": "🔄",
+	"reverse_thrust": "▼",
+	"magnet": "🧲",
+}
+
+# Accent colors for each upgrade
+const UPGRADE_COLORS := {
+	"thrust": Color(1.0, 0.5, 0.2),        # orange
+	"fuel_capacity": Color(0.2, 0.8, 0.4),   # green
+	"fuel_efficiency": Color(0.3, 0.7, 1.0),  # blue
+	"armor": Color(0.8, 0.3, 0.9),           # purple
+	"landing_gear": Color(1.0, 0.85, 0.2),   # gold
+	"shield": Color(0.2, 1.0, 0.6),          # teal
+	"rotation": Color(0.6, 0.6, 1.0),        # lavender
+	"reverse_thrust": Color(1.0, 0.35, 0.35), # red
+	"magnet": Color(0.9, 0.5, 1.0),          # pink
+}
+
 
 func _ready() -> void:
-	# Dark background
+	# Full-screen dark background with subtle gradient
 	var bg := ColorRect.new()
-	bg.color = Color(0.04, 0.04, 0.12, 1.0)
+	bg.color = Color(0.02, 0.02, 0.08, 1.0)
 	bg.set_anchors_preset(PRESET_FULL_RECT)
 	add_child(bg)
 
-	# Title
+	# Starfield accent line at top
+	var accent_line := ColorRect.new()
+	accent_line.color = Color(0.15, 0.3, 0.6, 0.6)
+	accent_line.position = Vector2(0, 0)
+	accent_line.size = Vector2(1024, 3)
+	add_child(accent_line)
+
+	# Title with glow effect
 	_title_label = Label.new()
-	_title_label.text = "UPGRADE SHOP"
-	_title_label.add_theme_font_size_override("font_size", 30)
-	_title_label.add_theme_color_override("font_color", Color(0.3, 0.8, 1.0))
+	_title_label.text = "⚙  UPGRADE SHOP  ⚙"
+	_title_label.add_theme_font_size_override("font_size", 28)
+	_title_label.add_theme_color_override("font_color", Color(0.3, 0.85, 1.0))
 	_title_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	_title_label.position = Vector2(312, 20)
-	_title_label.size = Vector2(400, 40)
+	_title_label.set_anchors_preset(PRESET_TOP_WIDE)
+	_title_label.offset_top = 12
+	_title_label.offset_bottom = 50
 	add_child(_title_label)
 
-	# Wallet display
+	# Wallet display — styled like a crypto balance
+	var wallet_panel := PanelContainer.new()
+	var wallet_style := StyleBoxFlat.new()
+	wallet_style.bg_color = Color(0.08, 0.06, 0.02, 0.9)
+	wallet_style.border_color = Color(1.0, 0.75, 0.1, 0.5)
+	wallet_style.set_border_width_all(1)
+	wallet_style.set_corner_radius_all(6)
+	wallet_style.content_margin_left = 20
+	wallet_style.content_margin_right = 20
+	wallet_style.content_margin_top = 4
+	wallet_style.content_margin_bottom = 4
+	wallet_panel.add_theme_stylebox_override("panel", wallet_style)
+	wallet_panel.position = Vector2(362, 50)
+	wallet_panel.size = Vector2(300, 30)
+	add_child(wallet_panel)
+
 	_wallet_label = Label.new()
-	_wallet_label.add_theme_font_size_override("font_size", 18)
+	_wallet_label.add_theme_font_size_override("font_size", 16)
 	_wallet_label.add_theme_color_override("font_color", Color(1.0, 0.85, 0.2))
 	_wallet_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	_wallet_label.position = Vector2(312, 62)
-	_wallet_label.size = Vector2(400, 30)
-	add_child(_wallet_label)
+	wallet_panel.add_child(_wallet_label)
 	_update_wallet_label()
 
-	# Upgrade buttons in a VBox
-	var vbox := VBoxContainer.new()
-	vbox.position = Vector2(200, 110)
-	vbox.size = Vector2(624, 400)
-	vbox.add_theme_constant_override("separation", 10)
-	add_child(vbox)
+	# Scrollable upgrade list
+	var scroll := ScrollContainer.new()
+	scroll.position = Vector2(80, 90)
+	scroll.size = Vector2(864, 420)
+	add_child(scroll)
 
+	var vbox := VBoxContainer.new()
+	vbox.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	vbox.add_theme_constant_override("separation", 6)
+	scroll.add_child(vbox)
+
+	# Upgrade cards
 	for upgrade_name in globalvar.upgrades.keys():
-		var btn := Button.new()
-		btn.custom_minimum_size = Vector2(624, 48)
-		btn.flat = true
-		_upgrade_buttons[upgrade_name] = btn
-		_update_button(upgrade_name)
-		var uname: String = upgrade_name  # capture for lambda
-		btn.pressed.connect(func(): _on_upgrade_pressed(uname))
-		vbox.add_child(btn)
+		var card := _create_upgrade_card(upgrade_name)
+		vbox.add_child(card)
+
+	# Spacer
+	var spacer := Control.new()
+	spacer.custom_minimum_size = Vector2(0, 10)
+	vbox.add_child(spacer)
 
 	# Continue button
 	var continue_btn := Button.new()
 	if globalvar.has_next_level():
-		continue_btn.text = "Continue to Level " + str(globalvar.nowlevel + 1)
+		var next_name: String = globalvar.LEVEL_NAMES.get(globalvar.nowlevel + 1, "")
+		continue_btn.text = "▶  Continue to Level " + str(globalvar.nowlevel + 1) + " — " + next_name
 	else:
-		continue_btn.text = "All levels cleared! Back to Menu"
-	continue_btn.custom_minimum_size = Vector2(624, 52)
-	continue_btn.flat = true
-	BS.apply_space_style(continue_btn, Color.GREEN)
+		continue_btn.text = "★  All Levels Cleared!  Return to Menu  ★"
+	continue_btn.custom_minimum_size = Vector2(864, 50)
+	BS.apply_space_style(continue_btn, Color(0.2, 1.0, 0.3))
 	continue_btn.pressed.connect(_on_continue)
 	vbox.add_child(continue_btn)
 
 	# Back to menu button
 	var menu_btn := Button.new()
 	menu_btn.text = "Back to Menu"
-	menu_btn.custom_minimum_size = Vector2(624, 48)
-	menu_btn.flat = true
-	BS.apply_space_style(menu_btn, Color.RED)
+	menu_btn.custom_minimum_size = Vector2(864, 42)
+	BS.apply_space_style(menu_btn, Color(0.8, 0.2, 0.2))
 	menu_btn.pressed.connect(func(): get_tree().change_scene_to_file("res://game/gui/menu/Menu.tscn"))
 	vbox.add_child(menu_btn)
 
 
-func _update_wallet_label() -> void:
-	_wallet_label.text = "Wallet: " + str(globalvar.wallet) + " WOW"
+func _create_upgrade_card(upgrade_name: String) -> PanelContainer:
+	var level: int = globalvar.upgrades[upgrade_name]
+	var max_level: int = globalvar.UPGRADE_MAX_LEVEL
+	var desc: String = globalvar.UPGRADE_DESCRIPTIONS.get(upgrade_name, upgrade_name)
+	var accent: Color = UPGRADE_COLORS.get(upgrade_name, Color.CYAN)
+	var icon_text: String = UPGRADE_ICONS.get(upgrade_name, "●")
+	var is_maxed := level >= max_level
+
+	# Card panel
+	var card := PanelContainer.new()
+	var card_style := StyleBoxFlat.new()
+	card_style.bg_color = Color(0.05, 0.05, 0.15, 0.85)
+	card_style.border_color = accent * 0.4 if not is_maxed else Color(0.25, 0.25, 0.25, 0.5)
+	card_style.set_border_width_all(1)
+	card_style.border_width_left = 3
+	card_style.set_corner_radius_all(6)
+	card_style.content_margin_left = 12
+	card_style.content_margin_right = 12
+	card_style.content_margin_top = 8
+	card_style.content_margin_bottom = 8
+	if not is_maxed:
+		card_style.shadow_color = Color(accent.r, accent.g, accent.b, 0.1)
+		card_style.shadow_size = 4
+	card.add_theme_stylebox_override("panel", card_style)
+	card.custom_minimum_size = Vector2(840, 56)
+
+	# HBox layout inside card
+	var hbox := HBoxContainer.new()
+	hbox.add_theme_constant_override("separation", 12)
+	card.add_child(hbox)
+
+	# Icon
+	var icon_label := Label.new()
+	icon_label.text = icon_text
+	icon_label.add_theme_font_size_override("font_size", 22)
+	icon_label.add_theme_color_override("font_color", accent if not is_maxed else Color(0.4, 0.4, 0.4))
+	icon_label.custom_minimum_size = Vector2(30, 0)
+	icon_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	icon_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	hbox.add_child(icon_label)
+
+	# Description + level
+	var info_vbox := VBoxContainer.new()
+	info_vbox.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	info_vbox.add_theme_constant_override("separation", 2)
+	hbox.add_child(info_vbox)
+
+	var name_label := Label.new()
+	name_label.text = desc
+	name_label.add_theme_font_size_override("font_size", 14)
+	name_label.add_theme_color_override("font_color", Color.WHITE if not is_maxed else Color(0.5, 0.5, 0.5))
+	info_vbox.add_child(name_label)
+
+	# Pip bar
+	var pip_hbox := HBoxContainer.new()
+	pip_hbox.add_theme_constant_override("separation", 4)
+	info_vbox.add_child(pip_hbox)
+	_upgrade_pips[upgrade_name] = pip_hbox
+	_rebuild_pips(upgrade_name)
+
+	# Buy button (right side)
+	var buy_btn := Button.new()
+	buy_btn.custom_minimum_size = Vector2(140, 38)
+	_upgrade_buttons[upgrade_name] = buy_btn
+	_style_buy_button(upgrade_name)
+	var uname: String = upgrade_name
+	buy_btn.pressed.connect(func(): _on_upgrade_pressed(uname))
+	hbox.add_child(buy_btn)
+
+	return card
 
 
-func _update_button(upgrade_name: String) -> void:
+func _rebuild_pips(upgrade_name: String) -> void:
+	var pip_hbox: HBoxContainer = _upgrade_pips[upgrade_name]
+	var level: int = globalvar.upgrades[upgrade_name]
+	var max_level: int = globalvar.UPGRADE_MAX_LEVEL
+	var accent: Color = UPGRADE_COLORS.get(upgrade_name, Color.CYAN)
+
+	# Clear old pips
+	for child in pip_hbox.get_children():
+		child.queue_free()
+
+	for i in range(max_level):
+		var pip := ColorRect.new()
+		pip.custom_minimum_size = Vector2(24, 6)
+		if i < level:
+			pip.color = accent
+		else:
+			pip.color = Color(0.15, 0.15, 0.25, 0.8)
+		pip_hbox.add_child(pip)
+
+
+func _style_buy_button(upgrade_name: String) -> void:
 	var btn: Button = _upgrade_buttons[upgrade_name]
 	var level: int = globalvar.upgrades[upgrade_name]
-	var desc: String = globalvar.UPGRADE_DESCRIPTIONS.get(upgrade_name, upgrade_name)
 	var max_level: int = globalvar.UPGRADE_MAX_LEVEL
+	var accent: Color = UPGRADE_COLORS.get(upgrade_name, Color.CYAN)
 
 	if level >= max_level:
-		btn.text = desc + "  [MAX]"
-		BS.apply_space_style(btn, Color(0.4, 0.4, 0.4))
+		btn.text = "✓ MAXED"
 		btn.disabled = true
+		BS.apply_space_style(btn, Color(0.3, 0.3, 0.3))
 	else:
 		var cost := globalvar.get_upgrade_cost(upgrade_name)
-		var level_pips := ""
-		for i in range(max_level):
-			level_pips += "[*]" if i < level else "[ ]"
-		btn.text = desc + "  " + level_pips + "  — " + str(cost) + " WOW"
+		btn.text = str(cost) + " WOW"
 		if globalvar.can_buy_upgrade(upgrade_name):
-			BS.apply_space_style(btn, Color.CYAN)
 			btn.disabled = false
+			BS.apply_space_style(btn, accent)
 		else:
-			BS.apply_space_style(btn, Color(0.3, 0.3, 0.5))
 			btn.disabled = true
+			BS.apply_space_style(btn, Color(0.25, 0.25, 0.35))
+
+
+func _update_wallet_label() -> void:
+	_wallet_label.text = "💰  " + str(globalvar.wallet) + " WOW"
 
 
 func _on_upgrade_pressed(upgrade_name: String) -> void:
 	if globalvar.buy_upgrade(upgrade_name):
 		_update_wallet_label()
-		# Refresh all buttons (buying one may affect affordability of others)
+		_rebuild_pips(upgrade_name)
 		for uname in _upgrade_buttons.keys():
-			_update_button(uname)
+			_style_buy_button(uname)
 
 
 func _on_continue() -> void:
 	var next_scene := globalvar.get_next_level_scene()
 	if next_scene.is_empty():
-		# All levels complete — go back to menu
 		get_tree().change_scene_to_file("res://game/gui/menu/Menu.tscn")
 	else:
 		get_tree().change_scene_to_file(next_scene)
