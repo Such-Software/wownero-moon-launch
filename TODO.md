@@ -132,14 +132,14 @@
 ## 🗺️ Phase 3: Content Expansion
 
 ### Existing Levels (polish)
-- [ ] **Level 1 (Moon)** — tutorial prompts overlay ("Press UP to thrust!"). First-time only, saved to prefs.
+- [x] **Level 1 (Moon)** — tutorial prompts overlay ("Press UP to thrust!"). First-time only, saved to prefs.
 - [ ] **Level 2 (Mars)** — rebalance Martians (see Phase 4), add crypto pickups as introduction
 - [ ] **Level 3 (Venus)** — gamma rays + crypto scattered in the danger zone
 - [ ] **Level 4 (Io)** — gamma rays + asteroids + crypto, the current "final" level
 
 ### New Levels (5–10)
-- [ ] **Level 5 — Jupiter** — 2x gravity, requires upgraded thrust. Introduce gravity slingshot mechanic.
-- [ ] **Level 6 — Saturn** — navigate through ring debris (pre-placed orbiting asteroid belt).
+- [x] **Level 5 — Jupiter** — 2x gravity (80.0), Moon as waypoint. 8 Martians (speed 35–50), gamma rays + asteroids. spacecadet_bgm.ogg.
+- [x] **Level 6 — Saturn** — gravity 50.0, Moon + Jupiter as waypoints. 10 Martians (speed 38–55), tighter hazard timing. infinitedescent_bgm.ogg.
 - [ ] **Level 7 — Neptune** — dark level, Light2D visibility radius around ship, rest is black.
 - [ ] **Level 8 — Pluto** — tiny target (20px), extreme precision. Minimal gravity. Random wind gusts.
 - [ ] **Level 9 — Asteroid mining** — land on a moving asteroid (no gravity area, match velocity).
@@ -168,7 +168,7 @@
 - [ ] **Starfield shader** — replace static background with animated procedural stars
 
 ### Audio
-- [ ] **Per-level BGM** — different tracks for different vibes (calm for Moon, tense for Io)
+- [x] **Per-level BGM** — Levels 1–4: ancientbgm.ogg, Level 5: spacecadet_bgm.ogg, Level 6: infinitedescent_bgm.ogg
 - [ ] **Crypto pickup sound** — satisfying coin/ding sound
 - [ ] **Landing countdown beeps** — audio feedback during 3s landing timer
 - [ ] **Martian chase music** — intensity increases when being pursued

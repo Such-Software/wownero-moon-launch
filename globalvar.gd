@@ -11,6 +11,7 @@ var nowlevel: int = 1
 var finaltime: float = 0.0
 var all_completed: bool = false
 var highest_level_completed: int = 0  # Tracks progress for level select
+var tutorial_shown: bool = false  # Level 1 tutorial prompts (first-time only)
 
 # --- Per-run tracking (reset each level start) ---
 var level_crypto_collected: int = 0   # WOW earned this run
@@ -152,14 +153,18 @@ const LEVEL_SCENES := {
 	2: "res://game/levels/2/Level2.tscn",
 	3: "res://game/levels/3/Level3.tscn",
 	4: "res://game/levels/4/Level4.tscn",
+	5: "res://game/levels/5/Level5.tscn",
+	6: "res://game/levels/6/Level6.tscn",
 }
-const MAX_LEVEL := 4  # Raise this as new levels are added
+const MAX_LEVEL := 6  # Raise this as new levels are added
 
 const LEVEL_NAMES := {
 	1: "Moon",
 	2: "Mars",
 	3: "Venus",
 	4: "Io",
+	5: "Jupiter",
+	6: "Saturn",
 }
 
 func get_level_scene(level: int) -> String:
@@ -180,6 +185,8 @@ const STAR_3_TIME := {
 	2: 30.0,  # Mars
 	3: 40.0,  # Venus
 	4: 50.0,  # Io
+	5: 60.0,  # Jupiter
+	6: 75.0,  # Saturn
 }
 
 func compute_stars(level: int, time_s: float, fuel_pct: float, _crypto: int) -> int:
@@ -264,6 +271,7 @@ func save_game() -> void:
 		"best_stars": best_stars.duplicate(),
 		"device_uuid": device_uuid,
 		"nickname": nickname,
+		"tutorial_shown": tutorial_shown,
 	}
 	var f := FileAccess.open("user://savegame.json", FileAccess.WRITE)
 	if f:
@@ -301,3 +309,4 @@ func load_game() -> void:
 		best_stars = saved_stars
 	device_uuid = str(data.get("device_uuid", ""))
 	nickname = str(data.get("nickname", ""))
+	tutorial_shown = bool(data.get("tutorial_shown", false))

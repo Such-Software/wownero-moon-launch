@@ -1,0 +1,116 @@
+[gd_scene load_steps=13 format=3]
+
+[ext_resource type="PackedScene" path="res://game/ParallaxBackground.tscn" id="1"]
+[ext_resource type="PackedScene" path="res://game/TextsIngame.tscn" id="2"]
+[ext_resource type="PackedScene" path="res://game/earth/Earth.tscn" id="3"]
+[ext_resource type="PackedScene" path="res://game/rocket/Rocket.tscn" id="4"]
+[ext_resource type="Script" path="res://game/levels/5/Level5.gd" id="5"]
+[ext_resource type="PackedScene" path="res://game/jupiter/Jupiter.tscn" id="6"]
+[ext_resource type="PackedScene" path="res://game/martian/Martian.tscn" id="7"]
+[ext_resource type="AudioStream" path="res://art/audio/spacecadet_bgm.ogg" id="8"]
+[ext_resource type="PackedScene" path="res://game/BackgroundStars.tscn" id="9"]
+[ext_resource type="PackedScene" path="res://game/crypto/CryptoSpawner.tscn" id="11"]
+[ext_resource type="PackedScene" path="res://game/fuel/FuelSpawner.tscn" id="12"]
+[ext_resource type="PackedScene" path="res://game/moon/Moon.tscn" id="13"]
+
+[node name="JupiterSpace" type="Node2D"]
+script = ExtResource("5")
+
+[node name="ParallaxBackground" parent="." instance=ExtResource("1")]
+
+[node name="BackgroundStars" parent="." instance=ExtResource("9")]
+
+[node name="CanvasLayer" parent="." instance=ExtResource("2")]
+
+[node name="Earth" parent="." instance=ExtResource("3")]
+position = Vector2(304, 391)
+
+[node name="Moon" parent="." instance=ExtResource("13")]
+position = Vector2(900, 80)
+
+[node name="Jupiter" parent="." instance=ExtResource("6")]
+position = Vector2(2200, -200)
+
+[node name="Rocket" parent="." instance=ExtResource("4")]
+position = Vector2(337, 298)
+rotation = 0.303687
+
+[node name="martians" type="Node2D" parent="."]
+
+[node name="Martian" parent="martians" instance=ExtResource("7")]
+position = Vector2(800, 150)
+speed = 35
+
+[node name="Martian2" parent="martians" instance=ExtResource("7")]
+position = Vector2(1100, -200)
+speed = 38
+
+[node name="Martian3" parent="martians" instance=ExtResource("7")]
+position = Vector2(1400, 300)
+speed = 40
+
+[node name="Martian4" parent="martians" instance=ExtResource("7")]
+position = Vector2(1600, -100)
+speed = 42
+
+[node name="Martian5" parent="martians" instance=ExtResource("7")]
+position = Vector2(1800, 200)
+speed = 44
+
+[node name="Martian6" parent="martians" instance=ExtResource("7")]
+position = Vector2(2000, -300)
+speed = 46
+
+[node name="Martian7" parent="martians" instance=ExtResource("7")]
+position = Vector2(2100, 100)
+speed = 48
+
+[node name="Martian8" parent="martians" instance=ExtResource("7")]
+position = Vector2(2300, -50)
+speed = 50
+
+[node name="RayTimer" type="Timer" parent="."]
+autostart = true
+
+[node name="AsteriodTimer" type="Timer" parent="."]
+autostart = true
+
+[node name="AudioStreamPlayer" type="AudioStreamPlayer" parent="."]
+stream = ExtResource("8")
+autoplay = true
+
+[node name="CryptoSpawner" parent="." instance=ExtResource("11")]
+position = Vector2(700, 100)
+spawn_count = 4
+spawn_radius = 250.0
+
+[node name="CryptoSpawner2" parent="." instance=ExtResource("11")]
+position = Vector2(1500, -100)
+spawn_count = 5
+spawn_radius = 300.0
+xmr_weight = 3.0
+btc_weight = 1.0
+
+[node name="CryptoSpawner3" parent="." instance=ExtResource("11")]
+position = Vector2(2100, -150)
+spawn_count = 3
+spawn_radius = 200.0
+xmr_weight = 5.0
+btc_weight = 3.0
+
+[node name="FuelSpawner" parent="." instance=ExtResource("12")]
+position = Vector2(900, 200)
+spawn_count = 1
+spawn_radius = 150.0
+fuel_percent = 0.2
+
+[node name="FuelSpawner2" parent="." instance=ExtResource("12")]
+position = Vector2(1800, -50)
+spawn_count = 1
+spawn_radius = 180.0
+fuel_percent = 0.25
+
+[connection signal="timeout" from="RayTimer" to="." method="_on_RayTimer_timeout"]
+[connection signal="timeout" from="AsteriodTimer" to="." method="_on_AsteriodTimer_timeout"]
+
+[editable path="Rocket"]
