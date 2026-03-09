@@ -35,21 +35,27 @@ rotation = 0.303687
 
 [node name="Martian" parent="martians" instance=ExtResource("7")]
 position = Vector2( 1665, 250 )
+speed = 40
 
 [node name="Martian2" parent="martians" instance=ExtResource("7")]
 position = Vector2( 1487, -383 )
+speed = 40
 
 [node name="Martian3" parent="martians" instance=ExtResource("7")]
 position = Vector2( 1894, -402 )
+speed = 42
 
 [node name="Martian4" parent="martians" instance=ExtResource("7")]
 position = Vector2( 2067, -3.00003 )
+speed = 42
 
 [node name="Martian5" parent="martians" instance=ExtResource("7")]
 position = Vector2( 1360, 3.99998 )
+speed = 45
 
 [node name="Martian6" parent="martians" instance=ExtResource("7")]
 position = Vector2( 1061, 310 )
+speed = 45
 
 [node name="RayTimer" type="Timer" parent="."]
 autostart = true

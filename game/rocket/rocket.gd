@@ -29,6 +29,17 @@ const LANDING_GRACE_TIME := 1.0  # seconds of no-contact before cancelling
 
 var target = null
 
+# Screen shake state
+var _shake_intensity: float = 0.0
+var _shake_decay: float = 5.0
+
+# Slow-motion landing state
+var _in_slowmo: bool = false
+
+# Proximity beep state
+var _beep_cooldown: float = 0.0
+const BEEP_RANGE := 250.0  # start beeping at this distance from target
+
 func _ready():
 	# Add to group so HUD widgets (FuelBar etc.) can find us
 	add_to_group("rocket")
@@ -102,6 +113,40 @@ func _integrate_forces(state):
 func _process(_delta):
 	if target:
 		$arrow.look_at(target.global_position)
+	# Screen shake decay
+	if _shake_intensity > 0.0:
+		_shake_intensity = maxf(_shake_intensity - _shake_decay * _delta, 0.0)
+		$Camera2D.offset = Vector2(
+			randf_range(-_shake_intensity, _shake_intensity),
+			randf_range(-_shake_intensity, _shake_intensity)
+		)
+		if _shake_intensity <= 0.0:
+			$Camera2D.offset = Vector2.ZERO
+	# Slow-motion & proximity beeps near landing target
+	if target and flagplaced == false:
+		var dist_to_target := global_position.distance_to(target.global_position)
+		# Slow-mo approach
+		var spd := linear_velocity.length()
+		if dist_to_target < 80.0 and spd < 80.0 and spd > 5.0:
+			if not _in_slowmo:
+				_in_slowmo = true
+				Engine.time_scale = 0.7
+		else:
+			if _in_slowmo:
+				_in_slowmo = false
+				Engine.time_scale = 1.0
+		# Proximity beeps — pitch increases as rocket approaches target
+		if dist_to_target < BEEP_RANGE:
+			_beep_cooldown -= _delta
+			var closeness := 1.0 - (dist_to_target / BEEP_RANGE)
+			var interval := lerpf(0.6, 0.1, closeness)
+			if _beep_cooldown <= 0.0:
+				$ProximityBeep.pitch_scale = lerpf(0.8, 2.0, closeness)
+				$ProximityBeep.volume_db = lerpf(-18.0, -3.0, closeness)
+				$ProximityBeep.play()
+				_beep_cooldown = interval
+		else:
+			_beep_cooldown = 0.0
 	# Magnet: attract nearby crypto pickups
 	if magnet_radius > 0.0:
 		_attract_crypto()
@@ -138,14 +183,30 @@ func _process(_delta):
 				_landing_grace = 0.0
 
 func death():
+	# Restore normal time if in slow-mo
+	if _in_slowmo:
+		_in_slowmo = false
+		Engine.time_scale = 1.0
+	# Screen shake
+	_shake_intensity = 12.0
 	if globalvar.sendDeath.is_connected(_on_external_death):
 		globalvar.sendDeath.disconnect(_on_external_death)
 	if moontimer.timeout.is_connected(flagplanted):
 		moontimer.timeout.disconnect(flagplanted)
+	# Sprite sheet explosion (legacy)
 	get_node("ExplosionSprite").show()
 	get_node("RocketSprite").hide()
 	get_node("ExplosionSprite").get_node("AnimationPlayer").play("explode")
+	# Particle explosion burst
+	$ExplosionParticles.restart()
+	$ExplosionParticles.emitting = true
+	# Layered explosion audio
 	$ExplosionSound.play()
+	$ExplosionCrunch.play()
+	$ExplosionBass.play()
+	# Stop proximity beeping
+	$ProximityBeep.stop()
+	# Skull
 	var skull: Sprite2D = get_node("SkullSprite")
 	skull.show()
 	_animate_skull(skull)
@@ -156,30 +217,44 @@ func death():
 func _animate_skull(skull: Sprite2D) -> void:
 	# The scene sets scale to (0.08,0.08) — that's our base size
 	const BASE := Vector2(0.08, 0.08)
-	# Dramatic entrance: scale up from 0 with slight overshoot
+	# Start from zero — dramatic slam-in
 	skull.scale = Vector2.ZERO
-	skull.modulate = Color(1, 0.2, 0.2, 0.0)
+	skull.modulate = Color(1, 1, 1, 0.0)
+	skull.rotation = -0.5  # start tilted
+	# Phase 1: slam in with overshoot + spin
 	var intro := create_tween()
 	intro.set_ease(Tween.EASE_OUT)
 	intro.set_trans(Tween.TRANS_BACK)
 	intro.set_parallel(true)
-	intro.tween_property(skull, "scale", BASE, 0.4)
-	intro.tween_property(skull, "modulate", Color(1, 0.3, 0.3, 1.0), 0.3)
-	# After intro, start looping glow pulse
-	intro.chain().tween_callback(_start_skull_pulse.bind(skull))
+	intro.tween_property(skull, "scale", BASE * 1.3, 0.25)  # overshoot big
+	intro.tween_property(skull, "modulate", Color(3, 3, 3, 1.0), 0.15)  # white flash
+	intro.tween_property(skull, "rotation", 0.15, 0.25)  # spin to slight tilt
+	# Phase 2: settle to base size + color
+	var settle := intro.chain()
+	settle.set_ease(Tween.EASE_IN_OUT)
+	settle.set_trans(Tween.TRANS_ELASTIC)
+	settle.set_parallel(true)
+	settle.tween_property(skull, "scale", BASE, 0.4)
+	settle.tween_property(skull, "modulate", Color(1.0, 0.3, 0.5, 1.0), 0.3)  # hot pink
+	settle.tween_property(skull, "rotation", 0.0, 0.3)
+	# Phase 3: looping menace pulse
+	settle.chain().tween_callback(_start_skull_pulse.bind(skull))
 
 
 func _start_skull_pulse(skull: Sprite2D) -> void:
-	# Looping pulse: subtle scale + red glow shift around the base 0.08
 	const BASE := Vector2(0.08, 0.08)
 	var pulse := create_tween()
 	pulse.set_loops(6)
 	pulse.set_ease(Tween.EASE_IN_OUT)
 	pulse.set_trans(Tween.TRANS_SINE)
-	pulse.tween_property(skull, "scale", BASE * 1.15, 0.35)
-	pulse.parallel().tween_property(skull, "modulate", Color(1.0, 0.15, 0.1, 1.0), 0.35)
-	pulse.tween_property(skull, "scale", BASE * 0.9, 0.35)
-	pulse.parallel().tween_property(skull, "modulate", Color(0.8, 0.25, 0.2, 0.7), 0.35)
+	# Grow + glow hot
+	pulse.tween_property(skull, "scale", BASE * 1.2, 0.3)
+	pulse.parallel().tween_property(skull, "modulate", Color(1.2, 0.1, 0.4, 1.0), 0.3)
+	pulse.parallel().tween_property(skull, "rotation", 0.08, 0.3)
+	# Shrink + dim + tilt other way
+	pulse.tween_property(skull, "scale", BASE * 0.85, 0.3)
+	pulse.parallel().tween_property(skull, "modulate", Color(0.7, 0.2, 0.6, 0.75), 0.3)
+	pulse.parallel().tween_property(skull, "rotation", -0.08, 0.3)
 
 func moonland():
 
@@ -190,6 +265,7 @@ func moonland():
 	moontimer.start()
 
 func flagplanted():
+	Engine.time_scale = 1.0
 	globalvar.finaltime = get_node("../CanvasLayer").get_node("TimeLabel").time
 	# Capture fuel remaining as a percentage
 	globalvar.level_fuel_remaining = (fuel / max_fuel) * 100.0
@@ -200,6 +276,7 @@ func flagplanted():
 	get_tree().change_scene_to_file("res://game/gui/victory/Victory.tscn")
 
 func switchtomenu():
+	Engine.time_scale = 1.0
 	get_tree().change_scene_to_file("res://game/gui/menu/Menu.tscn")
 
 

@@ -35,21 +35,19 @@ position = Vector2( 1760, -119 )
 
 [node name="Martian" parent="martians" instance=ExtResource("7")]
 position = Vector2( 1665, 250 )
+speed = 32
 
 [node name="Martian2" parent="martians" instance=ExtResource("7")]
 position = Vector2( 1310, -358 )
+speed = 32
 
 [node name="Martian3" parent="martians" instance=ExtResource("7")]
-position = Vector2( 1838, -548 )
+position = Vector2( 1360, 3.99998 )
+speed = 35
 
 [node name="Martian4" parent="martians" instance=ExtResource("7")]
-position = Vector2( 2222, -270 )
-
-[node name="Martian5" parent="martians" instance=ExtResource("7")]
-position = Vector2( 1360, 3.99998 )
-
-[node name="Martian6" parent="martians" instance=ExtResource("7")]
 position = Vector2( 1061, 310 )
+speed = 35
 
 [node name="Timer" type="Timer" parent="."]
 autostart = true

@@ -28,10 +28,6 @@ window/stretch/mode="canvas_items"
 window/stretch/aspect="expand"
 window/handheld/orientation=1
 
-[dotnet]
-
-project/assembly_name="Wownero Moon Launch"
-
 [input]
 
 thrust={

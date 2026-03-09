@@ -34,19 +34,12 @@ rotation = 0.303687
 [node name="martians" type="Node2D" parent="."]
 
 [node name="Martian" parent="martians" instance=ExtResource("7")]
-position = Vector2( 597, 436 )
+position = Vector2( 670, 80 )
+speed = 25
 
 [node name="Martian2" parent="martians" instance=ExtResource("7")]
-position = Vector2( 670, 80 )
-
-[node name="Martian3" parent="martians" instance=ExtResource("7")]
 position = Vector2( 900, 358 )
-
-[node name="Martian4" parent="martians" instance=ExtResource("7")]
-position = Vector2( 1286, 140 )
-
-[node name="Martian5" parent="martians" instance=ExtResource("7")]
-position = Vector2( 1016, -200 )
+speed = 25
 
 [node name="AudioStreamPlayer" type="AudioStreamPlayer" parent="."]
 stream = ExtResource("8")
