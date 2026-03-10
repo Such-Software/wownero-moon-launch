@@ -63,7 +63,7 @@ autostart = true
 [node name="AsteriodTimer" type="Timer" parent="."]
 autostart = true
 
-[node name="AudioStreamPlayer2D" type="AudioStreamPlayer2D" parent="."]
+[node name="AudioStreamPlayer" type="AudioStreamPlayer" parent="."]
 stream = ExtResource("8")
 autoplay = true
 
