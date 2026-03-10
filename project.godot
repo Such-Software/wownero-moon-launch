@@ -19,6 +19,7 @@ config/icon="res://icon.png"
 
 globalvar="*res://globalvar.gd"
 ScoreClient="*res://game/net/ScoreClient.gd"
+CloudSave="*res://game/net/CloudSave.gd"
 AdManager="*res://game/net/AdManager.gd"
 
 [display]

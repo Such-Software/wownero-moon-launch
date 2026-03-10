@@ -141,9 +141,7 @@ func _on_rank_completed(result: int, response_code: int, _headers: PackedStringA
 # ── HMAC helpers ──────────────────────────────────────────────────────
 
 func _get_hmac_secret() -> String:
-	# In production, set this via export feature tags or a config file.
-	# For now, return empty (server allows unsigned in dev mode).
-	return ""
+	return "100922e6655d098f3af9aeb75cca2bff84d25b4d99bdd7a52c23e22d7bfe0a8d"
 
 
 func _sign(secret_hex: String, timestamp: String, body: PackedByteArray) -> String:

@@ -10,7 +10,7 @@
 - [x] **Delete dead scripts** — removed `QuitButton.gd` + `.uid` and `helpbuttons.gd` + `.uid` from project root. Neither was referenced by any scene or script.
 - [x] **Create export presets** — added `export_presets.cfg` with Web, Android, iOS, Windows, macOS, Linux targets. Export paths set to `builds/<platform>/`. Android package: `org.wownero.moonlaunch`.
 - [ ] **Verify web build** — export HTML5, test in Chrome/Firefox/Safari: confirm save/load (IndexedDB), leaderboard API (HTTPRequest), touch input emulation all work
-- [ ] **Secure HMAC secret** — configure build-time secret for ScoreClient.gd before public launch (currently empty string)
+- [x] **Secure HMAC secret** — ScoreClient.gd `_get_hmac_secret()` returns production hex secret. All score submissions and cloud save uploads are HMAC-SHA256 signed with X-Timestamp + X-Signature headers. Server verifies within 5-minute window.
 - [x] **Save file migration** — audited `globalvar.load_game()` — already uses `.get(key, default)` for every field. New keys fall back to defaults safely.
 
 ---
@@ -72,6 +72,12 @@
 - [x] **Total crypto wallet** — persisted across sessions, shown in shop
 - [ ] **Achievements** — "First Landing", "Speed Demon" (under 10s), "Pacifist" (no deaths), "Crypto Whale" (1000 Moonrocks), etc.
 - [x] **Leaderboard** — backend API at api.such.software, per-level rankings, auto-submit on victory
+
+### Cloud Save
+- [x] **CloudSave autoload** — CloudSave.gd HTTP client for PUT/GET `/v1/moonlaunch/save`. HMAC-signed uploads (same secret as ScoreClient). Fire-and-forget upload on every save_game(). Download on demand via restore_from_cloud().
+- [x] **Backend cloud save endpoints** — PUT `/save` (HMAC-verified, JSONB upsert, 64KB limit) and GET `/save` (device_uuid lookup). moonlaunch_saves table with device_uuid PK, nickname, save_data JSONB, platform, timestamps.
+- [x] **Cloud restore logic** — globalvar.restore_from_cloud() downloads cloud save and overwrites local state only if cloud has more progress (higher level or wallet). Extracted _apply_save_data() shared by load_game() and cloud restore.
+- [ ] **Restore UI** — "Restore from Cloud" button on main menu or settings screen. Shows confirmation before overwriting local progress.
 
 ---
 

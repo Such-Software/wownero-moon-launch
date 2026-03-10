@@ -371,9 +371,10 @@ func _generate_uuid() -> String:
 	parts[8] = "%02x" % ((int("0x" + parts[8]) & 0x3F) | 0x80)
 	return "%s%s%s%s-%s%s-%s%s-%s%s-%s%s%s%s%s%s" % parts
 
-func save_game() -> void:
+func get_save_data() -> Dictionary:
+	## Returns the full save-state dictionary (used by local save and cloud save).
 	highest_level_completed = maxi(highest_level_completed, nowlevel)
-	var data := {
+	return {
 		"level": mini(nowlevel + 1, MAX_LEVEL),
 		"highest_completed": highest_level_completed,
 		"completed": nowlevel >= MAX_LEVEL or all_completed,
@@ -388,25 +389,36 @@ func save_game() -> void:
 		"selected_skin": selected_skin,
 		"owned_skins": owned_skins.duplicate(),
 	}
+
+func save_game() -> void:
+	var data := get_save_data()
 	var f := FileAccess.open("user://savegame.json", FileAccess.WRITE)
 	if f:
 		f.store_line(JSON.stringify(data))
 		f.close()
+	# Back up to cloud (fire-and-forget)
+	if is_inside_tree() and has_node("/root/CloudSave"):
+		CloudSave.upload_save()
 
-func load_game() -> void:
-	if not FileAccess.file_exists("user://savegame.json"):
+func restore_from_cloud() -> void:
+	## Download the cloud save and overwrite local state if the cloud copy is newer.
+	if has_node("/root/CloudSave"):
+		CloudSave.save_downloaded.connect(_on_cloud_save_downloaded, CONNECT_ONE_SHOT)
+		CloudSave.download_save()
+
+func _on_cloud_save_downloaded(success: bool, data: Dictionary) -> void:
+	if not success or data.is_empty():
 		return
-	var f := FileAccess.open("user://savegame.json", FileAccess.READ)
-	if not f:
-		return
-	var json := JSON.new()
-	var result := json.parse(f.get_as_text())
-	f.close()
-	if result != OK:
-		return
-	var data = json.get_data()
-	if not data is Dictionary:
-		return
+	# Only overwrite if cloud has more progress (higher wallet or more levels completed)
+	var cloud_highest := int(data.get("highest_completed", 0))
+	var cloud_wallet := int(data.get("wallet", 0))
+	if cloud_highest < highest_level_completed and cloud_wallet <= wallet:
+		return  # Local save is ahead — keep it
+	_apply_save_data(data)
+	save_game()
+
+func _apply_save_data(data: Dictionary) -> void:
+	## Apply a save-data dictionary to the current state (used by load_game and cloud restore).
 	nowlevel = int(data.get("level", 1))
 	highest_level_completed = int(data.get("highest_completed", 0))
 	all_completed = bool(data.get("completed", false))
@@ -422,8 +434,8 @@ func load_game() -> void:
 	var saved_stars = data.get("best_stars", {})
 	if saved_stars is Dictionary:
 		best_stars = saved_stars
-	device_uuid = str(data.get("device_uuid", ""))
-	nickname = str(data.get("nickname", ""))
+	device_uuid = str(data.get("device_uuid", device_uuid))
+	nickname = str(data.get("nickname", nickname))
 	tutorial_shown = bool(data.get("tutorial_shown", false))
 	difficulty = int(data.get("difficulty", Difficulty.NORMAL))
 	selected_skin = str(data.get("selected_skin", "default"))
@@ -432,3 +444,19 @@ func load_game() -> void:
 		owned_skins = saved_skins
 		if "default" not in owned_skins:
 			owned_skins.insert(0, "default")
+
+func load_game() -> void:
+	if not FileAccess.file_exists("user://savegame.json"):
+		return
+	var f := FileAccess.open("user://savegame.json", FileAccess.READ)
+	if not f:
+		return
+	var json := JSON.new()
+	var result := json.parse(f.get_as_text())
+	f.close()
+	if result != OK:
+		return
+	var data = json.get_data()
+	if not data is Dictionary:
+		return
+	_apply_save_data(data)
