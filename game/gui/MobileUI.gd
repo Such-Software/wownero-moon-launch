@@ -6,6 +6,7 @@ extends CanvasLayer
 
 const VirtualJoystickScript = preload("res://game/gui/VirtualJoystick.gd")
 const ThrustButtonScript = preload("res://game/gui/ThrustButton.gd")
+const FireButtonScript = preload("res://game/gui/FireButton.gd")
 const FuelBarScript = preload("res://game/gui/hud/FuelBar.gd")
 const WalletHUDScript = preload("res://game/gui/hud/WalletHUD.gd")
 const DebugOverlayScript = preload("res://game/gui/hud/DebugOverlay.gd")
@@ -15,6 +16,7 @@ var is_mobile: bool = false
 var _joystick: Control = null
 var _thrust_btn: Control = null
 var _reverse_btn: Control = null
+var _fire_btn: Control = null
 var _fuel_bar: Control = null
 var _wallet_hud: Control = null
 var _debug_overlay: Control = null
@@ -77,6 +79,14 @@ func _setup_mobile() -> void:
 	_reverse_btn.set("arrow_up", false)
 	add_child(_reverse_btn)
 	_reverse_btn.position = Vector2(920, 460)
+
+	# Fire button — only if cannon upgrade purchased (left side, above joystick)
+	if globalvar.upgrades.get("cannon", 0) > 0:
+		_fire_btn = Control.new()
+		_fire_btn.set_script(FireButtonScript)
+		_fire_btn.name = "FireBtn"
+		add_child(_fire_btn)
+		_fire_btn.position = Vector2(20, 340)
 
 
 func _setup_desktop() -> void:

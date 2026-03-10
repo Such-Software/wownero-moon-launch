@@ -72,6 +72,7 @@ var upgrades := {
 	"rotation": 0,      # +1000 torque per level for tighter control
 	"reverse_thrust": 0, # +40 reverse thrust force per level
 	"magnet": 0,        # auto-attract crypto within 50+30*level px
+	"cannon": 0,        # forward cannon weapon (level 0 = none, 1-5 = faster fire rate)
 }
 
 # --- Upgrade costs (WOW) — cost increases per level ---
@@ -85,6 +86,7 @@ const UPGRADE_BASE_COSTS := {
 	"rotation": 35,
 	"reverse_thrust": 55,
 	"magnet": 70,
+	"cannon": 150,
 }
 const UPGRADE_MAX_LEVEL := 5
 
@@ -99,6 +101,7 @@ const UPGRADE_DESCRIPTIONS := {
 	"rotation": "Gyroscope — faster rotation control",
 	"reverse_thrust": "Retro Rockets — stronger reverse thrust",
 	"magnet": "Crypto Magnet — attract nearby pickups",
+	"cannon": "Forward Cannon — shoot enemies (hold to fire)",
 }
 
 # --- Derived stats (computed from upgrades) ---

@@ -122,6 +122,7 @@
 - [x] **Slow-motion landing** — within 80px of target at speed < 80 → Engine.time_scale = 0.7. Reverts on death/land/menu. Added to rocket.gd.
 - [x] **Crypto pickup VFX** — sparkle burst of 8-12 colored dots radiating outward on collection, type-colored with white accents, tween fade+shrink.
 - [x] **UI animations** — Victory screen: score count-up (time rolls 0→final with ease-out, fuel/crypto fade in staggered, stars pop in one-by-one with elastic tween, NEW BEST slam-in). Victory buttons slide in from below with stagger. DeathScreen buttons stagger slide-in from right.
+- [x] **Haptic feedback** — `Input.vibrate_handheld()` on death (200ms), landing (100ms), crypto pickup (30ms), cannon fire (20ms), wormhole teleport (80ms), black hole death (300ms). Zero-cost, mobile-only.
 
 ---
 
@@ -146,40 +147,40 @@
 - [ ] **Boss Level — Martian Mothership** — large ship spawning smaller Martians. Must dodge and land on its pad.
 
 ### Level Features
-- [ ] **Wormholes/portals** — teleport between two points on the map
+- [x] **Wormholes/portals** — Wormhole.gd/tscn drop-in component. Paired Area2D portals teleport rocket between points. Swirling animated ring visual, cooldown prevents re-teleport, haptic pulse on use.
 - [ ] **Gravity slingshot** — use a planet's gravity to accelerate toward distant targets
 - [ ] **Moving asteroids as obstacles** — pre-placed orbiting bodies
-- [ ] **Solar wind** — constant directional force pushing the ship
-- [ ] **Nebula zones** — areas that slow the ship or drain fuel
-- [ ] **Black hole** — instant death if too close, extreme gravity pull
+- [x] **Solar wind** — SolarWind.gd/tscn drop-in zone. Applies constant directional force (configurable direction + strength). Animated wind streak lines show force direction.
+- [x] **Nebula zones** — Nebula.gd/tscn drop-in zone. Drains rocket fuel while inside, applies gentle speed damping. Soft pulsing gas blob visual.
+- [x] **Black hole** — BlackHole.gd/tscn drop-in hazard. Extreme gravity pull (inverse-distance), instant death at event horizon. Animated accretion disk rings + dark center.
 
 
 ### 🎨 Visual & Audio
 
 ### Visual Polish
-- [ ] **Planet atmospheres** — glow shader around planets
+- [x] **Planet atmospheres** — colored atmosphere glow rings on all 9 planets. Each planet has unique color (Earth=blue, Mars=rusty red, Venus=yellow-orange, Jupiter=amber, Saturn=gold, Neptune=icy blue, Pluto=pale frost, Moon=silver, Io=sulfur yellow). Auto-detects body collision radius.
 - [ ] **Parallax depth** — more background layers for depth perception
-- [ ] **Landing animation** — ship settles, legs extend, dust particles
+- [x] **Landing animation** — dust particle burst on successful landing (24 particles, warm tan, radial burst from feet). GPUParticles2D spawned programmatically in flagplanted().
 - [ ] **Ship skins** — unlockable via crypto, purely cosmetic
 - [ ] **Starfield shader** — replace static background with animated procedural stars
 
 ### Audio
 - [x] **Per-level BGM** — Levels 1–4: ancientbgm.ogg, Level 5: spacecadet_bgm.ogg, Level 6: infinitedescent_bgm.ogg
 - [ ] **More BGM tracks** — source/compose additional looping tracks for Levels 7–10 (currently reusing existing 3 tracks)
-- [ ] **Crypto pickup sound** — satisfying coin/ding sound
-- [ ] **Landing countdown beeps** — audio feedback during 3s landing timer
+- [x] **Crypto pickup sound** — procedural coin ding using proximity_beep.ogg pitched up. Pitch varies by crypto type: WOW=high ding, DOGE=mid, XMR=lower, BTC=deep rich tone. Light haptic on pickup.
+- [x] **Landing countdown beeps** — accelerating beep ticks during 3s landing timer. Pitch scales 1.2→2.5 and volume -12→-2 dB as countdown progresses. Interval shrinks 0.5s→0.12s.
 - [ ] **Martian chase music** — intensity increases when being pursued
 - [ ] **Victory fanfare** — upgrade from current single WAV
 
 
 ### 🔫 Combat 
 
-- [ ] **Forward cannon** — shoot asteroids and martians (upgrade, costs 500 WOW)
+- [x] **Forward cannon** — Bullet.gd/tscn projectile + cannon system in rocket.gd. Auto-aim finds nearest CharacterBody2D enemy within 300px/70° cone. Hold-to-fire with cooldown. Mobile: FireButton.gd (red crosshair circle) above joystick, only shown when cannon purchased. Desktop: spacebar. Haptic on fire.
 - [ ] **Missile launcher** — homing missiles, limited ammo (buyable with crypto)
 - [ ] **Laser beam** — continuous beam weapon, drains fuel to fire
 - [ ] **Mine layer** — drop mines behind you to stop pursuing martians
 - [ ] **EMP pulse** — disable all martians in radius for 5 seconds
-- [ ] **Weapons as upgrades** — buy in the shop between levels
+- [x] **Weapons as upgrades** — cannon upgrade in globalvar (10th upgrade, base cost 150 WOW, 5 levels). Faster fire rate per level (0.4s→0.15s). UpgradeShop shows cannon with 🔫 icon and fiery orange accent.
 
 
 ### 🌐 3D / First Person 

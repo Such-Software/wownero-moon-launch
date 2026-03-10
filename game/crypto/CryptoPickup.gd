@@ -138,6 +138,9 @@ func _on_body_entered(body: Node2D) -> void:
 	globalvar.add_crypto(value)
 	_spawn_popup(value)
 	_spawn_sparkles()
+	_play_coin_sound(value)
+	# Light haptic on pickup
+	Input.vibrate_handheld(30)
 	queue_free()
 
 
@@ -185,3 +188,21 @@ func _spawn_sparkles() -> void:
 		tw.tween_property(dot, "modulate:a", 0.0, duration)
 		tw.tween_property(dot, "scale", Vector2(0.3, 0.3), duration)
 		tw.chain().tween_callback(dot.queue_free)
+
+
+func _play_coin_sound(value: int) -> void:
+	## Procedural coin ding — uses proximity_beep pitched up for a satisfying chime.
+	## Higher-value pickups get a lower, richer tone.
+	var player := AudioStreamPlayer.new()
+	player.stream = load("res://art/audio/proximity_beep.ogg")
+	# Pitch: WOW=high ding, DOGE=mid, XMR=lower, BTC=deep rich tone
+	match crypto_type:
+		"WOW": player.pitch_scale = randf_range(2.8, 3.2)
+		"DOGE": player.pitch_scale = randf_range(2.2, 2.6)
+		"XMR": player.pitch_scale = randf_range(1.8, 2.0)
+		"BTC": player.pitch_scale = randf_range(1.4, 1.6)
+		_: player.pitch_scale = 2.5
+	player.volume_db = -6.0
+	get_parent().add_child(player)
+	player.play()
+	player.finished.connect(player.queue_free)

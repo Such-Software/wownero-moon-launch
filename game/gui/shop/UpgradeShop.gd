@@ -21,6 +21,7 @@ const UPGRADE_ICONS := {
 	"rotation": "🔄",
 	"reverse_thrust": "▼",
 	"magnet": "🧲",
+	"cannon": "🔫",
 }
 
 # Accent colors for each upgrade
@@ -34,6 +35,7 @@ const UPGRADE_COLORS := {
 	"rotation": Color(0.6, 0.6, 1.0),        # lavender
 	"reverse_thrust": Color(1.0, 0.35, 0.35), # red
 	"magnet": Color(0.9, 0.5, 1.0),          # pink
+	"cannon": Color(1.0, 0.6, 0.15),          # fiery orange
 }
 
 

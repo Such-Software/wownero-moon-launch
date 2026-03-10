@@ -6,6 +6,8 @@ var orbit_radius: float = 0.0
 var orbit_speed: float = 0.005  # very slow — Saturn is far out
 var orbit_angle: float = 0.0
 var _gravity_radius: float = 0.0
+var _body_radius: float = 0.0
+const ATMO_COLOR := Color(0.95, 0.8, 0.4)  # golden atmosphere
 
 
 func _ready() -> void:
@@ -17,6 +19,7 @@ func _ready() -> void:
 	orbit_radius = position.distance_to(orbit_center)
 	orbit_angle = (position - orbit_center).angle()
 	_gravity_radius = _find_gravity_radius()
+	_body_radius = _find_body_radius()
 
 
 func _physics_process(delta: float) -> void:
@@ -26,6 +29,11 @@ func _physics_process(delta: float) -> void:
 
 
 func _draw() -> void:
+	if _body_radius > 0.0:
+		for i in range(5):
+			var r := _body_radius + 3.0 + float(i) * 5.0
+			var a := lerpf(0.10, 0.02, float(i) / 4.0)
+			draw_arc(Vector2.ZERO, r, 0, TAU, 64, Color(ATMO_COLOR.r, ATMO_COLOR.g, ATMO_COLOR.b, a), 2.0)
 	if _gravity_radius > 0.0:
 		draw_arc(Vector2.ZERO, _gravity_radius, 0, TAU, 64, Color(0.3, 0.5, 1.0, 0.12), 1.5)
 
@@ -36,4 +44,11 @@ func _find_gravity_radius() -> float:
 			for shape_node in child.get_children():
 				if shape_node is CollisionShape2D and shape_node.shape is CircleShape2D:
 					return shape_node.shape.radius
+	return 0.0
+
+
+func _find_body_radius() -> float:
+	for child in get_children():
+		if child is CollisionShape2D and child.shape is CircleShape2D:
+			return child.shape.radius
 	return 0.0

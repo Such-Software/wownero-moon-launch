@@ -44,6 +44,19 @@ const BEEP_RANGE := 250.0  # start beeping at this distance from target
 var _visited_waypoints: Dictionary = {}  # node instance_id -> true
 var _waypoint_bodies: Array = []  # bodies in "targets" group that aren't the final target
 
+# Landing countdown beep state
+var _landing_beep_elapsed: float = 0.0
+var _landing_beep_count: int = 0
+
+# Cannon weapon state
+var _has_cannon: bool = false
+var _cannon_cooldown: float = 0.0
+var _cannon_fire_rate: float = 0.4  # seconds between shots (overridden by upgrade level)
+var _cannon_damage: int = 1
+const BULLET_SCENE = preload("res://game/rocket/Bullet.tscn")
+const AUTO_AIM_RANGE := 300.0  # auto-aim search radius
+const AUTO_AIM_CONE := 1.2  # radians (~70 degrees each side of forward)
+
 func _ready():
 	# Add to group so HUD widgets (FuelBar etc.) can find us
 	add_to_group("rocket")
@@ -62,6 +75,12 @@ func _ready():
 	torque = int(globalvar.get_torque())
 	shield_hits = globalvar.get_shield_hits()
 	magnet_radius = globalvar.get_magnet_radius()
+	# Cannon upgrade
+	var cannon_level: int = globalvar.upgrades.get("cannon", 0)
+	if cannon_level > 0:
+		_has_cannon = true
+		_cannon_fire_rate = maxf(0.4 - cannon_level * 0.06, 0.15)
+		_cannon_damage = cannon_level
 	# Turn on processes and monitors
 	set_process(true)
 	contact_monitor = true
@@ -168,6 +187,12 @@ func _process(_delta):
 	# Waypoint checkpoint: save when entering a waypoint's gravity well
 	if _waypoint_bodies.size() > 0 and not flagplaced:
 		_check_waypoints()
+	# Cannon firing
+	if _has_cannon:
+		_cannon_cooldown = maxf(_cannon_cooldown - _delta, 0.0)
+		if Input.is_action_pressed("fire") and _cannon_cooldown <= 0.0:
+			_fire_cannon()
+			_cannon_cooldown = _cannon_fire_rate
 	shipoverlaps = get_node("ShipArea").get_overlapping_bodies()
 	footoverlaps = get_node("FootArea").get_overlapping_bodies()
 	if (shipoverlaps.size() > 0):
@@ -185,6 +210,16 @@ func _process(_delta):
 	# Cancel landing timer only after a grace period of no foot contact
 	# (orbiting planets briefly lose contact each frame)
 	if !moontimer.is_stopped():
+		# Landing countdown beeps — accelerating ticks during 3s landing timer
+		_landing_beep_elapsed += _delta
+		var progress := 1.0 - (moontimer.time_left / moontimerdefault)
+		var interval := lerpf(0.5, 0.12, progress)
+		var next_beep_time := _landing_beep_count * interval
+		if _landing_beep_elapsed >= next_beep_time or _landing_beep_count == 0:
+			$ProximityBeep.pitch_scale = lerpf(1.2, 2.5, progress)
+			$ProximityBeep.volume_db = lerpf(-12.0, -2.0, progress)
+			$ProximityBeep.play()
+			_landing_beep_count += 1
 		var foot_on_target := false
 		for i in footoverlaps:
 			if i.is_in_group("targets"):
@@ -205,6 +240,8 @@ func death():
 	if _in_slowmo:
 		_in_slowmo = false
 		Engine.time_scale = 1.0
+	# Haptic feedback on death
+	Input.vibrate_handheld(200)
 	# Screen shake
 	_shake_intensity = 12.0
 	if globalvar.sendDeath.is_connected(_on_external_death):
@@ -275,11 +312,9 @@ func _start_skull_pulse(skull: Sprite2D) -> void:
 	pulse.parallel().tween_property(skull, "rotation", -0.08, 0.3)
 
 func moonland():
-
-	#set_process(false)
 	landattemptnow = true
-#	moontimer.set_active(true)
-	#get_tree().get_root().set_disable_input(true)
+	_landing_beep_elapsed = 0.0
+	_landing_beep_count = 0
 	moontimer.start()
 
 func flagplanted():
@@ -288,8 +323,10 @@ func flagplanted():
 	# Capture fuel remaining as a percentage
 	globalvar.level_fuel_remaining = (fuel / max_fuel) * 100.0
 	flagplaced = true
-
-	#get_tree().get_root().set_disable_input(false)
+	# Landing dust burst
+	_spawn_landing_dust()
+	# Haptic feedback on successful landing
+	Input.vibrate_handheld(100)
 	$CosmonautSprite.show()
 	get_tree().change_scene_to_file("res://game/gui/victory/Victory.tscn")
 
@@ -376,3 +413,94 @@ func _apply_checkpoint() -> void:
 			_visited_waypoints[body.get_instance_id()] = true
 			if body.name == globalvar.checkpoint_planet_name:
 				break
+
+
+func _spawn_landing_dust() -> void:
+	## Burst of dust particles from the rocket's feet on successful landing.
+	var dust := GPUParticles2D.new()
+	dust.emitting = true
+	dust.one_shot = true
+	dust.amount = 24
+	dust.lifetime = 0.6
+	dust.explosiveness = 0.9
+	dust.local_coords = false
+	dust.position = Vector2(0, 20)  # below feet
+	var mat := ParticleProcessMaterial.new()
+	mat.emission_shape = ParticleProcessMaterial.EMISSION_SHAPE_SPHERE
+	mat.emission_sphere_radius = 8.0
+	mat.particle_flag_disable_z = true
+	mat.direction = Vector3(0, 0, 0)
+	mat.spread = 180.0
+	mat.initial_velocity_min = 40.0
+	mat.initial_velocity_max = 80.0
+	mat.gravity = Vector3(0, 30, 0)
+	mat.damping_min = 20.0
+	mat.damping_max = 40.0
+	mat.scale_min = 1.0
+	mat.scale_max = 3.0
+	# Dust color: warm tan fading to transparent
+	var grad := Gradient.new()
+	grad.offsets = PackedFloat32Array([0.0, 0.5, 1.0])
+	grad.colors = PackedColorArray([
+		Color(0.85, 0.75, 0.55, 0.8),
+		Color(0.7, 0.6, 0.4, 0.5),
+		Color(0.5, 0.4, 0.3, 0.0),
+	])
+	var grad_tex := GradientTexture1D.new()
+	grad_tex.gradient = grad
+	mat.color_ramp = grad_tex
+	dust.process_material = mat
+	# Use the glow circle texture for soft dust blobs
+	var tex = load("res://art/effects/glowingCircle.png")
+	if tex:
+		dust.texture = tex
+	add_child(dust)
+	# Auto-cleanup after particles finish
+	get_tree().create_timer(1.5).timeout.connect(func():
+		if is_instance_valid(dust):
+			dust.queue_free()
+	)
+
+
+func _fire_cannon() -> void:
+	## Spawn a bullet from the rocket's nose. Auto-aims at nearest enemy on mobile.
+	var forward_dir := -Vector2.from_angle(rotation - PI / 2.0)
+	# Auto-aim: find closest enemy in front of the ship
+	var aim_target := _find_auto_aim_target()
+	var fire_dir: Vector2
+	if aim_target:
+		fire_dir = (aim_target.global_position - global_position).normalized()
+	else:
+		fire_dir = forward_dir
+	var bullet: Area2D = BULLET_SCENE.instantiate()
+	get_parent().add_child(bullet)
+	bullet.setup(global_position + fire_dir * 25.0, fire_dir)
+	# Light haptic on fire
+	Input.vibrate_handheld(20)
+
+
+func _find_auto_aim_target() -> Node2D:
+	## Find the nearest enemy within auto-aim cone in front of the ship.
+	var forward_dir := -Vector2.from_angle(rotation - PI / 2.0)
+	var best_node: Node2D = null
+	var best_dist := AUTO_AIM_RANGE
+	# Search CharacterBody2D children of the level (martians + asteroids)
+	for node in get_parent().get_children():
+		if node == self:
+			continue
+		if not (node is CharacterBody2D):
+			continue
+		if not is_instance_valid(node):
+			continue
+		var to_enemy: Vector2 = node.global_position - global_position
+		var dist := to_enemy.length()
+		if dist > AUTO_AIM_RANGE or dist < 10.0:
+			continue
+		# Check if within aiming cone
+		var angle_diff := absf(forward_dir.angle_to(to_enemy.normalized()))
+		if angle_diff > AUTO_AIM_CONE:
+			continue
+		if dist < best_dist:
+			best_dist = dist
+			best_node = node
+	return best_node
