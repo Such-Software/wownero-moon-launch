@@ -122,7 +122,7 @@ func labelanim():
 
 	# Crypto label (next to fuel)
 	_crypto_label = Label.new()
-	_crypto_label.text = "Crypto: +0 WOW"
+	_crypto_label.text = "Crypto: +0 🪨"
 	_crypto_label.add_theme_color_override("font_color", Color(1.0, 0.85, 0.2))
 	_crypto_label.add_theme_font_size_override("font_size", 16)
 	_crypto_label.position = base_pos + Vector2(200 / base_scale.x, 22) * base_scale
@@ -335,7 +335,7 @@ func _process(delta):
 		if t > 0.5:
 			var crypto_t := clampf((t - 0.5) / 0.4, 0.0, 1.0)
 			_crypto_label.modulate = Color(1, 1, 1, crypto_t)
-			_crypto_label.text = "Crypto: +%d WOW" % roundi(lerpf(0.0, float(_crypto_collected), crypto_t))
+			_crypto_label.text = "Crypto: +%d 🪨" % roundi(lerpf(0.0, float(_crypto_collected), crypto_t))
 
 		# Stars pop in after count-up finishes
 		if t >= 1.0:

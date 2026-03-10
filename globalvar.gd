@@ -47,8 +47,49 @@ func get_starting_fuel_mult() -> float:
 		Difficulty.HARD: return 0.9
 		_: return 1.0
 
+# --- Ship skins ---
+const SKIN_CATALOG := {
+	"default": { "path": "res://art/ship/rocket.png", "price": 0, "label": "Default" },
+	"retro": { "path": "res://art/ship/skins/retro.png", "price": 200, "label": "Retro" },
+	"stealth": { "path": "res://art/ship/skins/stealth.png", "price": 300, "label": "Stealth" },
+	"gold": { "path": "res://art/ship/skins/gold.png", "price": 500, "label": "Gold" },
+	"alien": { "path": "res://art/ship/skins/alien.png", "price": 400, "label": "Alien" },
+	"wownero": { "path": "res://art/ship/skins/wownero.png", "price": 350, "label": "Wownero" },
+	"monero": { "path": "res://art/ship/skins/monero.png", "price": 350, "label": "Monero" },
+	"bitcoin": { "path": "res://art/ship/skins/bitcoin.png", "price": 350, "label": "Bitcoin" },
+	"litecoin": { "path": "res://art/ship/skins/litecoin.png", "price": 350, "label": "Litecoin" },
+}
+
+var selected_skin: String = "default"
+var owned_skins: Array = ["default"]
+
+func get_skin_texture_path() -> String:
+	var entry: Dictionary = SKIN_CATALOG.get(selected_skin, SKIN_CATALOG["default"])
+	return entry["path"]
+
+func can_buy_skin(skin_id: String) -> bool:
+	if skin_id in owned_skins:
+		return false
+	var entry: Dictionary = SKIN_CATALOG.get(skin_id, {})
+	return not entry.is_empty() and wallet >= entry["price"]
+
+func buy_skin(skin_id: String) -> bool:
+	if not can_buy_skin(skin_id):
+		return false
+	wallet -= SKIN_CATALOG[skin_id]["price"]
+	owned_skins.append(skin_id)
+	selected_skin = skin_id
+	wallet_changed.emit(wallet)
+	save_game()
+	return true
+
+func select_skin(skin_id: String) -> void:
+	if skin_id in owned_skins:
+		selected_skin = skin_id
+		save_game()
+
 # --- Per-run tracking (reset each level start) ---
-var level_crypto_collected: int = 0   # WOW earned this run
+var level_crypto_collected: int = 0   # Moonrocks earned this run
 var level_fuel_remaining: float = 0.0 # percentage at landing
 
 # --- Waypoint checkpoint (transient, not persisted) ---
@@ -92,7 +133,7 @@ func generate_random_nickname() -> String:
 	return prefix + suffix
 
 # --- Wallet (persisted) ---
-var wallet: int = 0  # WOW balance (all crypto converted to WOW on pickup)
+var wallet: int = 0  # Moonrocks balance (all crypto converted to Moonrocks on pickup)
 
 # --- Upgrades (persisted) ---
 # Each upgrade is an int level (0 = base). Higher = better.
@@ -109,7 +150,7 @@ var upgrades := {
 	"cannon": 0,        # forward cannon weapon (level 0 = none, 1-5 = faster fire rate)
 }
 
-# --- Upgrade costs (WOW) — cost increases per level ---
+# --- Upgrade costs (Moonrocks) — cost increases per level ---
 const UPGRADE_BASE_COSTS := {
 	"thrust": 50,
 	"fuel_capacity": 40,
@@ -344,6 +385,8 @@ func save_game() -> void:
 		"nickname": nickname,
 		"tutorial_shown": tutorial_shown,
 		"difficulty": difficulty,
+		"selected_skin": selected_skin,
+		"owned_skins": owned_skins.duplicate(),
 	}
 	var f := FileAccess.open("user://savegame.json", FileAccess.WRITE)
 	if f:
@@ -383,3 +426,9 @@ func load_game() -> void:
 	nickname = str(data.get("nickname", ""))
 	tutorial_shown = bool(data.get("tutorial_shown", false))
 	difficulty = int(data.get("difficulty", Difficulty.NORMAL))
+	selected_skin = str(data.get("selected_skin", "default"))
+	var saved_skins = data.get("owned_skins", ["default"])
+	if saved_skins is Array:
+		owned_skins = saved_skins
+		if "default" not in owned_skins:
+			owned_skins.insert(0, "default")

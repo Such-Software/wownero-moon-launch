@@ -46,7 +46,7 @@ func _draw() -> void:
 		lines.append("Vel: %.0f px/s" % vel.length())
 		lines.append("Fuel: %.0f / %.0f" % [_rocket.fuel, _rocket.max_fuel])
 	
-	lines.append("Wallet: " + str(globalvar.wallet) + " WOW")
+	lines.append("Wallet: " + str(globalvar.wallet) + " 🪨")
 	lines.append("Level: " + str(globalvar.nowlevel))
 
 	# Draw background

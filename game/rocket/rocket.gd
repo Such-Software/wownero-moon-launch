@@ -89,6 +89,10 @@ func _ready():
 	get_node("SkullSprite").hide()
 	get_node("ExplosionSprite").hide()
 	get_node("CosmonautSprite").hide()
+	# Apply selected skin
+	var skin_tex := load(globalvar.get_skin_texture_path())
+	if skin_tex:
+		$RocketSprite.texture = skin_tex
 	# Initialize timers
 	deathtimer = Timer.new()
 	deathtimer.set_wait_time(3)

@@ -9,6 +9,7 @@ var _upgrade_pips := {}     # upgrade_name -> HBoxContainer of pip rects
 var _wallet_label: Label = null
 var _title_label: Label = null
 var _ad_button: Button = null
+var _skin_buttons := {}  # skin_id -> Button
 
 # Icons for each upgrade
 const UPGRADE_ICONS := {
@@ -90,7 +91,7 @@ func _ready() -> void:
 	# Rewarded ad button (only if ads supported and not ad-free)
 	if AdManager.is_ad_supported() and not AdManager.is_ad_free():
 		_ad_button = Button.new()
-		_ad_button.text = "🎬  Watch Ad for %d WOW" % AdManager.REWARDED_AD_WOW
+		_ad_button.text = "🎬  Watch Ad for %d 🪨" % AdManager.REWARDED_AD_MOONROCKS
 		_ad_button.custom_minimum_size = Vector2(280, 34)
 		BS.apply_space_style(_ad_button, Color(1.0, 0.85, 0.1))
 		_ad_button.pressed.connect(_on_watch_ad)
@@ -117,6 +118,27 @@ func _ready() -> void:
 	for upgrade_name in globalvar.upgrades.keys():
 		var card := _create_upgrade_card(upgrade_name)
 		vbox.add_child(card)
+
+	# --- Skin gallery section ---
+	var skin_header := Label.new()
+	skin_header.text = "🚀  SHIP SKINS"
+	skin_header.add_theme_font_size_override("font_size", 18)
+	skin_header.add_theme_color_override("font_color", Color(0.9, 0.6, 1.0))
+	skin_header.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	vbox.add_child(skin_header)
+
+	var skin_scroll := ScrollContainer.new()
+	skin_scroll.custom_minimum_size = Vector2(840, 120)
+	skin_scroll.vertical_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	vbox.add_child(skin_scroll)
+
+	var skin_hbox := HBoxContainer.new()
+	skin_hbox.add_theme_constant_override("separation", 10)
+	skin_scroll.add_child(skin_hbox)
+
+	for skin_id in globalvar.SKIN_CATALOG.keys():
+		var skin_card := _create_skin_card(skin_id)
+		skin_hbox.add_child(skin_card)
 
 	# Spacer
 	var spacer := Control.new()
@@ -153,19 +175,21 @@ func _on_watch_ad() -> void:
 
 func _on_rewarded_result(success: bool) -> void:
 	if success:
-		globalvar.add_crypto(AdManager.REWARDED_AD_WOW)
+		globalvar.add_crypto(AdManager.REWARDED_AD_MOONROCKS)
 		_update_wallet_label()
 		# Refresh all buy buttons (player may now afford upgrades)
 		for uname in _upgrade_buttons.keys():
 			_style_buy_button(uname)
+		# Refresh skin buttons too
+		_refresh_skin_buttons()
 		if _ad_button:
-			_ad_button.text = "+%d WOW!" % AdManager.REWARDED_AD_WOW
+			_ad_button.text = "+%d 🪨!" % AdManager.REWARDED_AD_MOONROCKS
 			# Re-enable after a brief cooldown
 			var timer := get_tree().create_timer(3.0)
 			timer.timeout.connect(func():
 				if is_instance_valid(_ad_button):
 					_ad_button.disabled = false
-					_ad_button.text = "🎬  Watch Ad for %d WOW" % AdManager.REWARDED_AD_WOW
+					_ad_button.text = "🎬  Watch Ad for %d 🪨" % AdManager.REWARDED_AD_MOONROCKS
 			)
 	else:
 		if _ad_button:
@@ -277,7 +301,7 @@ func _style_buy_button(upgrade_name: String) -> void:
 		BS.apply_space_style(btn, Color(0.3, 0.3, 0.3))
 	else:
 		var cost := globalvar.get_upgrade_cost(upgrade_name)
-		btn.text = str(cost) + " WOW"
+		btn.text = str(cost) + " 🪨"
 		if globalvar.can_buy_upgrade(upgrade_name):
 			btn.disabled = false
 			BS.apply_space_style(btn, accent)
@@ -287,7 +311,7 @@ func _style_buy_button(upgrade_name: String) -> void:
 
 
 func _update_wallet_label() -> void:
-	_wallet_label.text = "💰  " + str(globalvar.wallet) + " WOW"
+	_wallet_label.text = "💰  " + str(globalvar.wallet) + " 🪨"
 
 
 func _on_upgrade_pressed(upgrade_name: String) -> void:
@@ -304,3 +328,103 @@ func _on_continue() -> void:
 		get_tree().change_scene_to_file("res://game/gui/menu/Menu.tscn")
 	else:
 		get_tree().change_scene_to_file(next_scene)
+
+
+func _create_skin_card(skin_id: String) -> PanelContainer:
+	var entry: Dictionary = globalvar.SKIN_CATALOG[skin_id]
+	var owned := skin_id in globalvar.owned_skins
+	var selected := skin_id == globalvar.selected_skin
+
+	var card := PanelContainer.new()
+	var card_style := StyleBoxFlat.new()
+	card_style.bg_color = Color(0.05, 0.05, 0.15, 0.85)
+	if selected:
+		card_style.border_color = Color(0.3, 1.0, 0.5, 0.9)
+	elif owned:
+		card_style.border_color = Color(0.5, 0.5, 0.7, 0.5)
+	else:
+		card_style.border_color = Color(0.3, 0.3, 0.5, 0.4)
+	card_style.set_border_width_all(2)
+	card_style.set_corner_radius_all(8)
+	card_style.content_margin_left = 8
+	card_style.content_margin_right = 8
+	card_style.content_margin_top = 6
+	card_style.content_margin_bottom = 6
+	card.add_theme_stylebox_override("panel", card_style)
+	card.custom_minimum_size = Vector2(100, 100)
+
+	var vbox := VBoxContainer.new()
+	vbox.add_theme_constant_override("separation", 4)
+	vbox.alignment = BoxContainer.ALIGNMENT_CENTER
+	card.add_child(vbox)
+
+	# Ship preview thumbnail
+	var tex := load(entry["path"])
+	if tex:
+		var tex_rect := TextureRect.new()
+		tex_rect.texture = tex
+		tex_rect.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+		tex_rect.custom_minimum_size = Vector2(40, 55)
+		tex_rect.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+		vbox.add_child(tex_rect)
+
+	# Action button
+	var btn := Button.new()
+	btn.custom_minimum_size = Vector2(84, 26)
+	if selected:
+		btn.text = "✓ Active"
+		btn.disabled = true
+		BS.apply_space_style(btn, Color(0.2, 0.8, 0.3))
+	elif owned:
+		btn.text = "Select"
+		BS.apply_space_style(btn, Color(0.4, 0.7, 1.0))
+	else:
+		btn.text = str(entry["price"]) + " 🪨"
+		if globalvar.wallet >= entry["price"]:
+			BS.apply_space_style(btn, Color(1.0, 0.85, 0.2))
+		else:
+			btn.disabled = true
+			BS.apply_space_style(btn, Color(0.25, 0.25, 0.35))
+	var sid: String = skin_id
+	btn.pressed.connect(func(): _on_skin_pressed(sid))
+	vbox.add_child(btn)
+	_skin_buttons[skin_id] = btn
+
+	return card
+
+
+func _on_skin_pressed(skin_id: String) -> void:
+	if skin_id in globalvar.owned_skins:
+		globalvar.select_skin(skin_id)
+	else:
+		if not globalvar.buy_skin(skin_id):
+			return
+		_update_wallet_label()
+		# Refresh upgrade buy buttons (wallet changed)
+		for uname in _upgrade_buttons.keys():
+			_style_buy_button(uname)
+	_refresh_skin_buttons()
+
+
+func _refresh_skin_buttons() -> void:
+	for sid in _skin_buttons.keys():
+		var btn: Button = _skin_buttons[sid]
+		var entry: Dictionary = globalvar.SKIN_CATALOG[sid]
+		var owned := sid in globalvar.owned_skins
+		var selected := sid == globalvar.selected_skin
+		if selected:
+			btn.text = "✓ Active"
+			btn.disabled = true
+			BS.apply_space_style(btn, Color(0.2, 0.8, 0.3))
+		elif owned:
+			btn.text = "Select"
+			btn.disabled = false
+			BS.apply_space_style(btn, Color(0.4, 0.7, 1.0))
+		else:
+			btn.text = str(entry["price"]) + " 🪨"
+			if globalvar.wallet >= entry["price"]:
+				btn.disabled = false
+				BS.apply_space_style(btn, Color(1.0, 0.85, 0.2))
+			else:
+				btn.disabled = true
+				BS.apply_space_style(btn, Color(0.25, 0.25, 0.35))

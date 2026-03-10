@@ -4,7 +4,7 @@ extends CanvasLayer
 ##
 ## Options shown:
 ##   - "Retry Level" (always free)
-##   - "Watch Ad for 50 WOW" (only if ads supported and not ad-free)
+##   - "Watch Ad for 50 Moonrocks" (only if ads supported and not ad-free)
 ##   - "Quit to Menu"
 ##
 ## Instantiated by Rocket.gd after death animation completes.
@@ -96,7 +96,7 @@ func _build_ui() -> void:
 	# Rewarded ad button (only if ads are available)
 	if AdManager.is_ad_supported() and not AdManager.is_ad_free():
 		_ad_button = Button.new()
-		_ad_button.text = "Watch Ad for %d WOW" % AdManager.REWARDED_AD_WOW
+		_ad_button.text = "Watch Ad for %d 🪨" % AdManager.REWARDED_AD_MOONROCKS
 		_ad_button.custom_minimum_size = Vector2(280, 44)
 		BS.apply_space_style(_ad_button, Color(1.0, 0.85, 0.1))
 		_ad_button.pressed.connect(_on_watch_ad)
@@ -175,9 +175,9 @@ func _on_watch_ad() -> void:
 
 func _on_rewarded_result(success: bool) -> void:
 	if success:
-		globalvar.add_crypto(AdManager.REWARDED_AD_WOW)
+		globalvar.add_crypto(AdManager.REWARDED_AD_MOONROCKS)
 		if _ad_button:
-			_ad_button.text = "+%d WOW!" % AdManager.REWARDED_AD_WOW
+			_ad_button.text = "+%d 🪨!" % AdManager.REWARDED_AD_MOONROCKS
 			_ad_button.disabled = true
 	else:
 		if _ad_button:

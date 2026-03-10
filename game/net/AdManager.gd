@@ -32,8 +32,8 @@ signal interstitial_closed
 ## Platforms that are always ad-free (premium desktop builds)
 const AD_FREE_PLATFORMS := ["macOS", "Windows", "Linux"]
 
-## Rewarded ad WOW grant amount
-const REWARDED_AD_WOW := 50
+## Rewarded ad Moonrocks grant amount
+const REWARDED_AD_MOONROCKS := 50
 
 ## Whether the user purchased ad removal (persisted in save)
 var _ads_removed: bool = false

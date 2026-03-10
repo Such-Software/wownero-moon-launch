@@ -1,5 +1,5 @@
 extends Control
-## HUD wallet display — shows current WOW balance from globalvar.
+## HUD wallet display — shows current Moonrocks balance from globalvar.
 ## Standalone widget: create with Control.new(), set_script(), add_child().
 
 var _display_amount: int = 0  # animated counter
@@ -29,6 +29,6 @@ func _draw() -> void:
 	var font := ThemeDB.fallback_font
 	if not font:
 		return
-	var text := str(_display_amount) + " WOW"
+	var text := str(_display_amount) + " 🪨"
 	var color := Color(1.0, 0.85, 0.2, 0.9)  # gold
 	draw_string(font, Vector2(0, 12), text, HORIZONTAL_ALIGNMENT_LEFT, -1, 13, color)

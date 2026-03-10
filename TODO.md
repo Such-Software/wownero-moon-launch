@@ -57,20 +57,20 @@
 - [x] **Fuel efficiency upgrade** — reduce drain rate (in upgrade shop)
 
 ### Crypto Collectibles
-- [x] **WOW (Wownero)** — primary currency, common drop, used for upgrades
-- [x] **XMR (Monero)** — rare, worth 10x WOW, purple ring glow
-- [x] **BTC (Bitcoin)** — very rare, worth 50x WOW, golden glow
-- [x] **DOGE** — uncommon, worth 5x WOW, such wow
+- [x] **WOW (Wownero)** — primary currency, common drop, converted to Moonrocks (🪨) on pickup
+- [x] **XMR (Monero)** — rare, worth 10x, purple ring glow
+- [x] **BTC (Bitcoin)** — very rare, worth 50x, golden glow
+- [x] **DOGE** — uncommon, worth 5x, such wow
 - [x] **Floating crypto sprites** — spin slowly, bob up/down, self-drawing (CryptoPickup.gd)
 - [x] **Collection animation** — fly toward ship on pickup, +amount popup text
-- [x] **Wallet HUD** — show current WOW balance during gameplay (WalletHUD.gd)
+- [x] **Wallet HUD** — show current Moonrocks balance during gameplay (WalletHUD.gd)
 - [x] **Crypto spawner** — drop-in CryptoSpawner.gd with weighted random types + min spacing
 
 ### Scoring & Progression
 - [x] **Star rating** — 1-3 stars per level based on time + fuel remaining + crypto collected
 - [x] **Best time per level** — save and display on level select
 - [x] **Total crypto wallet** — persisted across sessions, shown in shop
-- [ ] **Achievements** — "First Landing", "Speed Demon" (under 10s), "Pacifist" (no deaths), "Crypto Whale" (1000 WOW), etc.
+- [ ] **Achievements** — "First Landing", "Speed Demon" (under 10s), "Pacifist" (no deaths), "Crypto Whale" (1000 Moonrocks), etc.
 - [x] **Leaderboard** — backend API at api.such.software, per-level rankings, auto-submit on victory
 
 ---
@@ -80,13 +80,13 @@
 ### Ads (Primary Revenue)
 - [x] **AdManager autoload** — platform-aware ad abstraction layer. Desktop always ad-free (itch.io sales). Web uses AdSense via JavaScriptBridge. Mobile has AdMob plugin stubs. IAP ad-removal persisted to user://adstate.json.
 - [x] **Interstitial ads** — shown between Victory and Upgrade Shop. Also every 3rd retry on DeathScreen. No-op if ad-free.
-- [x] **Rewarded video ads** — "Watch ad for 50 WOW" button on DeathScreen and in Upgrade Shop. Opt-in only. Grants AdManager.REWARDED_AD_WOW crypto.
+- [x] **Rewarded video ads** — "Watch ad for 50 Moonrocks" button on DeathScreen and in Upgrade Shop. Opt-in only. Grants AdManager.REWARDED_AD_MOONROCKS crypto.
 - [x] **Banner ad** — shown on Menu and Upgrade Shop screens. Hidden during gameplay (rocket.gd _ready).
 - [x] **Web ad integration** — Google AdSense via JavaScriptBridge for HTML5 builds. JS shell functions: showInterstitialAd, showRewardedAd, showBannerAd, hideBannerAd.
 
 ### Cosmetic IAP
-- [ ] **Ship skins** — unlockable rocket textures. Free skins earned via achievements (gold rocket for all 3★, skull rocket for 50 deaths). Premium skins via small IAP ($0.99–$2.99) or large WOW amounts.
-- [ ] **Skin storage** — save selected skin in savegame.json, apply as texture swap in rocket.gd `_ready()`.
+- [x] **Ship skins** — 8 skins (retro, stealth, gold, alien, wownero, monero, bitcoin, litecoin) at art/ship/skins/. Purchasable with Moonrocks in Upgrade Shop skin gallery. Texture swap in rocket.gd _ready(). Premium skins planned (different shapes).
+- [x] **Skin storage** — selected_skin + owned_skins persisted in savegame.json. globalvar SKIN_CATALOG maps skin_id to path/price/label.
 
 ### Premium Content
 - [ ] **Level pack unlock** — Levels 1–4 free. Levels 5–10 unlockable via one-time $2.99 IAP OR earning 2000 WOW in-game (grindable but incentivizes ad watching).
@@ -105,7 +105,7 @@
 - [x] **Martian speed scaling** — Level 2: 25, Level 3: 32–35, Level 4: 40–45. Per-instance speed set in .tscn.
 
 ### Retry & Checkpoints
-- [x] **DeathScreen overlay** — replaces old "3s timer → menu" death flow. Animated panel with Retry Level (free), Watch Ad for WOW (if ads supported), Quit to Menu. Interstitial every 3rd retry.
+- [x] **DeathScreen overlay** — replaces old "3s timer → menu" death flow. Animated panel with Retry Level (free), Watch Ad for Moonrocks (if ads supported), Quit to Menu. Interstitial every 3rd retry.
 - [x] **Celestial waypoints (Levels 5+)** — rocket.gd detects entering a waypoint planet's gravity well (Area2D radius check) and saves checkpoint (position, velocity, fuel) to globalvar. Waypoints are all "targets" group bodies except the last (final target). Each waypoint visited only once per run.
 - [ ] **Waypoint as gameplay** — waypoint planets double as gravity slingshot opportunities and refueling stations. Fuel pickups clustered near waypoints.
 - [x] **Checkpoint retry (Levels 5+)** — DeathScreen shows green "Retry from [Planet]" button when checkpoint exists. Reloads level with globalvar.restore_checkpoint flag; rocket.gd defers position/velocity/fuel restore via _apply_checkpoint().
@@ -162,7 +162,7 @@
 - [x] **Planet atmospheres** — colored atmosphere glow rings on all 9 planets. Each planet has unique color (Earth=blue, Mars=rusty red, Venus=yellow-orange, Jupiter=amber, Saturn=gold, Neptune=icy blue, Pluto=pale frost, Moon=silver, Io=sulfur yellow). Auto-detects body collision radius.
 - [ ] **Parallax depth** — more background layers for depth perception
 - [x] **Landing animation** — dust particle burst on successful landing (24 particles, warm tan, radial burst from feet). GPUParticles2D spawned programmatically in flagplanted().
-- [ ] **Ship skins** — unlockable via crypto, purely cosmetic
+- [ ] **Ship skins** — more skins: achievement-unlocked (gold for all 3★, skull for 50 deaths), premium IAP skins with different shapes
 - [ ] **Starfield shader** — replace static background with animated procedural stars
 
 ### Audio
@@ -181,7 +181,7 @@
 - [ ] **Laser beam** — continuous beam weapon, drains fuel to fire
 - [ ] **Mine layer** — drop mines behind you to stop pursuing martians
 - [ ] **EMP pulse** — disable all martians in radius for 5 seconds
-- [x] **Weapons as upgrades** — cannon upgrade in globalvar (10th upgrade, base cost 150 WOW, 5 levels). Faster fire rate per level (0.4s→0.15s). UpgradeShop shows cannon with 🔫 icon and fiery orange accent.
+- [x] **Weapons as upgrades** — cannon upgrade in globalvar (10th upgrade, base cost 150 Moonrocks, 5 levels). Faster fire rate per level (0.4s→0.15s). UpgradeShop shows cannon with 🔫 icon and fiery orange accent.
 
 
 ### 🌐 3D / First Person 

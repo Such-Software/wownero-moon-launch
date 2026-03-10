@@ -146,7 +146,7 @@ func _on_body_entered(body: Node2D) -> void:
 
 func _spawn_popup(value: int) -> void:
 	var label := Label.new()
-	label.text = "+" + str(value) + " WOW"
+	label.text = "+" + str(value) + " 🪨"
 	label.add_theme_color_override("font_color", TYPE_COLORS.get(crypto_type, Color.WHITE))
 	label.add_theme_font_size_override("font_size", 14)
 	label.position = global_position - Vector2(20, 20)
