@@ -140,10 +140,10 @@
 ### New Levels (5–10)
 - [x] **Level 5 — Jupiter** — 2x gravity (80.0), Moon as waypoint. 8 Martians (speed 35–50), gamma rays + asteroids. spacecadet_bgm.ogg.
 - [x] **Level 6 — Saturn** — gravity 50.0, Moon + Jupiter as waypoints. 10 Martians (speed 38–55), tighter hazard timing. infinitedescent_bgm.ogg.
-- [ ] **Level 7 — Neptune** — dark level, Light2D visibility radius around ship, rest is black.
-- [ ] **Level 8 — Pluto** — tiny target (20px), extreme precision. Minimal gravity. Random wind gusts.
-- [ ] **Level 9 — Asteroid mining** — land on a moving asteroid (no gravity area, match velocity).
-- [ ] **Level 10 — Space station** — dock with a rotating station (match rotation to land).
+- [x] **Level 7 — Neptune** — Earth → Moon → Saturn waypoints → Neptune target. Gravity 65.0, 10 Martians (speed 40–55). ancientbgm.ogg.
+- [x] **Level 8 — Pluto** — Earth → Moon → Neptune waypoints → Pluto target. Tiny target (0.06x scale, 25px collision, gravity 15). 10 Martians (speed 42–58). spacecadet_bgm.ogg.
+- [x] **Level 9 — Asteroid Mining** — Earth → Moon → Jupiter waypoints → drifting AsteroidCluster target (7–10 randomly placed/rotated/shaded rocks). 12 Martians (speed 45–60). infinitedescent_bgm.ogg.
+- [x] **Level 10 — Space Station** — Earth → Moon → Saturn → Neptune waypoints → rotating SpaceStation target. 12 Martians (speed 48–62), fastest hazard timing. ancientbgm.ogg.
 
 ### Endgame Content
 - [ ] **Procedural endless mode** — unlocked after Level 10. Random planets, random hazards, difficulty scales with run length. Leaderboard for furthest distance / most landings.
@@ -169,6 +169,7 @@
 
 ### Audio
 - [x] **Per-level BGM** — Levels 1–4: ancientbgm.ogg, Level 5: spacecadet_bgm.ogg, Level 6: infinitedescent_bgm.ogg
+- [ ] **More BGM tracks** — source/compose additional looping tracks for Levels 7–10 (currently reusing existing 3 tracks)
 - [ ] **Crypto pickup sound** — satisfying coin/ding sound
 - [ ] **Landing countdown beeps** — audio feedback during 3s landing timer
 - [ ] **Martian chase music** — intensity increases when being pursued

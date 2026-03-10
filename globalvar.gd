@@ -155,8 +155,12 @@ const LEVEL_SCENES := {
 	4: "res://game/levels/4/Level4.tscn",
 	5: "res://game/levels/5/Level5.tscn",
 	6: "res://game/levels/6/Level6.tscn",
+	7: "res://game/levels/7/Level7.tscn",
+	8: "res://game/levels/8/Level8.tscn",
+	9: "res://game/levels/9/Level9.tscn",
+	10: "res://game/levels/10/Level10.tscn",
 }
-const MAX_LEVEL := 6  # Raise this as new levels are added
+const MAX_LEVEL := 10  # Raise this as new levels are added
 
 const LEVEL_NAMES := {
 	1: "Moon",
@@ -165,6 +169,10 @@ const LEVEL_NAMES := {
 	4: "Io",
 	5: "Jupiter",
 	6: "Saturn",
+	7: "Neptune",
+	8: "Pluto",
+	9: "Asteroid Belt",
+	10: "Space Station",
 }
 
 func get_level_scene(level: int) -> String:
@@ -187,6 +195,10 @@ const STAR_3_TIME := {
 	4: 50.0,  # Io
 	5: 60.0,  # Jupiter
 	6: 75.0,  # Saturn
+	7: 90.0,  # Neptune
+	8: 100.0,  # Pluto
+	9: 110.0,  # Asteroid Belt
+	10: 120.0,  # Space Station
 }
 
 func compute_stars(level: int, time_s: float, fuel_pct: float, _crypto: int) -> int:

@@ -1,0 +1,29 @@
+[gd_scene load_steps=5 format=3]
+
+[ext_resource type="Texture2D" path="res://art/planets/pluto.png" id="1"]
+[ext_resource type="Script" path="res://game/pluto/Pluto.gd" id="2"]
+
+[sub_resource type="CircleShape2D" id="1"]
+radius = 25.0
+
+[sub_resource type="CircleShape2D" id="2"]
+radius = 150.0
+
+[node name="Pluto" type="StaticBody2D" groups=["targets"]]
+collision_layer = 2
+script = ExtResource("2")
+
+[node name="Sprite2D" type="Sprite2D" parent="."]
+scale = Vector2(0.06, 0.06)
+texture = ExtResource("1")
+
+[node name="PlutoCollision" type="CollisionShape2D" parent="."]
+shape = SubResource("1")
+
+[node name="Area2D" type="Area2D" parent="."]
+gravity_space_override = 1
+gravity_point = true
+gravity = 15.0
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="Area2D"]
+shape = SubResource("2")
