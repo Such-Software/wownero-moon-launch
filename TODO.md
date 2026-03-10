@@ -192,6 +192,7 @@
 
 ### 🌐 3D / First Person 
 
+- [x] **Warp tunnel transition** — WarpTunnel.gd/tscn: 3D hyperspace tunnel plays when entering any level. 300 streaming star meshes accelerate from 5→120 speed, stretch into lines, blue-shift. Camera FOV widens 75→95°. Cockpit.png overlaid as CanvasLayer frame. Typewriter "WARPING TO [LEVEL]..." text. Speed lines procedural overlay. White flash exit → loads target level. WarpTransition.gd autoload with `warp_to(scene)` helper. Wired into Menu Play, level-select debug picker, and UpgradeShop Continue.
 - [ ] **3D landing mode** — switch to 3D view for final approach/landing sequence
 - [ ] **First-person cockpit** — HUD overlay with instruments, see out the window
 - [ ] **3D level prototype** — one level fully in 3D as proof of concept

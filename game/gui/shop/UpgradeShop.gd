@@ -333,7 +333,7 @@ func _on_continue() -> void:
 	if next_scene.is_empty():
 		get_tree().change_scene_to_file("res://game/gui/menu/Menu.tscn")
 	else:
-		get_tree().change_scene_to_file(next_scene)
+		WarpTransition.warp_to(next_scene)
 
 
 func _create_skin_card(skin_id: String) -> PanelContainer:

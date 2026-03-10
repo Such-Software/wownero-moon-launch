@@ -197,7 +197,11 @@ func _build_level_select() -> void:
 		btn.flat = true
 		BS.apply_space_style(btn, Color.ORANGE)
 		var scene_path: String = globalvar.LEVEL_SCENES[level_num]
-		btn.pressed.connect(func(): get_tree().change_scene_to_file(scene_path))
+		var lvl_num: int = level_num
+		btn.pressed.connect(func():
+			globalvar.get_level_scene(lvl_num)  # set endless_mode flag if needed
+			WarpTransition.warp_to(scene_path)
+		)
 		_level_select_container.add_child(btn)
 
 	# Close button
@@ -226,7 +230,7 @@ func _on_QuitButton_pressed():
 
 func _on_PlayButton_pressed():
 	var scene := globalvar.get_level_scene(globalvar.nowlevel)
-	get_tree().change_scene_to_file(scene)
+	WarpTransition.warp_to(scene)
 
 func _on_HelpButton_pressed():
 	get_tree().change_scene_to_file("res://game/gui/help/Help.tscn")
