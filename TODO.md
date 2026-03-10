@@ -113,7 +113,7 @@
 ### Retry & Checkpoints
 - [x] **DeathScreen overlay** — replaces old "3s timer → menu" death flow. Animated panel with Retry Level (free), Watch Ad for Moonrocks (if ads supported), Quit to Menu. Interstitial every 3rd retry.
 - [x] **Celestial waypoints (Levels 5+)** — rocket.gd detects entering a waypoint planet's gravity well (Area2D radius check) and saves checkpoint (position, velocity, fuel) to globalvar. Waypoints are all "targets" group bodies except the last (final target). Each waypoint visited only once per run.
-- [ ] **Waypoint as gameplay** — waypoint planets double as gravity slingshot opportunities and refueling stations. Fuel pickups clustered near waypoints.
+- [x] **Waypoint as gameplay** — waypoint planets are refueling stations (10% max_fuel bonus on first visit with "+N FUEL — Planet Station" popup). Gravity slingshot detection tracks entry/exit speed from any planet's gravity well; net gain ≥40 px/s triggers "SLINGSHOT! +N" gold label, directional star-particle burst, haptic pulse, and ascending ding. FuelSpawners already clustered near waypoints in levels 5-10.
 - [x] **Checkpoint retry (Levels 5+)** — DeathScreen shows green "Retry from [Planet]" button when checkpoint exists. Reloads level with globalvar.restore_checkpoint flag; rocket.gd defers position/velocity/fuel restore via _apply_checkpoint().
 - [x] **Difficulty settings** — Easy/Normal/Hard toggle on main menu. Easy: spawn intervals ×1.4, enemy speed ×0.8, fuel drain ×0.8, starting fuel ×1.2. Hard: spawn intervals ×0.7, enemy speed ×1.2, fuel drain ×1.3, starting fuel ×0.9. Persisted in savegame. Cycling button in main menu with color-coded styling (green/gold/red).
 
@@ -155,8 +155,8 @@
 
 ### Level Features
 - [x] **Wormholes/portals** — Wormhole.gd/tscn drop-in component. Paired Area2D portals teleport rocket between points. Swirling animated ring visual, cooldown prevents re-teleport, haptic pulse on use. **Placed in:** Level 5 (shortcut mid-field), Level 8 (skip nebula), Level 10 (escape route).
-- [ ] **Gravity slingshot** — use a planet's gravity to accelerate toward distant targets
-- [ ] **Moving asteroids as obstacles** — pre-placed orbiting bodies
+- [x] **Gravity slingshot** — detected in rocket.gd `_check_slingshot()`. Tracks all StaticBody2D planets with Area2D gravity. Records entry speed when entering gravity radius, compares to exit speed. ≥40 px/s gain → gold "SLINGSHOT!" label, star particle burst in travel direction, haptic 50ms, ascending beep. Works on all planets in all levels.
+- [x] **Moving asteroids as obstacles** — OrbitingAsteroid.gd/tscn drop-in component. CharacterBody2D orbits a planet node at configurable radius/speed with random start angle, spin direction, scale variation (0.7-1.2x), random texture. Spawned programmatically in levels 5-10 via `_spawn_orbiting()` helper. Count/speed scales with difficulty (L5: 5 total, L10: 16 total). Collision layer 4 = lethal to rocket via ShipArea overlap.
 - [x] **Solar wind** — SolarWind.gd/tscn drop-in zone. Applies constant directional force (configurable direction + strength). Animated wind streak lines show force direction. **Placed in:** Level 6 (crosswind near Saturn), Level 9 (pushes toward black hole), Level 10 (approach deflection).
 - [x] **Nebula zones** — Nebula.gd/tscn drop-in zone. Drains rocket fuel while inside, applies gentle speed damping. Soft pulsing gas blob visual. **Placed in:** Level 7 (deep space fog), Level 8 (between Neptune and Pluto), Level 10 (thick interference).
 - [x] **Black hole** — BlackHole.gd/tscn drop-in hazard. Extreme gravity pull (inverse-distance), instant death at event horizon. Animated accretion disk rings + dark center. **Placed in:** Level 9 (solar wind pushes toward it), Level 10 (early obstacle).

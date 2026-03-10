@@ -43,6 +43,13 @@ const BEEP_RANGE := 250.0  # start beeping at this distance from target
 # Waypoint checkpoint tracking
 var _visited_waypoints: Dictionary = {}  # node instance_id -> true
 var _waypoint_bodies: Array = []  # bodies in "targets" group that aren't the final target
+# Waypoint refueling bonus
+const WAYPOINT_FUEL_BONUS := 0.10  # fraction of max_fuel restored on waypoint arrival
+
+# Gravity slingshot tracking
+var _slingshot_inside: Dictionary = {}   # body instance_id -> entry speed (float)
+var _all_gravity_bodies: Array = []       # all bodies with Area2D gravity that we track
+const SLINGSHOT_SPEED_THRESHOLD := 40.0  # must gain at least this much speed
 
 # Landing countdown beep state
 var _landing_beep_elapsed: float = 0.0
@@ -112,6 +119,16 @@ func _ready():
 				# Previous target becomes a waypoint
 				_waypoint_bodies.append(target)
 			target = i
+	# Build list of all gravity bodies (planets with Area2D) for slingshot detection
+	for i in get_parent().get_children():
+		if i == self:
+			continue
+		if not (i is StaticBody2D):
+			continue
+		for child in i.get_children():
+			if child is Area2D:
+				_all_gravity_bodies.append(i)
+				break
 
 	# Restore from waypoint checkpoint if flagged
 	if globalvar.restore_checkpoint and globalvar.has_checkpoint:
@@ -191,6 +208,9 @@ func _process(_delta):
 	# Waypoint checkpoint: save when entering a waypoint's gravity well
 	if _waypoint_bodies.size() > 0 and not flagplaced:
 		_check_waypoints()
+	# Gravity slingshot detection
+	if _all_gravity_bodies.size() > 0 and not flagplaced:
+		_check_slingshot()
 	# Cannon firing
 	if _has_cannon:
 		_cannon_cooldown = maxf(_cannon_cooldown - _delta, 0.0)
@@ -404,6 +424,129 @@ func _check_waypoints() -> void:
 		if dist < radius:
 			_visited_waypoints[iid] = true
 			globalvar.save_checkpoint(global_position, linear_velocity, fuel, body.name)
+			# Waypoint refueling station — restore fuel on first visit
+			var restored := max_fuel * WAYPOINT_FUEL_BONUS
+			fuel = minf(fuel + restored, max_fuel)
+			_spawn_waypoint_popup(body.global_position, restored, body.name)
+
+
+func _spawn_waypoint_popup(pos: Vector2, fuel_amount: float, planet_name: String) -> void:
+	## Show "+N FUEL — [Planet] Station" popup at the waypoint.
+	var label := Label.new()
+	label.text = "+%d FUEL — %s Station" % [int(fuel_amount), planet_name]
+	label.add_theme_color_override("font_color", Color(0.2, 1.0, 0.5))
+	label.add_theme_font_size_override("font_size", 16)
+	label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	label.position = pos - Vector2(80, 30)
+	label.z_index = 100
+	get_parent().add_child(label)
+	var tween := label.create_tween()
+	tween.set_parallel(true)
+	tween.tween_property(label, "position:y", label.position.y - 50, 1.2)
+	tween.tween_property(label, "modulate:a", 0.0, 1.2)
+	tween.chain().tween_callback(label.queue_free)
+
+
+func _check_slingshot() -> void:
+	## Track entry/exit from gravity wells. Award "SLINGSHOT!" on speed gain.
+	for body in _all_gravity_bodies:
+		if not is_instance_valid(body):
+			continue
+		var iid := body.get_instance_id()
+		var radius := _get_gravity_radius(body)
+		var dist := global_position.distance_to(body.global_position)
+		var current_speed := linear_velocity.length()
+		if dist < radius:
+			# Inside gravity well — record entry speed if not already tracked
+			if iid not in _slingshot_inside:
+				_slingshot_inside[iid] = current_speed
+		else:
+			# Outside gravity well — check if we just exited
+			if iid in _slingshot_inside:
+				var entry_speed: float = _slingshot_inside[iid]
+				_slingshot_inside.erase(iid)
+				var speed_gain := current_speed - entry_speed
+				if speed_gain >= SLINGSHOT_SPEED_THRESHOLD:
+					_spawn_slingshot_effect(body.global_position, speed_gain)
+
+
+func _get_gravity_radius(body: Node2D) -> float:
+	## Find the gravity Area2D collision radius on a planet body.
+	for child in body.get_children():
+		if child is Area2D:
+			for shape_node in child.get_children():
+				if shape_node is CollisionShape2D and shape_node.shape is CircleShape2D:
+					return shape_node.shape.radius
+	return 200.0
+
+
+func _spawn_slingshot_effect(planet_pos: Vector2, speed_gain: float) -> void:
+	## Visual + audio feedback for a successful gravity slingshot.
+	# Haptic feedback
+	Input.vibrate_handheld(50)
+	# Floating "SLINGSHOT!" label
+	var label := Label.new()
+	label.text = "SLINGSHOT! +%d" % int(speed_gain)
+	label.add_theme_color_override("font_color", Color(1.0, 0.85, 0.2))
+	label.add_theme_font_size_override("font_size", 18)
+	label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	label.position = global_position - Vector2(60, 40)
+	label.z_index = 100
+	get_parent().add_child(label)
+	var tween := label.create_tween()
+	tween.set_parallel(true)
+	tween.tween_property(label, "position:y", label.position.y - 60, 1.0)
+	tween.tween_property(label, "modulate:a", 0.0, 1.0)
+	tween.tween_property(label, "scale", Vector2(1.3, 1.3), 0.15).set_ease(Tween.EASE_OUT).set_trans(Tween.TRANS_BACK)
+	tween.chain().tween_callback(label.queue_free)
+	# Speed streak particles — brief trail burst
+	var streaks := GPUParticles2D.new()
+	streaks.emitting = true
+	streaks.one_shot = true
+	streaks.amount = 16
+	streaks.lifetime = 0.5
+	streaks.explosiveness = 0.8
+	streaks.local_coords = false
+	var mat := ParticleProcessMaterial.new()
+	mat.emission_shape = ParticleProcessMaterial.EMISSION_SHAPE_SPHERE
+	mat.emission_sphere_radius = 5.0
+	mat.particle_flag_disable_z = true
+	# Particles shoot in the direction of travel
+	var vel_dir := linear_velocity.normalized()
+	mat.direction = Vector3(vel_dir.x, vel_dir.y, 0)
+	mat.spread = 25.0
+	mat.initial_velocity_min = 60.0
+	mat.initial_velocity_max = 120.0
+	mat.gravity = Vector3.ZERO
+	mat.damping_min = 30.0
+	mat.damping_max = 60.0
+	mat.scale_min = 1.5
+	mat.scale_max = 3.0
+	# Yellow-gold gradient
+	var grad := Gradient.new()
+	grad.offsets = PackedFloat32Array([0.0, 0.5, 1.0])
+	grad.colors = PackedColorArray([
+		Color(1.0, 0.9, 0.3, 0.9),
+		Color(1.0, 0.7, 0.1, 0.6),
+		Color(1.0, 0.5, 0.0, 0.0),
+	])
+	var grad_tex := GradientTexture1D.new()
+	grad_tex.gradient = grad
+	mat.color_ramp = grad_tex
+	streaks.process_material = mat
+	var tex = load("res://art/effects/star.png")
+	if tex:
+		streaks.texture = tex
+	add_child(streaks)
+	# Audio — quick ascending ding using proximity beep pitched high
+	$ProximityBeep.pitch_scale = 2.5
+	$ProximityBeep.volume_db = -4.0
+	$ProximityBeep.play()
+	# Cleanup
+	get_tree().create_timer(1.5).timeout.connect(func():
+		if is_instance_valid(streaks):
+			streaks.queue_free()
+	)
 
 
 func _apply_checkpoint() -> void:

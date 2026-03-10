@@ -3,9 +3,13 @@ extends Node2D
 var gammaray = load("res://game/gammaray/GammeRay.tscn")
 var asteriod = load("res://game/asteriod/Asteriod.tscn")
 var asteriod2 = load("res://game/asteriod/Asteriod2.tscn")
+var orbiting_ast = load("res://game/asteriod/OrbitingAsteroid.tscn")
 
 func _ready():
 	globalvar.nowlevel = 8
+	_spawn_orbiting($Moon, 3, 85.0, 1.3)
+	_spawn_orbiting($Neptune, 4, 150.0, 1.0)
+	_spawn_orbiting($Pluto, 2, 70.0, 1.5)
 	var space = get_world_2d().get_space()
 	PhysicsServer2D.area_set_param(space, PhysicsServer2D.AREA_PARAM_GRAVITY, 0)
 	PhysicsServer2D.area_set_param(space, PhysicsServer2D.AREA_PARAM_GRAVITY_VECTOR, Vector2(0, 1))
@@ -38,3 +42,9 @@ func _on_RayTimer_timeout():
 func _on_AsteriodTimer_timeout():
 	add_asteriod()
 	$AsteriodTimer.wait_time = randf_range(1.5, 3.5) * globalvar.get_spawn_interval_mult()
+
+func _spawn_orbiting(planet: Node2D, count: int, radius: float, speed: float) -> void:
+	for i in range(count):
+		var ast = orbiting_ast.instantiate()
+		add_child(ast)
+		ast.setup(planet, radius + randf_range(-20, 30), speed * randf_range(0.8, 1.3))
