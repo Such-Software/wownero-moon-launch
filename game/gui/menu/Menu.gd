@@ -7,6 +7,13 @@ var _level_select_container: VBoxContainer = null
 var _nick_label: Label = null
 var _nick_edit: LineEdit = null
 var _editing_nick := false
+var _diff_btn: Button = null
+
+const DIFF_COLORS := {
+	0: Color(0.3, 0.9, 0.4),  # Easy — green
+	1: Color(1.0, 0.7, 0.1),  # Normal — gold
+	2: Color(1.0, 0.25, 0.2), # Hard — red
+}
 
 func _ready():
 	$RocketSprite/AnimationPlayer.play("move")
@@ -17,6 +24,7 @@ func _ready():
 	BS.apply_space_style($VButtonArray/QuitButton, Color.RED)
 	_build_nickname_bar()
 	_build_level_select()
+	_build_difficulty_toggle()
 	AdManager.show_banner()
 
 
@@ -116,6 +124,30 @@ func _apply_nickname(raw: String) -> void:
 	_nick_label.text = globalvar.nickname
 	_nick_label.visible = true
 	_nick_edit.visible = false
+
+
+func _build_difficulty_toggle() -> void:
+	_diff_btn = Button.new()
+	_diff_btn.name = "DifficultyButton"
+	_diff_btn.custom_minimum_size = Vector2(180, 36)
+	_diff_btn.add_theme_font_size_override("font_size", 14)
+	_update_difficulty_button()
+	_diff_btn.pressed.connect(_on_difficulty_pressed)
+	# Place below main buttons
+	$VButtonArray.add_child(_diff_btn)
+
+
+func _update_difficulty_button() -> void:
+	var name_str: String = globalvar.DIFFICULTY_NAMES.get(globalvar.difficulty, "Normal")
+	_diff_btn.text = "Difficulty: " + name_str
+	var color: Color = DIFF_COLORS.get(globalvar.difficulty, Color.YELLOW)
+	BS.apply_space_style(_diff_btn, color)
+
+
+func _on_difficulty_pressed() -> void:
+	globalvar.difficulty = (globalvar.difficulty + 1) % 3
+	globalvar.save_game()
+	_update_difficulty_button()
 
 
 func _build_level_select() -> void:

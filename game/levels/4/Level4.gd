@@ -32,8 +32,8 @@ func add_asteriod():
 
 func _on_Timer_timeout():
 	add_laser()
-	$RayTimer.wait_time= randf_range(4,7)
+	$RayTimer.wait_time= randf_range(4,7) * globalvar.get_spawn_interval_mult()
 
 func _on_AsteriodTimer_timeout():
 	add_asteriod()
-	$AsteriodTimer.wait_time = randf_range(4,7)
+	$AsteriodTimer.wait_time = randf_range(4,7) * globalvar.get_spawn_interval_mult()

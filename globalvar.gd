@@ -13,6 +13,40 @@ var all_completed: bool = false
 var highest_level_completed: int = 0  # Tracks progress for level select
 var tutorial_shown: bool = false  # Level 1 tutorial prompts (first-time only)
 
+# --- Difficulty ---
+enum Difficulty { EASY, NORMAL, HARD }
+var difficulty: int = Difficulty.NORMAL
+
+const DIFFICULTY_NAMES := { 0: "Easy", 1: "Normal", 2: "Hard" }
+
+## Spawn interval multiplier (higher = slower spawns = easier)
+func get_spawn_interval_mult() -> float:
+	match difficulty:
+		Difficulty.EASY: return 1.4
+		Difficulty.HARD: return 0.7
+		_: return 1.0
+
+## Enemy speed multiplier
+func get_enemy_speed_mult() -> float:
+	match difficulty:
+		Difficulty.EASY: return 0.8
+		Difficulty.HARD: return 1.2
+		_: return 1.0
+
+## Fuel drain multiplier (higher = drains faster = harder)
+func get_fuel_drain_mult() -> float:
+	match difficulty:
+		Difficulty.EASY: return 0.8
+		Difficulty.HARD: return 1.3
+		_: return 1.0
+
+## Starting fuel bonus/penalty
+func get_starting_fuel_mult() -> float:
+	match difficulty:
+		Difficulty.EASY: return 1.2
+		Difficulty.HARD: return 0.9
+		_: return 1.0
+
 # --- Per-run tracking (reset each level start) ---
 var level_crypto_collected: int = 0   # WOW earned this run
 var level_fuel_remaining: float = 0.0 # percentage at landing
@@ -309,6 +343,7 @@ func save_game() -> void:
 		"device_uuid": device_uuid,
 		"nickname": nickname,
 		"tutorial_shown": tutorial_shown,
+		"difficulty": difficulty,
 	}
 	var f := FileAccess.open("user://savegame.json", FileAccess.WRITE)
 	if f:
@@ -347,3 +382,4 @@ func load_game() -> void:
 	device_uuid = str(data.get("device_uuid", ""))
 	nickname = str(data.get("nickname", ""))
 	tutorial_shown = bool(data.get("tutorial_shown", false))
+	difficulty = int(data.get("difficulty", Difficulty.NORMAL))

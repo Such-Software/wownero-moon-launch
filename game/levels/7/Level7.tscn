@@ -1,4 +1,4 @@
-[gd_scene load_steps=14 format=3]
+[gd_scene load_steps=15 format=3]
 
 [ext_resource type="PackedScene" path="res://game/ParallaxBackground.tscn" id="1"]
 [ext_resource type="PackedScene" path="res://game/TextsIngame.tscn" id="2"]
@@ -13,6 +13,7 @@
 [ext_resource type="PackedScene" path="res://game/fuel/FuelSpawner.tscn" id="12"]
 [ext_resource type="PackedScene" path="res://game/saturn/Saturn.tscn" id="13"]
 [ext_resource type="PackedScene" path="res://game/moon/Moon.tscn" id="14"]
+[ext_resource type="PackedScene" path="res://game/hazards/Nebula.tscn" id="15"]
 
 [node name="NeptuneSpace" type="Node2D"]
 script = ExtResource("5")
@@ -127,6 +128,13 @@ position = Vector2(2700, -200)
 spawn_count = 1
 spawn_radius = 150.0
 fuel_percent = 0.25
+
+[node name="Nebula" parent="." instance=ExtResource("15")]
+position = Vector2(1800, -100)
+fuel_drain_rate = 4.0
+speed_damping = 0.985
+zone_size = Vector2(450, 350)
+nebula_color = Color(0.3, 0.15, 0.7, 0.45)
 
 [connection signal="timeout" from="RayTimer" to="." method="_on_RayTimer_timeout"]
 [connection signal="timeout" from="AsteriodTimer" to="." method="_on_AsteriodTimer_timeout"]

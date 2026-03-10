@@ -68,8 +68,8 @@ func _ready():
 	thrust = Vector2(0, globalvar.get_thrust_force())
 	reverse_thrust = Vector2(0, globalvar.get_reverse_thrust_force())
 	max_fuel = globalvar.get_max_fuel()
-	fuel = max_fuel
-	fuel_drain = globalvar.get_fuel_drain()
+	fuel = max_fuel * globalvar.get_starting_fuel_mult()
+	fuel_drain = globalvar.get_fuel_drain() * globalvar.get_fuel_drain_mult()
 	crashspeed = globalvar.get_crash_speed()
 	landingspeed = globalvar.get_landing_speed()
 	torque = int(globalvar.get_torque())

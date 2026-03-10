@@ -21,4 +21,4 @@ func add_laser():
 
 func _on_Timer_timeout():
 	add_laser()
-	$Timer.wait_time= randf_range(2,5)
+	$Timer.wait_time= randf_range(2,5) * globalvar.get_spawn_interval_mult()

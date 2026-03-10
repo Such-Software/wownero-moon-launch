@@ -109,6 +109,7 @@
 - [x] **Celestial waypoints (Levels 5+)** — rocket.gd detects entering a waypoint planet's gravity well (Area2D radius check) and saves checkpoint (position, velocity, fuel) to globalvar. Waypoints are all "targets" group bodies except the last (final target). Each waypoint visited only once per run.
 - [ ] **Waypoint as gameplay** — waypoint planets double as gravity slingshot opportunities and refueling stations. Fuel pickups clustered near waypoints.
 - [x] **Checkpoint retry (Levels 5+)** — DeathScreen shows green "Retry from [Planet]" button when checkpoint exists. Reloads level with globalvar.restore_checkpoint flag; rocket.gd defers position/velocity/fuel restore via _apply_checkpoint().
+- [x] **Difficulty settings** — Easy/Normal/Hard toggle on main menu. Easy: spawn intervals ×1.4, enemy speed ×0.8, fuel drain ×0.8, starting fuel ×1.2. Hard: spawn intervals ×0.7, enemy speed ×1.2, fuel drain ×1.3, starting fuel ×0.9. Persisted in savegame. Cycling button in main menu with color-coded styling (green/gold/red).
 
 ### Visual Feedback
 - [x] **Screen shake** — Camera2D offset randomized on death (intensity=12, decay over frames). Added to rocket.gd.
@@ -147,12 +148,12 @@
 - [ ] **Boss Level — Martian Mothership** — large ship spawning smaller Martians. Must dodge and land on its pad.
 
 ### Level Features
-- [x] **Wormholes/portals** — Wormhole.gd/tscn drop-in component. Paired Area2D portals teleport rocket between points. Swirling animated ring visual, cooldown prevents re-teleport, haptic pulse on use.
+- [x] **Wormholes/portals** — Wormhole.gd/tscn drop-in component. Paired Area2D portals teleport rocket between points. Swirling animated ring visual, cooldown prevents re-teleport, haptic pulse on use. **Placed in:** Level 5 (shortcut mid-field), Level 8 (skip nebula), Level 10 (escape route).
 - [ ] **Gravity slingshot** — use a planet's gravity to accelerate toward distant targets
 - [ ] **Moving asteroids as obstacles** — pre-placed orbiting bodies
-- [x] **Solar wind** — SolarWind.gd/tscn drop-in zone. Applies constant directional force (configurable direction + strength). Animated wind streak lines show force direction.
-- [x] **Nebula zones** — Nebula.gd/tscn drop-in zone. Drains rocket fuel while inside, applies gentle speed damping. Soft pulsing gas blob visual.
-- [x] **Black hole** — BlackHole.gd/tscn drop-in hazard. Extreme gravity pull (inverse-distance), instant death at event horizon. Animated accretion disk rings + dark center.
+- [x] **Solar wind** — SolarWind.gd/tscn drop-in zone. Applies constant directional force (configurable direction + strength). Animated wind streak lines show force direction. **Placed in:** Level 6 (crosswind near Saturn), Level 9 (pushes toward black hole), Level 10 (approach deflection).
+- [x] **Nebula zones** — Nebula.gd/tscn drop-in zone. Drains rocket fuel while inside, applies gentle speed damping. Soft pulsing gas blob visual. **Placed in:** Level 7 (deep space fog), Level 8 (between Neptune and Pluto), Level 10 (thick interference).
+- [x] **Black hole** — BlackHole.gd/tscn drop-in hazard. Extreme gravity pull (inverse-distance), instant death at event horizon. Animated accretion disk rings + dark center. **Placed in:** Level 9 (solar wind pushes toward it), Level 10 (early obstacle).
 
 
 ### 🎨 Visual & Audio

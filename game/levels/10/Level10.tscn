@@ -1,4 +1,4 @@
-[gd_scene load_steps=15 format=3]
+[gd_scene load_steps=19 format=3]
 
 [ext_resource type="PackedScene" path="res://game/ParallaxBackground.tscn" id="1"]
 [ext_resource type="PackedScene" path="res://game/TextsIngame.tscn" id="2"]
@@ -14,6 +14,10 @@
 [ext_resource type="PackedScene" path="res://game/saturn/Saturn.tscn" id="13"]
 [ext_resource type="PackedScene" path="res://game/neptune/Neptune.tscn" id="14"]
 [ext_resource type="PackedScene" path="res://game/moon/Moon.tscn" id="15"]
+[ext_resource type="PackedScene" path="res://game/hazards/BlackHole.tscn" id="16"]
+[ext_resource type="PackedScene" path="res://game/hazards/Nebula.tscn" id="17"]
+[ext_resource type="PackedScene" path="res://game/hazards/SolarWind.tscn" id="18"]
+[ext_resource type="PackedScene" path="res://game/hazards/Wormhole.tscn" id="19"]
 
 [node name="SpaceStationDock" type="Node2D"]
 script = ExtResource("5")
@@ -152,6 +156,37 @@ position = Vector2(3500, -400)
 spawn_count = 1
 spawn_radius = 150.0
 fuel_percent = 0.25
+
+[node name="BlackHole" parent="." instance=ExtResource("16")]
+position = Vector2(1600, 100)
+gravity_strength = 900.0
+gravity_radius = 320.0
+kill_radius = 35.0
+
+[node name="Nebula" parent="." instance=ExtResource("17")]
+position = Vector2(2400, -250)
+fuel_drain_rate = 6.0
+speed_damping = 0.975
+zone_size = Vector2(550, 400)
+nebula_color = Color(0.4, 0.1, 0.5, 0.5)
+
+[node name="SolarWind" parent="." instance=ExtResource("18")]
+position = Vector2(3200, -350)
+wind_direction = Vector2(-0.4, 1.0)
+wind_strength = 140.0
+zone_size = Vector2(450, 350)
+
+[node name="WormholeA" parent="." instance=ExtResource("19")]
+position = Vector2(2800, -100)
+portal_radius = 42.0
+portal_color = Color(1.0, 0.2, 0.4, 0.8)
+linked_wormhole = NodePath("../WormholeB")
+
+[node name="WormholeB" parent="." instance=ExtResource("19")]
+position = Vector2(3600, -500)
+portal_radius = 42.0
+portal_color = Color(0.4, 1.0, 0.2, 0.8)
+linked_wormhole = NodePath("../WormholeA")
 
 [connection signal="timeout" from="RayTimer" to="." method="_on_RayTimer_timeout"]
 [connection signal="timeout" from="AsteriodTimer" to="." method="_on_AsteriodTimer_timeout"]

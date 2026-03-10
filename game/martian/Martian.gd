@@ -8,6 +8,9 @@ var follow = false
 ## How close the rocket must be to a landing target for martians to back off
 const LANDING_SAFE_RADIUS := 120.0
 
+func _ready() -> void:
+	speed = int(speed * globalvar.get_enemy_speed_mult())
+
 
 func _physics_process(delta):
 	if follow and not _rocket_near_target():

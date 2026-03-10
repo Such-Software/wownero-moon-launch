@@ -1,4 +1,4 @@
-[gd_scene load_steps=14 format=3]
+[gd_scene load_steps=16 format=3]
 
 [ext_resource type="PackedScene" path="res://game/ParallaxBackground.tscn" id="1"]
 [ext_resource type="PackedScene" path="res://game/TextsIngame.tscn" id="2"]
@@ -13,6 +13,8 @@
 [ext_resource type="PackedScene" path="res://game/fuel/FuelSpawner.tscn" id="12"]
 [ext_resource type="PackedScene" path="res://game/neptune/Neptune.tscn" id="13"]
 [ext_resource type="PackedScene" path="res://game/moon/Moon.tscn" id="14"]
+[ext_resource type="PackedScene" path="res://game/hazards/Wormhole.tscn" id="15"]
+[ext_resource type="PackedScene" path="res://game/hazards/Nebula.tscn" id="16"]
 
 [node name="PlutoSpace" type="Node2D"]
 script = ExtResource("5")
@@ -127,6 +129,25 @@ position = Vector2(3000, -300)
 spawn_count = 1
 spawn_radius = 150.0
 fuel_percent = 0.25
+
+[node name="Nebula" parent="." instance=ExtResource("16")]
+position = Vector2(2500, -300)
+fuel_drain_rate = 5.0
+speed_damping = 0.98
+zone_size = Vector2(500, 400)
+nebula_color = Color(0.5, 0.1, 0.6, 0.5)
+
+[node name="WormholeA" parent="." instance=ExtResource("15")]
+position = Vector2(2100, -100)
+portal_radius = 40.0
+portal_color = Color(0.2, 0.8, 0.6, 0.8)
+linked_wormhole = NodePath("../WormholeB")
+
+[node name="WormholeB" parent="." instance=ExtResource("15")]
+position = Vector2(3100, -350)
+portal_radius = 40.0
+portal_color = Color(0.6, 0.8, 0.2, 0.8)
+linked_wormhole = NodePath("../WormholeA")
 
 [connection signal="timeout" from="RayTimer" to="." method="_on_RayTimer_timeout"]
 [connection signal="timeout" from="AsteriodTimer" to="." method="_on_AsteriodTimer_timeout"]
