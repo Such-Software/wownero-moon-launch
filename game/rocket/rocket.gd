@@ -68,7 +68,7 @@ func _ready():
 	deathtimer = Timer.new()
 	deathtimer.set_wait_time(3)
 	deathtimer.set_one_shot(true)
-	deathtimer.connect("timeout", switchtomenu)
+	deathtimer.connect("timeout", _show_death_screen)
 	add_child(deathtimer)
 	moontimer = Timer.new()
 	moontimer.set_wait_time(moontimerdefault)
@@ -278,6 +278,12 @@ func flagplanted():
 func switchtomenu():
 	Engine.time_scale = 1.0
 	get_tree().change_scene_to_file("res://game/gui/menu/Menu.tscn")
+
+
+func _show_death_screen() -> void:
+	## Show the DeathScreen overlay instead of jumping straight to menu.
+	var death_scene := preload("res://game/gui/death/DeathScreen.tscn")
+	get_tree().current_scene.add_child(death_scene.instantiate())
 
 
 func _on_external_death() -> void:
