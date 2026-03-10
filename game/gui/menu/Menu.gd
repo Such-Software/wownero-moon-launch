@@ -17,6 +17,7 @@ func _ready():
 	BS.apply_space_style($VButtonArray/QuitButton, Color.RED)
 	_build_nickname_bar()
 	_build_level_select()
+	AdManager.show_banner()
 
 
 func _build_nickname_bar() -> void:

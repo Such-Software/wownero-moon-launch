@@ -234,5 +234,10 @@ func _on_Label_Quit_pressed():
 	get_tree().change_scene_to_file("res://game/gui/menu/Menu.tscn")
 
 func _on_Label_NextLevel_pressed():
-	# Always go to the upgrade shop between levels
+	# Show interstitial ad before going to shop (no-op if ad-free)
+	AdManager.interstitial_closed.connect(_go_to_shop, CONNECT_ONE_SHOT)
+	AdManager.show_interstitial()
+
+
+func _go_to_shop() -> void:
 	get_tree().change_scene_to_file("res://game/gui/shop/UpgradeShop.tscn")

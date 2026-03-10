@@ -78,10 +78,11 @@
 ## 💰 Phase 2: Monetization
 
 ### Ads (Primary Revenue)
-- [ ] **Interstitial ads** — show between levels (after Victory screen, before Upgrade Shop). Never during gameplay.
-- [ ] **Rewarded video ads** — "Watch ad for 50 WOW" button on death screen and in upgrade shop. Opt-in only.
-- [ ] **Banner ad** — menu screen only. Removed during gameplay.
-- [ ] **Web ad integration** — Google AdSense/Ad Manager via JavaScript bridge for HTML5 builds.
+- [x] **AdManager autoload** — platform-aware ad abstraction layer. Desktop always ad-free (itch.io sales). Web uses AdSense via JavaScriptBridge. Mobile has AdMob plugin stubs. IAP ad-removal persisted to user://adstate.json.
+- [x] **Interstitial ads** — shown between Victory and Upgrade Shop. Also every 3rd retry on DeathScreen. No-op if ad-free.
+- [x] **Rewarded video ads** — "Watch ad for 50 WOW" button on DeathScreen and in Upgrade Shop. Opt-in only. Grants AdManager.REWARDED_AD_WOW crypto.
+- [x] **Banner ad** — shown on Menu and Upgrade Shop screens. Hidden during gameplay (rocket.gd _ready).
+- [x] **Web ad integration** — Google AdSense via JavaScriptBridge for HTML5 builds. JS shell functions: showInterstitialAd, showRewardedAd, showBannerAd, hideBannerAd.
 
 ### Cosmetic IAP
 - [ ] **Ship skins** — unlockable rocket textures. Free skins earned via achievements (gold rocket for all 3★, skull rocket for 50 deaths). Premium skins via small IAP ($0.99–$2.99) or large WOW amounts.
@@ -104,15 +105,10 @@
 - [x] **Martian speed scaling** — Level 2: 25, Level 3: 32–35, Level 4: 40–45. Per-instance speed set in .tscn.
 
 ### Retry & Checkpoints
+- [x] **DeathScreen overlay** — replaces old "3s timer → menu" death flow. Animated panel with Retry Level (free), Watch Ad for WOW (if ads supported), Quit to Menu. Interstitial every 3rd retry.
 - [ ] **Celestial waypoints (Levels 5+)** — instead of arbitrary position checkpoints, use intermediate planets as natural waypoints. Entering a waypoint planet's gravity well = auto-checkpoint. On death, respawn orbiting the last waypoint with preserved velocity/fuel.
 - [ ] **Waypoint as gameplay** — waypoint planets double as gravity slingshot opportunities and refueling stations. Fuel pickups clustered near waypoints.
-- [ ] **Retry button (Levels 1–4)** — short levels get a simple free "Retry Level" on death. No checkpoints needed.
 - [ ] **Checkpoint retry (Levels 5+)** — on death, offer "Retry from waypoint (25 WOW or watch ad)" vs "Retry Level (free)".
-- [ ] **Multi-body level architecture:**
-  - Levels 1–4: Earth → Target (no waypoints, quick retry)
-  - Levels 5–8: Earth → 1 Waypoint → Target (one checkpoint)
-  - Levels 9–10: Earth → 2 Waypoints → Target (two checkpoints)
-  - Endless mode: Earth → Waypoint → Waypoint → ... (each = checkpoint)
 
 ### Visual Feedback
 - [x] **Screen shake** — Camera2D offset randomized on death (intensity=12, decay over frames). Added to rocket.gd.
@@ -124,7 +120,7 @@
 
 ### Game Feel
 - [x] **Slow-motion landing** — within 80px of target at speed < 80 → Engine.time_scale = 0.7. Reverts on death/land/menu. Added to rocket.gd.
-- [ ] **Crypto pickup VFX** — sparkle + pulse when collected
+- [x] **Crypto pickup VFX** — sparkle burst of 8-12 colored dots radiating outward on collection, type-colored with white accents, tween fade+shrink.
 - [ ] **UI animations** — buttons slide in, scores count up on victory screen
 
 ---

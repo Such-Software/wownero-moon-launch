@@ -8,6 +8,7 @@ var _upgrade_buttons := {}  # upgrade_name -> Button
 var _upgrade_pips := {}     # upgrade_name -> HBoxContainer of pip rects
 var _wallet_label: Label = null
 var _title_label: Label = null
+var _ad_button: Button = null
 
 # Icons for each upgrade
 const UPGRADE_ICONS := {
@@ -84,6 +85,21 @@ func _ready() -> void:
 	wallet_panel.add_child(_wallet_label)
 	_update_wallet_label()
 
+	# Rewarded ad button (only if ads supported and not ad-free)
+	if AdManager.is_ad_supported() and not AdManager.is_ad_free():
+		_ad_button = Button.new()
+		_ad_button.text = "🎬  Watch Ad for %d WOW" % AdManager.REWARDED_AD_WOW
+		_ad_button.custom_minimum_size = Vector2(280, 34)
+		BS.apply_space_style(_ad_button, Color(1.0, 0.85, 0.1))
+		_ad_button.pressed.connect(_on_watch_ad)
+		_ad_button.position = Vector2(372, 50)
+		add_child(_ad_button)
+		# Shift wallet panel left to make room
+		wallet_panel.position = Vector2(80, 50)
+
+	# Show banner ad on shop screen
+	AdManager.show_banner()
+
 	# Scrollable upgrade list
 	var scroll := ScrollContainer.new()
 	scroll.position = Vector2(80, 90)
@@ -124,6 +140,35 @@ func _ready() -> void:
 	BS.apply_space_style(menu_btn, Color(0.8, 0.2, 0.2))
 	menu_btn.pressed.connect(func(): get_tree().change_scene_to_file("res://game/gui/menu/Menu.tscn"))
 	vbox.add_child(menu_btn)
+
+
+func _on_watch_ad() -> void:
+	if _ad_button:
+		_ad_button.disabled = true
+		_ad_button.text = "Loading..."
+	AdManager.show_rewarded(_on_rewarded_result)
+
+
+func _on_rewarded_result(success: bool) -> void:
+	if success:
+		globalvar.add_crypto(AdManager.REWARDED_AD_WOW)
+		_update_wallet_label()
+		# Refresh all buy buttons (player may now afford upgrades)
+		for uname in _upgrade_buttons.keys():
+			_style_buy_button(uname)
+		if _ad_button:
+			_ad_button.text = "+%d WOW!" % AdManager.REWARDED_AD_WOW
+			# Re-enable after a brief cooldown
+			var timer := get_tree().create_timer(3.0)
+			timer.timeout.connect(func():
+				if is_instance_valid(_ad_button):
+					_ad_button.disabled = false
+					_ad_button.text = "🎬  Watch Ad for %d WOW" % AdManager.REWARDED_AD_WOW
+			)
+	else:
+		if _ad_button:
+			_ad_button.text = "Ad unavailable"
+			_ad_button.disabled = true
 
 
 func _create_upgrade_card(upgrade_name: String) -> PanelContainer:

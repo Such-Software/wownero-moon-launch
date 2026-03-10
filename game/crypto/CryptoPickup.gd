@@ -137,6 +137,7 @@ func _on_body_entered(body: Node2D) -> void:
 	var value: int = amount * TYPE_MULTIPLIERS.get(crypto_type, 1)
 	globalvar.add_crypto(value)
 	_spawn_popup(value)
+	_spawn_sparkles()
 	queue_free()
 
 
@@ -153,3 +154,34 @@ func _spawn_popup(value: int) -> void:
 	tween.tween_property(label, "position:y", label.position.y - 40, 0.8)
 	tween.tween_property(label, "modulate:a", 0.0, 0.8)
 	tween.chain().tween_callback(label.queue_free)
+
+
+func _spawn_sparkles() -> void:
+	## Burst of colored sparkle dots radiating outward from the pickup location.
+	var color: Color = TYPE_COLORS.get(crypto_type, Color.WHITE)
+	var parent := get_parent()
+	var origin := global_position
+	var count := 8 + randi() % 5  # 8-12 sparkles
+	for i in count:
+		var dot := Label.new()
+		dot.text = "✦"
+		dot.add_theme_font_size_override("font_size", randi_range(10, 18))
+		# Alternate between type color and white for variety
+		var dot_color := color if i % 3 != 0 else Color(1.0, 1.0, 0.9)
+		dot.add_theme_color_override("font_color", dot_color)
+		dot.position = origin
+		dot.z_index = 100
+		parent.add_child(dot)
+		# Random direction and speed
+		var angle := TAU * float(i) / float(count) + randf() * 0.4
+		var dist := randf_range(30.0, 65.0)
+		var target_pos := origin + Vector2(cos(angle), sin(angle)) * dist
+		var duration := randf_range(0.35, 0.6)
+		var tw := dot.create_tween()
+		tw.set_parallel(true)
+		tw.set_ease(Tween.EASE_OUT)
+		tw.set_trans(Tween.TRANS_CUBIC)
+		tw.tween_property(dot, "position", target_pos, duration)
+		tw.tween_property(dot, "modulate:a", 0.0, duration)
+		tw.tween_property(dot, "scale", Vector2(0.3, 0.3), duration)
+		tw.chain().tween_callback(dot.queue_free)

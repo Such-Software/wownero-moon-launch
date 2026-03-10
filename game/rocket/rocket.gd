@@ -43,6 +43,8 @@ const BEEP_RANGE := 250.0  # start beeping at this distance from target
 func _ready():
 	# Add to group so HUD widgets (FuelBar etc.) can find us
 	add_to_group("rocket")
+	# Hide menu banner ad during gameplay
+	AdManager.hide_banner()
 	# Reset per-level stats
 	globalvar.reset_level_stats()
 	# Apply upgrades from globalvar
