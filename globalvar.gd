@@ -17,6 +17,14 @@ var tutorial_shown: bool = false  # Level 1 tutorial prompts (first-time only)
 var level_crypto_collected: int = 0   # WOW earned this run
 var level_fuel_remaining: float = 0.0 # percentage at landing
 
+# --- Waypoint checkpoint (transient, not persisted) ---
+var checkpoint_position: Vector2 = Vector2.ZERO
+var checkpoint_velocity: Vector2 = Vector2.ZERO
+var checkpoint_fuel: float = 0.0
+var checkpoint_planet_name: String = ""  # display name of waypoint
+var has_checkpoint: bool = false
+var restore_checkpoint: bool = false  # flag: rocket should restore from checkpoint on next _ready
+
 # --- Best times & stars per level (persisted) ---
 var best_times := {}  # { "1": 25.3, "2": 42.1, ... }
 var best_stars := {}  # { "1": 3, "2": 2, ... }
@@ -236,6 +244,20 @@ func reset_level_stats() -> void:
 	## Call at the start of each level to reset per-run tracking.
 	level_crypto_collected = 0
 	level_fuel_remaining = 0.0
+	checkpoint_position = Vector2.ZERO
+	checkpoint_velocity = Vector2.ZERO
+	checkpoint_fuel = 0.0
+	checkpoint_planet_name = ""
+	has_checkpoint = false
+
+
+func save_checkpoint(pos: Vector2, vel: Vector2, fuel_amt: float, planet_name: String) -> void:
+	## Save a waypoint checkpoint. Called when rocket enters a waypoint's gravity well.
+	checkpoint_position = pos
+	checkpoint_velocity = vel
+	checkpoint_fuel = fuel_amt
+	checkpoint_planet_name = planet_name
+	has_checkpoint = true
 
 func get_platform_string() -> String:
 	## Returns platform identifier for leaderboard submissions.

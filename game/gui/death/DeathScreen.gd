@@ -83,6 +83,16 @@ func _build_ui() -> void:
 	retry_btn.pressed.connect(_on_retry)
 	vbox.add_child(retry_btn)
 
+	# Waypoint retry button (only if checkpoint exists)
+	var waypoint_btn: Button = null
+	if globalvar.has_checkpoint:
+		waypoint_btn = Button.new()
+		waypoint_btn.text = "Retry from %s" % globalvar.checkpoint_planet_name
+		waypoint_btn.custom_minimum_size = Vector2(280, 44)
+		BS.apply_space_style(waypoint_btn, Color(0.3, 1.0, 0.5))
+		waypoint_btn.pressed.connect(_on_retry_waypoint)
+		vbox.add_child(waypoint_btn)
+
 	# Rewarded ad button (only if ads are available)
 	if AdManager.is_ad_supported() and not AdManager.is_ad_free():
 		_ad_button = Button.new()
@@ -100,6 +110,14 @@ func _build_ui() -> void:
 	quit_btn.pressed.connect(_on_quit)
 	vbox.add_child(quit_btn)
 
+	# Collect buttons for stagger animation
+	var _buttons: Array[Button] = [retry_btn]
+	if waypoint_btn:
+		_buttons.append(waypoint_btn)
+	if _ad_button:
+		_buttons.append(_ad_button)
+	_buttons.append(quit_btn)
+
 	# Animate panel in (slide from bottom + fade)
 	_panel.modulate = Color(1, 1, 1, 0)
 	_panel.position.y += 40
@@ -109,6 +127,20 @@ func _build_ui() -> void:
 	tween.set_parallel(true)
 	tween.tween_property(_panel, "modulate", Color.WHITE, 0.4)
 	tween.tween_property(_panel, "position:y", _panel.position.y - 40, 0.4)
+
+	# Stagger buttons sliding in from right
+	for i in _buttons.size():
+		var btn := _buttons[i]
+		var final_x := btn.position.x
+		btn.position.x += 60
+		btn.modulate = Color(1, 1, 1, 0)
+		var btn_tw := create_tween()
+		btn_tw.set_ease(Tween.EASE_OUT)
+		btn_tw.set_trans(Tween.TRANS_CUBIC)
+		btn_tw.set_parallel(true)
+		var delay := 0.25 + i * 0.1  # after panel starts appearing
+		btn_tw.tween_property(btn, "position:x", final_x, 0.35).set_delay(delay)
+		btn_tw.tween_property(btn, "modulate", Color.WHITE, 0.25).set_delay(delay)
 
 
 func _on_retry() -> void:
@@ -123,6 +155,13 @@ func _on_retry() -> void:
 
 func _do_retry() -> void:
 	Engine.time_scale = 1.0
+	var scene_path: String = globalvar.get_level_scene(globalvar.nowlevel)
+	get_tree().change_scene_to_file(scene_path)
+
+
+func _on_retry_waypoint() -> void:
+	Engine.time_scale = 1.0
+	globalvar.restore_checkpoint = true
 	var scene_path: String = globalvar.get_level_scene(globalvar.nowlevel)
 	get_tree().change_scene_to_file(scene_path)
 

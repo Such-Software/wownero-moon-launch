@@ -106,9 +106,9 @@
 
 ### Retry & Checkpoints
 - [x] **DeathScreen overlay** — replaces old "3s timer → menu" death flow. Animated panel with Retry Level (free), Watch Ad for WOW (if ads supported), Quit to Menu. Interstitial every 3rd retry.
-- [ ] **Celestial waypoints (Levels 5+)** — instead of arbitrary position checkpoints, use intermediate planets as natural waypoints. Entering a waypoint planet's gravity well = auto-checkpoint. On death, respawn orbiting the last waypoint with preserved velocity/fuel.
+- [x] **Celestial waypoints (Levels 5+)** — rocket.gd detects entering a waypoint planet's gravity well (Area2D radius check) and saves checkpoint (position, velocity, fuel) to globalvar. Waypoints are all "targets" group bodies except the last (final target). Each waypoint visited only once per run.
 - [ ] **Waypoint as gameplay** — waypoint planets double as gravity slingshot opportunities and refueling stations. Fuel pickups clustered near waypoints.
-- [ ] **Checkpoint retry (Levels 5+)** — on death, offer "Retry from waypoint (25 WOW or watch ad)" vs "Retry Level (free)".
+- [x] **Checkpoint retry (Levels 5+)** — DeathScreen shows green "Retry from [Planet]" button when checkpoint exists. Reloads level with globalvar.restore_checkpoint flag; rocket.gd defers position/velocity/fuel restore via _apply_checkpoint().
 
 ### Visual Feedback
 - [x] **Screen shake** — Camera2D offset randomized on death (intensity=12, decay over frames). Added to rocket.gd.
@@ -121,7 +121,7 @@
 ### Game Feel
 - [x] **Slow-motion landing** — within 80px of target at speed < 80 → Engine.time_scale = 0.7. Reverts on death/land/menu. Added to rocket.gd.
 - [x] **Crypto pickup VFX** — sparkle burst of 8-12 colored dots radiating outward on collection, type-colored with white accents, tween fade+shrink.
-- [ ] **UI animations** — buttons slide in, scores count up on victory screen
+- [x] **UI animations** — Victory screen: score count-up (time rolls 0→final with ease-out, fuel/crypto fade in staggered, stars pop in one-by-one with elastic tween, NEW BEST slam-in). Victory buttons slide in from below with stagger. DeathScreen buttons stagger slide-in from right.
 
 ---
 

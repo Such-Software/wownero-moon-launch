@@ -40,6 +40,10 @@ var _in_slowmo: bool = false
 var _beep_cooldown: float = 0.0
 const BEEP_RANGE := 250.0  # start beeping at this distance from target
 
+# Waypoint checkpoint tracking
+var _visited_waypoints: Dictionary = {}  # node instance_id -> true
+var _waypoint_bodies: Array = []  # bodies in "targets" group that aren't the final target
+
 func _ready():
 	# Add to group so HUD widgets (FuelBar etc.) can find us
 	add_to_group("rocket")
@@ -81,7 +85,16 @@ func _ready():
 	#print(get_node("../../MoonSpace").get_name())
 	for i in get_parent().get_children():
 		if i.is_in_group('targets'):
+			if target != null:
+				# Previous target becomes a waypoint
+				_waypoint_bodies.append(target)
 			target = i
+
+	# Restore from waypoint checkpoint if flagged
+	if globalvar.restore_checkpoint and globalvar.has_checkpoint:
+		globalvar.restore_checkpoint = false
+		# Defer position/velocity restore to after physics init
+		call_deferred("_apply_checkpoint")
 
 func _integrate_forces(state):
 	var dt = state.step
@@ -152,6 +165,9 @@ func _process(_delta):
 	# Magnet: attract nearby crypto pickups
 	if magnet_radius > 0.0:
 		_attract_crypto()
+	# Waypoint checkpoint: save when entering a waypoint's gravity well
+	if _waypoint_bodies.size() > 0 and not flagplaced:
+		_check_waypoints()
 	shipoverlaps = get_node("ShipArea").get_overlapping_bodies()
 	footoverlaps = get_node("FootArea").get_overlapping_bodies()
 	if (shipoverlaps.size() > 0):
@@ -319,3 +335,44 @@ func _attract_crypto() -> void:
 			var dir: Vector2 = (global_position - pickup.global_position).normalized()
 			var strength := 200.0 * (1.0 - dist / magnet_radius)
 			pickup.position += dir * strength * get_process_delta_time()
+
+
+func _check_waypoints() -> void:
+	## Detect entering a waypoint planet's gravity well and save checkpoint.
+	for body in _waypoint_bodies:
+		if not is_instance_valid(body):
+			continue
+		var iid := body.get_instance_id()
+		if iid in _visited_waypoints:
+			continue
+		# Find the gravity Area2D child and check its radius
+		var gravity_area: Area2D = null
+		for child in body.get_children():
+			if child is Area2D:
+				gravity_area = child
+				break
+		if not gravity_area:
+			continue
+		# Get the collision radius from the Area2D's CollisionShape2D
+		var radius := 200.0  # fallback
+		for child in gravity_area.get_children():
+			if child is CollisionShape2D and child.shape is CircleShape2D:
+				radius = child.shape.radius
+				break
+		var dist := global_position.distance_to(body.global_position)
+		if dist < radius:
+			_visited_waypoints[iid] = true
+			globalvar.save_checkpoint(global_position, linear_velocity, fuel, body.name)
+
+
+func _apply_checkpoint() -> void:
+	## Restore rocket state from a saved waypoint checkpoint.
+	global_position = globalvar.checkpoint_position
+	linear_velocity = globalvar.checkpoint_velocity
+	fuel = globalvar.checkpoint_fuel
+	# Mark waypoints up to the checkpoint as already visited
+	for body in _waypoint_bodies:
+		if is_instance_valid(body):
+			_visited_waypoints[body.get_instance_id()] = true
+			if body.name == globalvar.checkpoint_planet_name:
+				break
