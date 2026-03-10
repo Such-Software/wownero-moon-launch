@@ -64,6 +64,27 @@ const BULLET_SCENE = preload("res://game/rocket/Bullet.tscn")
 const AUTO_AIM_RANGE := 300.0  # auto-aim search radius
 const AUTO_AIM_CONE := 1.2  # radians (~70 degrees each side of forward)
 
+# Missile weapon state
+var _has_missile: bool = false
+var _missile_ammo: int = 0
+var _missile_cooldown: float = 0.0
+const MISSILE_SCENE = preload("res://game/rocket/Missile.tscn")
+const MISSILE_COOLDOWN := 1.0  # seconds between launches
+const MISSILE_AIM_RANGE := 500.0
+
+# Laser beam state
+var _has_laser: bool = false
+var _laser_node: Node2D = null
+var _laser_fuel_drain: float = 18.0
+
+# EMP pulse state
+var _has_emp: bool = false
+var _emp_charges: int = 0
+var _emp_radius: float = 150.0
+const EMP_BASE_RADIUS := 150.0
+const EMP_RADIUS_PER_LEVEL := 30.0
+const EMPPulseScript = preload("res://game/rocket/EMPPulse.gd")
+
 func _ready():
 	# Add to group so HUD widgets (FuelBar etc.) can find us
 	add_to_group("rocket")
@@ -88,6 +109,26 @@ func _ready():
 		_has_cannon = true
 		_cannon_fire_rate = maxf(0.4 - cannon_level * 0.06, 0.15)
 		_cannon_damage = cannon_level
+	# Missile upgrade
+	var missile_level: int = globalvar.upgrades.get("missile", 0)
+	if missile_level > 0:
+		_has_missile = true
+		_missile_ammo = missile_level * 2  # 2 missiles per upgrade level
+	# Laser upgrade
+	var laser_level: int = globalvar.upgrades.get("laser", 0)
+	if laser_level > 0:
+		_has_laser = true
+		var laser_script = load("res://game/rocket/LaserBeam.gd")
+		_laser_node = Node2D.new()
+		_laser_node.set_script(laser_script)
+		add_child(_laser_node)
+		_laser_node.setup(laser_level)
+	# EMP upgrade
+	var emp_level: int = globalvar.upgrades.get("emp", 0)
+	if emp_level > 0:
+		_has_emp = true
+		_emp_charges = emp_level
+		_emp_radius = EMP_BASE_RADIUS + emp_level * EMP_RADIUS_PER_LEVEL
 	# Turn on processes and monitors
 	set_process(true)
 	contact_monitor = true
@@ -217,6 +258,23 @@ func _process(_delta):
 		if Input.is_action_pressed("fire") and _cannon_cooldown <= 0.0:
 			_fire_cannon()
 			_cannon_cooldown = _cannon_fire_rate
+	# Missile firing
+	if _has_missile and _missile_ammo > 0:
+		_missile_cooldown = maxf(_missile_cooldown - _delta, 0.0)
+		if Input.is_action_just_pressed("missile") and _missile_cooldown <= 0.0:
+			_fire_missile()
+			_missile_cooldown = MISSILE_COOLDOWN
+	# Laser beam (hold to fire, drains fuel)
+	if _has_laser:
+		var laser_active := Input.is_action_pressed("laser") and fuel > 0.0
+		_laser_node.set_active(laser_active)
+		if laser_active:
+			fuel -= _laser_fuel_drain * _delta
+			fuel = maxf(fuel, 0.0)
+	# EMP pulse
+	if _has_emp and _emp_charges > 0:
+		if Input.is_action_just_pressed("emp"):
+			_fire_emp()
 	shipoverlaps = get_node("ShipArea").get_overlapping_bodies()
 	footoverlaps = get_node("FootArea").get_overlapping_bodies()
 	if (shipoverlaps.size() > 0):
@@ -660,3 +718,51 @@ func _find_auto_aim_target() -> Node2D:
 			best_dist = dist
 			best_node = node
 	return best_node
+
+
+func _fire_missile() -> void:
+	## Launch a homing missile at the nearest enemy.
+	var forward_dir := -Vector2.from_angle(rotation - PI / 2.0)
+	var target_node := _find_missile_target()
+	var fire_dir: Vector2
+	if target_node:
+		fire_dir = (target_node.global_position - global_position).normalized()
+	else:
+		fire_dir = forward_dir
+	var missile: Area2D = MISSILE_SCENE.instantiate()
+	get_parent().add_child(missile)
+	missile.setup(global_position + fire_dir * 30.0, fire_dir, target_node)
+	_missile_ammo -= 1
+	Input.vibrate_handheld(40)
+
+
+func _find_missile_target() -> Node2D:
+	## Find the nearest enemy within missile lock range (any direction).
+	var best_node: Node2D = null
+	var best_dist := MISSILE_AIM_RANGE
+	for node in get_parent().get_children():
+		if node == self:
+			continue
+		if not (node is CharacterBody2D):
+			continue
+		if not is_instance_valid(node):
+			continue
+		var dist := global_position.distance_to(node.global_position)
+		if dist > MISSILE_AIM_RANGE or dist < 10.0:
+			continue
+		if dist < best_dist:
+			best_dist = dist
+			best_node = node
+	return best_node
+
+
+func _fire_emp() -> void:
+	## Fire an EMP pulse that destroys all enemies in radius.
+	var pulse := Node2D.new()
+	pulse.set_script(EMPPulseScript)
+	get_parent().add_child(pulse)
+	pulse.fire(global_position, _emp_radius)
+	_emp_charges -= 1
+	# Screen shake + haptic
+	_shake_intensity = 8.0
+	Input.vibrate_handheld(80)

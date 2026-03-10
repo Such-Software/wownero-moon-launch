@@ -7,6 +7,7 @@ extends CanvasLayer
 const VirtualJoystickScript = preload("res://game/gui/VirtualJoystick.gd")
 const ThrustButtonScript = preload("res://game/gui/ThrustButton.gd")
 const FireButtonScript = preload("res://game/gui/FireButton.gd")
+const WeaponButtonScript = preload("res://game/gui/WeaponButton.gd")
 const FuelBarScript = preload("res://game/gui/hud/FuelBar.gd")
 const WalletHUDScript = preload("res://game/gui/hud/WalletHUD.gd")
 const DebugOverlayScript = preload("res://game/gui/hud/DebugOverlay.gd")
@@ -17,6 +18,9 @@ var _joystick: Control = null
 var _thrust_btn: Control = null
 var _reverse_btn: Control = null
 var _fire_btn: Control = null
+var _missile_btn: Control = null
+var _laser_btn: Control = null
+var _emp_btn: Control = null
 var _fuel_bar: Control = null
 var _wallet_hud: Control = null
 var _debug_overlay: Control = null
@@ -87,6 +91,45 @@ func _setup_mobile() -> void:
 		_fire_btn.name = "FireBtn"
 		add_child(_fire_btn)
 		_fire_btn.position = Vector2(20, 340)
+
+	# Weapon buttons — stack vertically on right side below thrust buttons
+	var weapon_y := 280.0
+	if globalvar.upgrades.get("missile", 0) > 0:
+		_missile_btn = Control.new()
+		_missile_btn.set_script(WeaponButtonScript)
+		_missile_btn.name = "MissileBtn"
+		_missile_btn.set("action_name", "missile")
+		_missile_btn.set("icon_text", "M")
+		_missile_btn.set("base_color", Color(1.0, 0.3, 0.1))
+		_missile_btn.set("ring_color", Color(1.0, 0.4, 0.2, 0.35))
+		_missile_btn.set("ammo_count", globalvar.upgrades.get("missile", 0) * 2)
+		add_child(_missile_btn)
+		_missile_btn.position = Vector2(850, weapon_y)
+		weapon_y -= 68.0
+
+	if globalvar.upgrades.get("laser", 0) > 0:
+		_laser_btn = Control.new()
+		_laser_btn.set_script(WeaponButtonScript)
+		_laser_btn.name = "LaserBtn"
+		_laser_btn.set("action_name", "laser")
+		_laser_btn.set("icon_text", "L")
+		_laser_btn.set("base_color", Color(0.2, 0.8, 1.0))
+		_laser_btn.set("ring_color", Color(0.3, 0.7, 1.0, 0.35))
+		add_child(_laser_btn)
+		_laser_btn.position = Vector2(850, weapon_y)
+		weapon_y -= 68.0
+
+	if globalvar.upgrades.get("emp", 0) > 0:
+		_emp_btn = Control.new()
+		_emp_btn.set_script(WeaponButtonScript)
+		_emp_btn.name = "EMPBtn"
+		_emp_btn.set("action_name", "emp")
+		_emp_btn.set("icon_text", "E")
+		_emp_btn.set("base_color", Color(0.4, 0.6, 1.0))
+		_emp_btn.set("ring_color", Color(0.5, 0.7, 1.0, 0.35))
+		_emp_btn.set("ammo_count", globalvar.upgrades.get("emp", 0))
+		add_child(_emp_btn)
+		_emp_btn.position = Vector2(850, weapon_y)
 
 
 func _setup_desktop() -> void:

@@ -23,6 +23,9 @@ const UPGRADE_ICONS := {
 	"reverse_thrust": "▼",
 	"magnet": "🧲",
 	"cannon": "🔫",
+	"missile": "🚀",
+	"laser": "⚡",
+	"emp": "💥",
 }
 
 # Accent colors for each upgrade
@@ -37,6 +40,9 @@ const UPGRADE_COLORS := {
 	"reverse_thrust": Color(1.0, 0.35, 0.35), # red
 	"magnet": Color(0.9, 0.5, 1.0),          # pink
 	"cannon": Color(1.0, 0.6, 0.15),          # fiery orange
+	"missile": Color(1.0, 0.3, 0.1),          # red-orange
+	"laser": Color(0.2, 0.8, 1.0),            # cyan
+	"emp": Color(0.4, 0.6, 1.0),              # electric blue
 }
 
 

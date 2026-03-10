@@ -173,7 +173,7 @@
 
 ### Audio
 - [x] **Per-level BGM** — Levels 1–4: ancientbgm.ogg, Level 5: spacecadet_bgm.ogg, Level 6: infinitedescent_bgm.ogg
-- [ ] **More BGM tracks** — source/compose additional looping tracks for Levels 7–10 (currently reusing existing 3 tracks)
+- [x] **More BGM tracks** — 4 new "Star Overdrive" tracks wired in: Level 7=staroverdrive_1, Level 8=staroverdrive_2, Level 10=staroverdrive_3, Level 11=staroverdrive_4. Every level now has unique BGM.
 - [x] **Crypto pickup sound** — procedural coin ding using proximity_beep.ogg pitched up. Pitch varies by crypto type: WOW=high ding, DOGE=mid, XMR=lower, BTC=deep rich tone. Light haptic on pickup.
 - [x] **Landing countdown beeps** — accelerating beep ticks during 3s landing timer. Pitch scales 1.2→2.5 and volume -12→-2 dB as countdown progresses. Interval shrinks 0.5s→0.12s.
 - [ ] **Martian chase music** — intensity increases when being pursued
@@ -183,11 +183,11 @@
 ### 🔫 Combat 
 
 - [x] **Forward cannon** — Bullet.gd/tscn projectile + cannon system in rocket.gd. Auto-aim finds nearest CharacterBody2D enemy within 300px/70° cone. Hold-to-fire with cooldown. Mobile: FireButton.gd (red crosshair circle) above joystick, only shown when cannon purchased. Desktop: spacebar. Haptic on fire.
-- [ ] **Missile launcher** — homing missiles, limited ammo (buyable with crypto)
-- [ ] **Laser beam** — continuous beam weapon, drains fuel to fire
+- [x] **Missile launcher** — Missile.gd/tscn homing projectile. Locks onto nearest CharacterBody2D within 500px (any direction), steers with 3.5 rad/s turn rate. Ammo = 2 × upgrade level per run. Desktop: M key. Mobile: WeaponButton.gd (red-orange, "M" icon). Explosion particles on impact/expiry. Base cost 200 Moonrocks.
+- [x] **Laser beam** — LaserBeam.gd continuous ray weapon. Raycast forward, damages enemies on contact (0.15s tick). Drains 18 fuel/sec while active. Range = 200 + 40×level px. Desktop: L key (hold). Mobile: WeaponButton.gd (cyan, "L" icon). Procedural beam draw with glow + impact point. Base cost 250 Moonrocks.
 - [ ] **Mine layer** — drop mines behind you to stop pursuing martians
-- [ ] **EMP pulse** — disable all martians in radius for 5 seconds
-- [x] **Weapons as upgrades** — cannon upgrade in globalvar (10th upgrade, base cost 150 Moonrocks, 5 levels). Faster fire rate per level (0.4s→0.15s). UpgradeShop shows cannon with 🔫 icon and fiery orange accent.
+- [x] **EMP pulse** — EMPPulse.gd area-of-effect weapon. Destroys all CharacterBody2D enemies within radius (150 + 30×level px). Charges = 1 per upgrade level per run. Desktop: E key. Mobile: WeaponButton.gd (blue, "E" icon). Expanding ring visual with electric sparks. Screen shake + haptic. Base cost 300 Moonrocks.
+- [x] **Weapons as upgrades** — All 4 weapons (cannon, missile, laser, EMP) in globalvar upgrades dict (5 levels each). UpgradeShop auto-generates cards with icons (🔫/🚀/⚡/💥) and accent colors.
 
 
 ### 🌐 3D / First Person 

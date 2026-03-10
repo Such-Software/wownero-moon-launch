@@ -153,6 +153,9 @@ var upgrades := {
 	"reverse_thrust": 0, # +40 reverse thrust force per level
 	"magnet": 0,        # auto-attract crypto within 50+30*level px
 	"cannon": 0,        # forward cannon weapon (level 0 = none, 1-5 = faster fire rate)
+	"missile": 0,       # homing missile launcher (level 0 = none, ammo = 2 * level per run)
+	"laser": 0,         # continuous laser beam (level 0 = none, range increases per level)
+	"emp": 0,           # EMP pulse (level 0 = none, charges = level per run)
 }
 
 # --- Upgrade costs (Moonrocks) — cost increases per level ---
@@ -167,6 +170,9 @@ const UPGRADE_BASE_COSTS := {
 	"reverse_thrust": 55,
 	"magnet": 70,
 	"cannon": 150,
+	"missile": 200,
+	"laser": 250,
+	"emp": 300,
 }
 const UPGRADE_MAX_LEVEL := 5
 
@@ -182,6 +188,9 @@ const UPGRADE_DESCRIPTIONS := {
 	"reverse_thrust": "Retro Rockets — stronger reverse thrust",
 	"magnet": "Crypto Magnet — attract nearby pickups",
 	"cannon": "Forward Cannon — shoot enemies (hold to fire)",
+	"missile": "Missile Launcher — homing missiles (+2 ammo/lvl)",
+	"laser": "Laser Beam — continuous beam (drains fuel)",
+	"emp": "EMP Pulse — destroy all nearby enemies (+1 charge/lvl)",
 }
 
 # --- Derived stats (computed from upgrades) ---
