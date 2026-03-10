@@ -166,10 +166,10 @@
 
 ### Visual Polish
 - [x] **Planet atmospheres** — colored atmosphere glow rings on all 9 planets. Each planet has unique color (Earth=blue, Mars=rusty red, Venus=yellow-orange, Jupiter=amber, Saturn=gold, Neptune=icy blue, Pluto=pale frost, Moon=silver, Io=sulfur yellow). Auto-detects body collision radius.
-- [ ] **Parallax depth** — more background layers for depth perception
+- [x] **Parallax depth** — 4-layer parallax system: NebulaLayer (motion_scale 0.03, purple dust particles), deep stars (0.05), mid stars (0.2), MidgroundLayer (0.4, larger/brighter warm-tinted stars)
 - [x] **Landing animation** — dust particle burst on successful landing (24 particles, warm tan, radial burst from feet). GPUParticles2D spawned programmatically in flagplanted().
 - [ ] **Ship skins** — more skins: achievement-unlocked (gold for all 3★, skull for 50 deaths), premium IAP skins with different shapes
-- [ ] **Starfield shader** — replace static background with animated procedural stars
+- [x] **Starfield shader** — procedural animated starfield.gdshader replaces static JPEG. 3 star layers with hash-based placement, per-star twinkle animation, subtle nebula noise. Applied via ShaderMaterial on ColorRect in ParallaxBackground.tscn.
 
 ### Audio
 - [x] **Per-level BGM** — Levels 1–4: ancientbgm.ogg, Level 5: spacecadet_bgm.ogg, Level 6: infinitedescent_bgm.ogg

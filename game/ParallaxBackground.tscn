@@ -1,15 +1,22 @@
-[gd_scene load_steps=2 format=3]
+[gd_scene load_steps=3 format=3]
 
-[ext_resource type="Texture2D" path="res://art/backgrounds/starfield.jpg" id="1"]
+[ext_resource type="Shader" path="res://game/starfield.gdshader" id="1"]
+
+[sub_resource type="ShaderMaterial" id="1"]
+shader = ExtResource("1")
+shader_parameter/star_density = 0.006
+shader_parameter/twinkle_speed = 1.5
+shader_parameter/brightness = 1.4
+shader_parameter/scroll_offset = Vector2(0, 0)
 
 [node name="ParallaxBackground" type="ParallaxBackground"]
 
 [node name="StarParallax" type="ParallaxLayer" parent="."]
 
-[node name="Starfield" type="Sprite2D" parent="StarParallax"]
-position = Vector2( 435, 359 )
-texture = ExtResource("1")
-region_enabled = true
-region_rect = Rect2( 0, 0, 10000, 10000 )
+[node name="Starfield" type="ColorRect" parent="StarParallax"]
+anchors_preset = 0
+offset_right = 10000.0
+offset_bottom = 10000.0
+material = SubResource("1")
 
 [node name="SunParallax" type="ParallaxLayer" parent="."]
