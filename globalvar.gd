@@ -13,6 +13,11 @@ var all_completed: bool = false
 var highest_level_completed: int = 0  # Tracks progress for level select
 var tutorial_shown: bool = false  # Level 1 tutorial prompts (first-time only)
 
+# --- Endless mode ---
+var endless_mode: bool = false
+var endless_wave: int = 1
+var endless_best_wave: int = 0
+
 # --- Difficulty ---
 enum Difficulty { EASY, NORMAL, HARD }
 var difficulty: int = Difficulty.NORMAL
@@ -245,8 +250,10 @@ const LEVEL_SCENES := {
 	8: "res://game/levels/8/Level8.tscn",
 	9: "res://game/levels/9/Level9.tscn",
 	10: "res://game/levels/10/Level10.tscn",
+	11: "res://game/levels/11/Level11.tscn",
+	12: "res://game/levels/12/EndlessMode.tscn",
 }
-const MAX_LEVEL := 10  # Raise this as new levels are added
+const MAX_LEVEL := 12
 
 const LEVEL_NAMES := {
 	1: "Moon",
@@ -259,9 +266,16 @@ const LEVEL_NAMES := {
 	8: "Pluto",
 	9: "Asteroid Belt",
 	10: "Space Station",
+	11: "Mothership",
+	12: "Endless Mode",
 }
 
 func get_level_scene(level: int) -> String:
+	if level == 12:
+		endless_mode = true
+		endless_wave = 1
+	else:
+		endless_mode = false
 	return LEVEL_SCENES.get(level, LEVEL_SCENES[1])
 
 func get_next_level_scene() -> String:
@@ -285,6 +299,8 @@ const STAR_3_TIME := {
 	8: 100.0,  # Pluto
 	9: 110.0,  # Asteroid Belt
 	10: 120.0,  # Space Station
+	11: 140.0,  # Mothership
+	12: 60.0,  # Endless Mode (per wave)
 }
 
 func compute_stars(level: int, time_s: float, fuel_pct: float, _crypto: int) -> int:
@@ -388,6 +404,7 @@ func get_save_data() -> Dictionary:
 		"difficulty": difficulty,
 		"selected_skin": selected_skin,
 		"owned_skins": owned_skins.duplicate(),
+		"endless_best_wave": endless_best_wave,
 	}
 
 func save_game() -> void:
@@ -444,6 +461,7 @@ func _apply_save_data(data: Dictionary) -> void:
 		owned_skins = saved_skins
 		if "default" not in owned_skins:
 			owned_skins.insert(0, "default")
+	endless_best_wave = int(data.get("endless_best_wave", 0))
 
 func load_game() -> void:
 	if not FileAccess.file_exists("user://savegame.json"):

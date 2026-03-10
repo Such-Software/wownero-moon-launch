@@ -150,8 +150,8 @@
 - [x] **Level 10 — Space Station** — Earth → Moon → Saturn → Neptune waypoints → rotating SpaceStation target. 12 Martians (speed 48–62), fastest hazard timing. ancientbgm.ogg.
 
 ### Endgame Content
-- [ ] **Procedural endless mode** — unlocked after Level 10. Random planets, random hazards, difficulty scales with run length. Leaderboard for furthest distance / most landings.
-- [ ] **Boss Level — Martian Mothership** — large ship spawning smaller Martians. Must dodge and land on its pad.
+- [x] **Boss Level — Martian Mothership (Level 11)** — Mothership.gd/tscn: large 4x-scaled red ship that patrols (sine wave oscillation), spawns Martians periodically (speed 52-68), and fires gamma rays aimed at rocket. Landing pad on nose (green ColorRect in "targets" group). Earth → Moon → Jupiter waypoints. 12 pre-placed Martians (speed 50-65), BlackHole + Nebula hazards, 3 CryptoSpawners, 3 FuelSpawners. spacecadet_bgm.ogg.
+- [x] **Procedural endless mode (Level 12)** — EndlessMode.gd/tscn: wave-based infinite mode. Each wave procedurally generates a random target planet at scaling distance (800+wave×200), optional waypoint (wave 3+), scaling Martian count (2+wave×2, cap 24, speed 30+wave×4 cap 80), orbiting asteroids around waypoints. Gamma rays start wave 2, asteroids wave 3, intervals tighten each wave. Crypto/fuel spawners scale with wave. Landing advances wave and reloads level. Best wave persisted in save. infinitedescent_bgm.ogg. Wave number shown with elastic pop-in label.
 
 ### Level Features
 - [x] **Wormholes/portals** — Wormhole.gd/tscn drop-in component. Paired Area2D portals teleport rocket between points. Swirling animated ring visual, cooldown prevents re-teleport, haptic pulse on use. **Placed in:** Level 5 (shortcut mid-field), Level 8 (skip nebula), Level 10 (escape route).

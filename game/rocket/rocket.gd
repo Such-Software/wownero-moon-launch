@@ -352,7 +352,16 @@ func flagplanted():
 	# Haptic feedback on successful landing
 	Input.vibrate_handheld(100)
 	$CosmonautSprite.show()
-	get_tree().change_scene_to_file("res://game/gui/victory/Victory.tscn")
+
+	if globalvar.endless_mode:
+		# Endless: advance wave and reload the endless level
+		globalvar.endless_wave += 1
+		if globalvar.endless_wave > globalvar.endless_best_wave:
+			globalvar.endless_best_wave = globalvar.endless_wave
+		globalvar.save_game()
+		get_tree().change_scene_to_file("res://game/levels/12/EndlessMode.tscn")
+	else:
+		get_tree().change_scene_to_file("res://game/gui/victory/Victory.tscn")
 
 func switchtomenu():
 	Engine.time_scale = 1.0
