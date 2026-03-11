@@ -32,6 +32,10 @@ var _best_label: Label = null
 
 
 func _ready():
+	# Center the 1024x600 layout within the actual viewport
+	var vp := get_viewport_rect().size
+	position = Vector2((vp.x - 1024) / 2.0, (vp.y - 600) / 2.0)
+
 	get_node("Sprite_Astronaut").hide()
 	get_node("Label_Score").hide()
 	get_node("ButtonNode").hide()

@@ -42,14 +42,14 @@ func _generate_wave() -> void:
 	var target_y := randf_range(-300, 300)
 	var target_pos := Vector2(target_dist, target_y)
 
-	var planet := PLANET_SCENES.pick_random().instantiate()
+	var planet = PLANET_SCENES.pick_random().instantiate()
 	planet.position = target_pos
 	add_child(planet)
 
 	# Optional waypoint planet halfway (waves 3+)
 	if wave >= 3:
 		var wp_pos := Vector2(target_dist * 0.5, randf_range(-200, 200))
-		var wp := PLANET_SCENES.pick_random().instantiate()
+		var wp = PLANET_SCENES.pick_random().instantiate()
 		wp.position = wp_pos
 		add_child(wp)
 		# Orbiting asteroids around waypoint
@@ -71,7 +71,7 @@ func _generate_wave() -> void:
 		add_child(m)
 
 	# Crypto spawners
-	var crypto_count := mini(1 + wave / 2, 4)
+	var crypto_count := mini(1 + int(wave / 2.0), 4)
 	for i in range(crypto_count):
 		var cs := crypto_spawner_scene.instantiate()
 		cs.position = Vector2(

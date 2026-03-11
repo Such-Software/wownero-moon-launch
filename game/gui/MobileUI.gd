@@ -133,11 +133,11 @@ func _setup_mobile() -> void:
 
 
 func _setup_desktop() -> void:
-	# Hide ALL touch buttons on desktop — keyboard only
+	# Remove old TouchScreenButton nodes entirely on desktop
 	for btn_name in _touch_button_names:
 		var btn = get_node_or_null(btn_name)
 		if btn:
-			btn.visible = false
+			btn.queue_free()
 
 
 func _setup_hud() -> void:

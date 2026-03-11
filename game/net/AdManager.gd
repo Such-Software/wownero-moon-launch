@@ -195,5 +195,3 @@ func _load_ad_state() -> void:
 		if data is Dictionary:
 			_ads_removed = bool(data.get("ads_removed", false))
 	f.close()
-			_ads_removed = bool(data.get("ads_removed", false))
-	f.close()

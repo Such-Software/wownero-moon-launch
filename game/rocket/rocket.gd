@@ -294,9 +294,9 @@ func _process(_delta):
 	if !moontimer.is_stopped():
 		# Landing countdown beeps — accelerating ticks during 3s landing timer
 		_landing_beep_elapsed += _delta
-		var progress := 1.0 - (moontimer.time_left / moontimerdefault)
+		var progress: float = 1.0 - (moontimer.time_left / moontimerdefault)
 		var interval := lerpf(0.5, 0.12, progress)
-		var next_beep_time := _landing_beep_count * interval
+		var next_beep_time: float = _landing_beep_count * interval
 		if _landing_beep_elapsed >= next_beep_time or _landing_beep_count == 0:
 			$ProximityBeep.pitch_scale = lerpf(1.2, 2.5, progress)
 			$ProximityBeep.volume_db = lerpf(-12.0, -2.0, progress)
@@ -470,7 +470,7 @@ func _check_waypoints() -> void:
 	for body in _waypoint_bodies:
 		if not is_instance_valid(body):
 			continue
-		var iid := body.get_instance_id()
+		var iid: int = body.get_instance_id()
 		if iid in _visited_waypoints:
 			continue
 		# Find the gravity Area2D child and check its radius
@@ -519,7 +519,7 @@ func _check_slingshot() -> void:
 	for body in _all_gravity_bodies:
 		if not is_instance_valid(body):
 			continue
-		var iid := body.get_instance_id()
+		var iid: int = body.get_instance_id()
 		var radius := _get_gravity_radius(body)
 		var dist := global_position.distance_to(body.global_position)
 		var current_speed := linear_velocity.length()
@@ -547,7 +547,7 @@ func _get_gravity_radius(body: Node2D) -> float:
 	return 200.0
 
 
-func _spawn_slingshot_effect(planet_pos: Vector2, speed_gain: float) -> void:
+func _spawn_slingshot_effect(_planet_pos: Vector2, speed_gain: float) -> void:
 	## Visual + audio feedback for a successful gravity slingshot.
 	# Haptic feedback
 	Input.vibrate_handheld(50)

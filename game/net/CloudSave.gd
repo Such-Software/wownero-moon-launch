@@ -29,7 +29,9 @@ func _ready():
 func upload_save() -> void:
 	## Upload current savegame to the cloud. Call after level completion,
 	## upgrade purchase, or skin unlock.
-	var save_data := globalvar.get_save_data()
+	if not is_instance_valid(_upload_http):
+		return  # Not ready yet (called before _ready)
+	var save_data = globalvar.get_save_data()
 	var body := {
 		"device_uuid": globalvar.device_uuid,
 		"nickname": globalvar.nickname,
@@ -54,7 +56,7 @@ func upload_save() -> void:
 		save_uploaded.emit(false)
 
 
-func _on_upload_completed(result: int, response_code: int, _headers: PackedStringArray, body: PackedByteArray) -> void:
+func _on_upload_completed(result: int, response_code: int, _headers: PackedStringArray, _body: PackedByteArray) -> void:
 	if result != HTTPRequest.RESULT_SUCCESS or response_code < 200 or response_code >= 300:
 		push_warning("CloudSave: upload failed — HTTP %d, result %d" % [response_code, result])
 		save_uploaded.emit(false)

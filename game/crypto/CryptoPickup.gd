@@ -190,7 +190,7 @@ func _spawn_sparkles() -> void:
 		tw.chain().tween_callback(dot.queue_free)
 
 
-func _play_coin_sound(value: int) -> void:
+func _play_coin_sound(_value: int) -> void:
 	## Procedural coin ding — uses proximity_beep pitched up for a satisfying chime.
 	## Higher-value pickups get a lower, richer tone.
 	var player := AudioStreamPlayer.new()

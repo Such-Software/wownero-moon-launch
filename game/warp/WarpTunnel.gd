@@ -48,11 +48,23 @@ func _ready() -> void:
 
 	var cockpit_tex = load("res://art/ship/cockpit.png")
 	if cockpit_tex:
+		# Cockpit image — full screen width, bottom-aligned, pushed slightly below screen
 		var cockpit_sprite := TextureRect.new()
 		cockpit_sprite.texture = cockpit_tex
-		cockpit_sprite.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
-		cockpit_sprite.set_anchors_preset(Control.PRESET_FULL_RECT)
+		cockpit_sprite.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+		cockpit_sprite.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT
 		cockpit_sprite.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		cockpit_sprite.anchor_left = 0.0
+		cockpit_sprite.anchor_right = 1.0
+		cockpit_sprite.anchor_bottom = 1.0
+		cockpit_sprite.anchor_top = 1.0
+		cockpit_sprite.offset_left = 0
+		cockpit_sprite.offset_right = 0
+		# Push bottom edge 10% of screen height below screen bottom
+		cockpit_sprite.offset_bottom = 600.0 * 0.10
+		# Height from aspect ratio: full viewport width / image aspect
+		var img_aspect := float(cockpit_tex.get_width()) / float(cockpit_tex.get_height())
+		cockpit_sprite.offset_top = cockpit_sprite.offset_bottom - (1024.0 / img_aspect)
 		_cockpit_layer.add_child(cockpit_sprite)
 
 	# Speed lines overlay (drawn procedurally)

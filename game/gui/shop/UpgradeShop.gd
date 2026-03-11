@@ -416,8 +416,8 @@ func _refresh_skin_buttons() -> void:
 	for sid in _skin_buttons.keys():
 		var btn: Button = _skin_buttons[sid]
 		var entry: Dictionary = globalvar.SKIN_CATALOG[sid]
-		var owned := sid in globalvar.owned_skins
-		var selected := sid == globalvar.selected_skin
+		var owned: bool = sid in globalvar.owned_skins
+		var selected: bool = sid == globalvar.selected_skin
 		if selected:
 			btn.text = "✓ Active"
 			btn.disabled = true

@@ -1,6 +1,6 @@
 extends CharacterBody2D
 
-@onready var p = get_node("../../Rocket")
+var p: Node2D = null
 var motion = Vector2.ZERO
 @export var speed = 40
 var follow = false
@@ -9,10 +9,17 @@ var follow = false
 const LANDING_SAFE_RADIUS := 120.0
 
 func _ready() -> void:
+	p = get_node_or_null("../../Rocket")
+	if p == null:
+		p = get_node_or_null("../Rocket")
+	if p == null:
+		p = get_tree().root.find_child("Rocket", true, false)
 	speed = int(speed * globalvar.get_enemy_speed_mult())
 
 
-func _physics_process(delta):
+func _physics_process(_delta):
+	if p == null:
+		return
 	if follow and not _rocket_near_target():
 		$Ship/AnimatedSprite2D.show()
 		motion = position.direction_to(p.position) * speed

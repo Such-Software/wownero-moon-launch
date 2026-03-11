@@ -12,7 +12,7 @@ func _ready():
 	# Cache rocket reference for despawn distance check
 	_rocket = get_parent().get_node_or_null("Rocket")
 
-func _physics_process(delta):
+func _physics_process(_delta):
 	$Sprite2D.rotation_degrees += 2
 	dir.x *= movespeed
 	dir.y *= movespeed
