@@ -204,10 +204,18 @@ func get_fuel_drain() -> float:
 	return maxf(8.0 - upgrades["fuel_efficiency"] * 1.5, 2.0)
 
 func get_crash_speed() -> float:
-	return 100.0 + upgrades["armor"] * 50.0
+	var base: float = 100.0 + upgrades["armor"] * 50.0
+	match difficulty:
+		Difficulty.EASY: return base * 1.3
+		Difficulty.HARD: return base * 0.85
+		_: return base
 
 func get_landing_speed() -> float:
-	return 40.0 + upgrades["landing_gear"] * 20.0
+	var base: float = 40.0 + upgrades["landing_gear"] * 20.0
+	match difficulty:
+		Difficulty.EASY: return base * 1.4
+		Difficulty.HARD: return base * 0.8
+		_: return base
 
 func get_shield_hits() -> int:
 	return upgrades["shield"]  # 0 = no shield, 1-5 hits absorbed

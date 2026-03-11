@@ -52,7 +52,7 @@ func _ready() -> void:
 		var cockpit_sprite := TextureRect.new()
 		cockpit_sprite.texture = cockpit_tex
 		cockpit_sprite.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-		cockpit_sprite.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT
+		cockpit_sprite.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
 		cockpit_sprite.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		cockpit_sprite.anchor_left = 0.0
 		cockpit_sprite.anchor_right = 1.0

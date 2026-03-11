@@ -36,6 +36,13 @@ var _shake_decay: float = 5.0
 # Slow-motion landing state
 var _in_slowmo: bool = false
 
+# 3D Landing mode
+var _landing_mode: CanvasLayer = null
+var _landing_mode_active: bool = false
+const LANDING_MODE_MIN_RANGE := 80.0   # minimum trigger distance (small bodies)
+const LANDING_MODE_MARGIN := 60.0      # pixels above collision surface to trigger
+const TILT_DEATH_ANGLE := 0.6109  # ~35 degrees
+
 # Proximity beep state
 var _beep_cooldown: float = 0.0
 const BEEP_RANGE := 250.0  # start beeping at this distance from target
@@ -218,9 +225,18 @@ func _process(_delta):
 		)
 		if _shake_intensity <= 0.0:
 			$Camera2D.offset = Vector2.ZERO
-	# Slow-motion & proximity beeps near landing target
+	# Slow-motion & proximity beeps near any landing target (waypoints + final)
 	if target and flagplaced == false:
+		# Find the nearest body in the targets group
+		var nearest_target: Node2D = target
 		var dist_to_target := global_position.distance_to(target.global_position)
+		for wp in _waypoint_bodies:
+			if not is_instance_valid(wp):
+				continue
+			var d := global_position.distance_to(wp.global_position)
+			if d < dist_to_target:
+				dist_to_target = d
+				nearest_target = wp
 		# Slow-mo approach
 		var spd := linear_velocity.length()
 		if dist_to_target < 80.0 and spd < 80.0 and spd > 5.0:
@@ -231,6 +247,15 @@ func _process(_delta):
 			if _in_slowmo:
 				_in_slowmo = false
 				Engine.time_scale = 1.0
+		# 3D Landing mode — activate when close to any target
+		# Trigger distance adapts to target size (collision radius + margin)
+		var landing_range: float = LANDING_MODE_MIN_RANGE
+		for child in nearest_target.get_children():
+			if child is CollisionShape2D and child.shape is CircleShape2D:
+				landing_range = maxf(child.shape.radius + LANDING_MODE_MARGIN, LANDING_MODE_MIN_RANGE)
+				break
+		if dist_to_target < landing_range and not _landing_mode_active and not flagplaced:
+			_activate_landing_mode(nearest_target, landing_range)
 		# Proximity beeps — pitch increases as rocket approaches target
 		if dist_to_target < BEEP_RANGE:
 			_beep_cooldown -= _delta
@@ -287,8 +312,18 @@ func _process(_delta):
 		if (linear_velocity.length() > crashspeed and i.get_name() != "Rocket"):
 			if not _try_shield():
 				death()
-		if(i.is_in_group("targets") and linear_velocity.length() < landingspeed and flagplaced == false and landattemptnow == false):
-			moonland()
+		if(i.is_in_group("targets") and i == target and linear_velocity.length() < landingspeed and flagplaced == false and landattemptnow == false):
+			# Angle check — tipped too far = rollover crash
+			# Compute tilt relative to target: 0 = tail pointing at target (correct)
+			var target_pos: Vector2 = i.global_position
+			var dir_to_target: float = (target_pos - global_position).angle()
+			var ideal_rot: float = dir_to_target - PI / 2.0  # rocket nose away from target
+			var tilt: float = wrapf(rotation - ideal_rot, -PI, PI)
+			if absf(tilt) > TILT_DEATH_ANGLE:
+				if not _try_shield():
+					death()
+			else:
+				moonland()
 	# Cancel landing timer only after a grace period of no foot contact
 	# (orbiting planets briefly lose contact each frame)
 	if !moontimer.is_stopped():
@@ -322,6 +357,8 @@ func death():
 	if _in_slowmo:
 		_in_slowmo = false
 		Engine.time_scale = 1.0
+	# Clean up 3D landing mode
+	_deactivate_landing_mode()
 	# Haptic feedback on death
 	Input.vibrate_handheld(200)
 	# Screen shake
@@ -399,8 +436,35 @@ func moonland():
 	_landing_beep_count = 0
 	moontimer.start()
 
+
+func _activate_landing_mode(landing_target: Node2D = null, trigger_range: float = 150.0) -> void:
+	if _landing_mode_active:
+		return
+	if landing_target == null:
+		landing_target = target
+	if not landing_target:
+		return
+	_landing_mode_active = true
+	var LandingModeScript = load("res://game/rocket/LandingMode.gd")
+	_landing_mode = CanvasLayer.new()
+	_landing_mode.set_script(LandingModeScript)
+	_landing_mode.setup(self, landing_target, trigger_range)
+	# Add to the scene tree root so it overlays everything
+	get_tree().current_scene.add_child(_landing_mode)
+
+
+func _deactivate_landing_mode() -> void:
+	if not _landing_mode_active:
+		return
+	_landing_mode_active = false
+	if is_instance_valid(_landing_mode):
+		_landing_mode.deactivate()
+		_landing_mode = null
+
 func flagplanted():
 	Engine.time_scale = 1.0
+	# Clean up 3D landing mode
+	_deactivate_landing_mode()
 	globalvar.finaltime = get_node("../CanvasLayer").get_node("TimeLabel").time
 	# Capture fuel remaining as a percentage
 	globalvar.level_fuel_remaining = (fuel / max_fuel) * 100.0

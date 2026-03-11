@@ -12,7 +12,7 @@ dest_files=["res://.godot/imported/music_staroverdrive_2.mp3-53e8ecdcbf55e639e8c
 
 [params]
 
-loop=false
+loop=true
 loop_offset=0
 bpm=0
 beat_count=0

@@ -193,7 +193,8 @@
 ### 🌐 3D / First Person 
 
 - [x] **Warp tunnel transition** — WarpTunnel.gd/tscn: 3D hyperspace tunnel plays when entering any level. 300 streaming star meshes accelerate from 5→120 speed, stretch into lines, blue-shift. Camera FOV widens 75→95°. Cockpit.png overlaid as CanvasLayer frame. Typewriter "WARPING TO [LEVEL]..." text. Speed lines procedural overlay. White flash exit → loads target level. WarpTransition.gd autoload with `warp_to(scene)` helper. Wired into Menu Play, level-select debug picker, and UpgradeShop Continue.
-- [ ] **3D landing mode** — switch to 3D view for final approach/landing sequence
+- [x] **3D landing mode** — switch to 3D view for final approach/landing sequence. LandingMode.gd: half-res SubViewport (512×300, own_world_3d), SphereMesh ground with simplex noise shader, Sprite3D rocket, chase camera. HUD: ALT/SPD readouts, tilt indicator with directional arrows, flashing LANDING text. Activates per-planet based on collision radius + 60px margin. Tilt measured relative to target direction; >35° = crash, >18° = warning. Difficulty scales crash/landing speed thresholds.
+- [ ] **3D landing surface polish** — make planet/moon ground in landing mode more visually interesting without hurting performance (craters, terrain color variation, height displacement, per-planet theming)
 - [ ] **First-person cockpit** — HUD overlay with instruments, see out the window
 - [ ] **3D level prototype** — one level fully in 3D as proof of concept
 - [ ] **VR support** — Godot 4 has OpenXR, landing a rocket in VR would be insane

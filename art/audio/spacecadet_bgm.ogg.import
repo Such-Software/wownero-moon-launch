@@ -12,7 +12,7 @@ dest_files=["res://.godot/imported/spacecadet_bgm.ogg-3a23912e4b5604b66ce1955fe2
 
 [params]
 
-loop=false
+loop=true
 loop_offset=0
 bpm=0
 beat_count=0
