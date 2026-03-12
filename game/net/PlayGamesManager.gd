@@ -6,6 +6,7 @@ extends Node
 ## On non-Android platforms, every method safely no-ops.
 ##
 ## Achievement IDs are placeholders — replace with real IDs from Google Play Console.
+## Leaderboards use our own backend (api.such.software), not PGS.
 
 ## Achievement ID mapping — replace these with real IDs from Play Console.
 ## Create these achievements at: Play Console > Play Games Services > Achievements
@@ -27,22 +28,6 @@ const ACHIEVEMENT_IDS := {
 	# Collection achievements
 	"skin_collector":      "REPLACE_WITH_PLAY_CONSOLE_ID",  # Own 5 skins (incremental)
 	"fully_upgraded":      "REPLACE_WITH_PLAY_CONSOLE_ID",  # Max out any 1 upgrade
-}
-
-## Leaderboard IDs — one per level. Replace with real IDs from Play Console.
-const LEADERBOARD_IDS := {
-	1:  "REPLACE_WITH_PLAY_CONSOLE_ID",   # Moon
-	2:  "REPLACE_WITH_PLAY_CONSOLE_ID",   # Mars
-	3:  "REPLACE_WITH_PLAY_CONSOLE_ID",   # Venus
-	4:  "REPLACE_WITH_PLAY_CONSOLE_ID",   # Io
-	5:  "REPLACE_WITH_PLAY_CONSOLE_ID",   # Jupiter
-	6:  "REPLACE_WITH_PLAY_CONSOLE_ID",   # Saturn
-	7:  "REPLACE_WITH_PLAY_CONSOLE_ID",   # Neptune
-	8:  "REPLACE_WITH_PLAY_CONSOLE_ID",   # Pluto
-	9:  "REPLACE_WITH_PLAY_CONSOLE_ID",   # Asteroid Belt
-	10: "REPLACE_WITH_PLAY_CONSOLE_ID",   # Space Station
-	11: "REPLACE_WITH_PLAY_CONSOLE_ID",   # Mothership
-	12: "REPLACE_WITH_PLAY_CONSOLE_ID",   # Endless Mode
 }
 
 var _plugin = null  # GodotPlayGamesServices singleton (Android only)
@@ -112,33 +97,6 @@ func show_achievements() -> void:
 	if not is_available():
 		return
 	_plugin.showAchievements()
-
-
-func submit_leaderboard_score(level: int, time_ms: int) -> void:
-	## Submit a time (in milliseconds) to the PGS leaderboard for a level.
-	if not is_available():
-		return
-	var id: String = LEADERBOARD_IDS.get(level, "")
-	if id.is_empty() or id == "REPLACE_WITH_PLAY_CONSOLE_ID":
-		return
-	_plugin.submitLeaderBoardScore(id, time_ms)
-
-
-func show_leaderboard(level: int) -> void:
-	## Open the Google Play Games leaderboard UI for a specific level.
-	if not is_available():
-		return
-	var id: String = LEADERBOARD_IDS.get(level, "")
-	if id.is_empty() or id == "REPLACE_WITH_PLAY_CONSOLE_ID":
-		return
-	_plugin.showLeaderBoard(id)
-
-
-func show_all_leaderboards() -> void:
-	## Open the Google Play Games leaderboard UI showing all levels.
-	if not is_available():
-		return
-	_plugin.showAllLeaderBoards()
 
 
 # ── Achievement check helpers — called from globalvar ──────────────────

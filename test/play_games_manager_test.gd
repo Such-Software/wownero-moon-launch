@@ -46,19 +46,7 @@ func test_show_achievements_noop_when_unavailable() -> void:
 	assert_bool(PlayGamesManager.is_available()).is_false()
 
 
-func test_submit_leaderboard_score_noop_when_unavailable() -> void:
-	PlayGamesManager.submit_leaderboard_score(1, 5000)
-	assert_bool(PlayGamesManager.is_available()).is_false()
 
-
-func test_show_leaderboard_noop_when_unavailable() -> void:
-	PlayGamesManager.show_leaderboard(1)
-	assert_bool(PlayGamesManager.is_available()).is_false()
-
-
-func test_show_all_leaderboards_noop_when_unavailable() -> void:
-	PlayGamesManager.show_all_leaderboards()
-	assert_bool(PlayGamesManager.is_available()).is_false()
 
 
 # ==========================================================================
@@ -114,10 +102,4 @@ func test_achievement_ids_count() -> void:
 	assert_int(PlayGamesManager.ACHIEVEMENT_IDS.size()).is_equal(13)
 
 
-func test_leaderboard_ids_count() -> void:
-	assert_int(PlayGamesManager.LEADERBOARD_IDS.size()).is_equal(12)
 
-
-func test_leaderboard_ids_covers_all_levels() -> void:
-	for level in range(1, 13):
-		assert_bool(PlayGamesManager.LEADERBOARD_IDS.has(level)).is_true()

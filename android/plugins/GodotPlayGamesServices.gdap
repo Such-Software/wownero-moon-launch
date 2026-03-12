@@ -1,0 +1,9 @@
+[config]
+
+name="GodotPlayGamesServices"
+binary_type="local"
+binary="GodotPlayGamesServices-godot-4.6.aar"
+
+[dependencies]
+
+remote=["com.google.android.gms:play-services-games-v2:21.0.0", "com.google.android.gms:play-services-auth:21.2.0", "com.google.code.gson:gson:2.13.1", "org.jetbrains.kotlinx:kotlinx-coroutines-android:1.7.3", "org.jetbrains.kotlinx:kotlinx-coroutines-play-services:1.7.3"]

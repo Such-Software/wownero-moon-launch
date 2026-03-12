@@ -413,7 +413,6 @@ func record_level_result(level: int, time_s: float, fuel_pct: float, crypto: int
 	check_achievement_skins()
 	# Notify Play Games Services
 	PlayGamesManager.on_level_completed(level, maxi(stars, int(best_stars.get(key, 0))))
-	PlayGamesManager.submit_leaderboard_score(level, int(time_s * 1000))
 	return stars
 
 func reset_level_stats() -> void:

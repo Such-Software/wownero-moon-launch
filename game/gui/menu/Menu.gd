@@ -706,15 +706,6 @@ func _show_leaderboard_popup() -> void:
 	close.pressed.connect(func(): _lb_popup.queue_free())
 	vbox.add_child(close)
 
-	# Google Play leaderboard button (Android only)
-	if OS.get_name() == "Android":
-		var gp_btn := Button.new()
-		gp_btn.text = "View on Google Play"
-		gp_btn.custom_minimum_size = Vector2(200, 34)
-		BS.apply_space_style(gp_btn, Color(0.4, 0.85, 0.4))
-		gp_btn.pressed.connect(func(): PlayGamesManager.show_leaderboard(_lb_level))
-		vbox.add_child(gp_btn)
-
 	_lb_level = globalvar.nowlevel
 	_lb_update_level_label()
 	_lb_fetch()

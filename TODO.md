@@ -8,7 +8,7 @@
 
 - [x] **Remove `[dotnet]` config** — deleted the `[dotnet]` section from project.godot. No C# code exists; this is pure GDScript. Removes Mono dependency for clean web/mobile exports.
 - [x] **Delete dead scripts** — removed `QuitButton.gd` + `.uid` and `helpbuttons.gd` + `.uid` from project root. Neither was referenced by any scene or script.
-- [x] **Create export presets** — added `export_presets.cfg` with Web, Android, iOS, Windows, macOS, Linux targets. Export paths set to `builds/<platform>/`. Android package: `org.wownero.moonlaunch`.
+- [x] **Create export presets** — added `export_presets.cfg` with Web, Android, iOS, Windows, macOS, Linux targets. Export paths set to `builds/<platform>/`. Android package: `com.suchsoftware.wowneromoonlaunch`.
 - [ ] **Verify web build** — export HTML5, test in Chrome/Firefox/Safari: confirm save/load (IndexedDB), leaderboard API (HTTPRequest), touch input emulation all work
 - [x] **Secure HMAC secret** — ScoreClient.gd `_get_hmac_secret()` returns production hex secret. All score submissions and cloud save uploads are HMAC-SHA256 signed with X-Timestamp + X-Signature headers. Server verifies within 5-minute window.
 - [x] **Save file migration** — audited `globalvar.load_game()` — already uses `.get(key, default)` for every field. New keys fall back to defaults safely.
@@ -35,7 +35,7 @@
 ## 🎮 Gameplay — Core Loop
 
 ### Debug / Dev Tools
-- [x] **Level select screen** — debug level picker (press D on menu), reads from globalvar.LEVEL_SCENES
+- [x] **Level select screen** — player-facing \"Levels\" button on Menu with star ratings, best times, lock icons. Debug shortcuts: D key on menu, 3-finger hold on mobile. Reads from globalvar.LEVEL_SCENES.
 - [x] **FPS/physics overlay** — toggle with F3 for debugging
 - [ ] **Free camera mode** — detach camera from rocket to inspect level layout
 
@@ -70,8 +70,9 @@
 - [x] **Star rating** — 1-3 stars per level based on time + fuel remaining + crypto collected
 - [x] **Best time per level** — save and display on level select
 - [x] **Total crypto wallet** — persisted across sessions, shown in shop
-- [ ] **Achievements** — "First Landing", "Speed Demon" (under 10s), "Pacifist" (no deaths), "Crypto Whale" (1000 Moonrocks), etc.
-- [x] **Leaderboard** — backend API at api.such.software, per-level rankings, auto-submit on victory
+- [x] **Achievements** — 13 Google Play Games Services achievements via PlayGamesManager.gd autoload (achievements-only, no PGS leaderboards). Milestones: First Landing through Mothership Docked. Mastery: Champion (all 3★), Speed Demon. Endurance: Endless Survivor, Grim Reaper (50 deaths), Moonrock Hoarder (5000 earned). Collection: Skin Collector (5 skins), Fully Upgraded. All no-op on non-Android. See DEPLOY.md §10 for setup.
+- [x] **Leaderboard** — backend API at api.such.software, per-level rankings, auto-submit on victory. Leaderboard viewer popup on Menu (fetches from backend, shows top scores in RichTextLabel table). Cross-platform (not PGS).
+- [x] **Player-facing level select** — "Levels" button on Menu opens scrollable panel with star ratings, best times, and lock icons. Available to all players (not just debug). Debug D key and 3-finger hold still work as shortcuts.
 
 ### Cloud Save
 - [x] **CloudSave autoload** — CloudSave.gd HTTP client for PUT/GET `/v1/moonlaunch/save`. HMAC-signed uploads (same secret as ScoreClient). Fire-and-forget upload on every save_game(). Download on demand via restore_from_cloud().
@@ -91,8 +92,10 @@
 - [x] **Web ad integration** — Google AdSense via JavaScriptBridge for HTML5 builds. JS shell functions: showInterstitialAd, showRewardedAd, showBannerAd, hideBannerAd.
 
 ### Cosmetic IAP
-- [x] **Ship skins** — 8 skins (retro, stealth, gold, alien, wownero, monero, bitcoin, litecoin) at art/ship/skins/. Purchasable with Moonrocks in Upgrade Shop skin gallery. Texture swap in rocket.gd _ready(). Premium skins planned (different shapes).
+- [x] **Ship skins** — 8 purchasable skins (retro, stealth, gold, alien, wownero, monero, bitcoin, litecoin) + 4 achievement skins (champion, skull, crystalbeetle, steamboat) at art/ship/skins/. Purchasable with Moonrocks in Upgrade Shop skin gallery. Texture swap in rocket.gd _ready().
 - [x] **Skin storage** — selected_skin + owned_skins persisted in savegame.json. globalvar SKIN_CATALOG maps skin_id to path/price/label.
+- [x] **Remove Ads button** — "🚫 Remove Ads" button in Upgrade Shop. Calls AdManager.remove_ads(), persists to user://adstate.json, hides all ad UI permanently.
+- [x] **Pilot Stats section** — "📊 PILOT STATS" panel in Upgrade Shop showing deaths, lifetime crypto, levels completed, best wave, skins owned.
 
 ### Premium Content
 - [x] **Level pack unlock** — Levels 1-4 free. Levels 5+ require earning 2000 lifetime Moonrocks (tracked via total_crypto_earned). Lock popup with progress bar shown on Play/level-select. Level select shows lock icons. globalvar.is_level_unlocked() + levels_unlocked flag for future IAP.
@@ -173,7 +176,7 @@
 - [x] **Planet atmospheres** — colored atmosphere glow rings on all 9 planets. Each planet has unique color (Earth=blue, Mars=rusty red, Venus=yellow-orange, Jupiter=amber, Saturn=gold, Neptune=icy blue, Pluto=pale frost, Moon=silver, Io=sulfur yellow). Auto-detects body collision radius.
 - [x] **Parallax depth** — 4-layer parallax system: NebulaLayer (motion_scale 0.03, purple dust particles), deep stars (0.05), mid stars (0.2), MidgroundLayer (0.4, larger/brighter warm-tinted stars)
 - [x] **Landing animation** — dust particle burst on successful landing (24 particles, warm tan, radial burst from feet). GPUParticles2D spawned programmatically in flagplanted().
-- [x] **Ship skins** — 11 skins total: 8 purchasable (retro, stealth, gold, alien, wownero, monero, bitcoin, litecoin) + 2 achievement skins (Champion for all 3★, Skull for 50 deaths). Achievement skins show 🔒 locked status in shop gallery, auto-unlock and become selectable. Death counter + lifetime crypto tracked in save.
+- [x] **Ship skins** — 13 skins total: 1 default + 8 purchasable (retro, stealth, gold, alien, wownero, monero, bitcoin, litecoin) + 4 achievement skins (Champion for all 3★, Skull for 50 deaths, Crystal Beetle for completing all 11 levels, Steamboat for wave 10 endless). Achievement skins show 🔒 locked status in shop gallery, auto-unlock and become selectable. Death counter + lifetime crypto tracked in save.
 - [x] **Starfield shader** — procedural animated starfield.gdshader replaces static JPEG. 3 star layers with hash-based placement, per-star twinkle animation, subtle nebula noise. Applied via ShaderMaterial on ColorRect in ParallaxBackground.tscn.
 
 ### Audio
@@ -313,13 +316,15 @@ The web build (itch.io / wownero.org) has **no app store rules**. These features
 - [ ] Mobile pause menu (menu TouchScreenButton)
 - [ ] Level 3 gamma ray spawning and kill behavior
 - [ ] Level 4 asteroid spawning, collision, death
-- [ ] Victory → Next Level flow for all 4 levels
+- [ ] Victory → Next Level flow for all 11 story levels + endless mode
 - [ ] Save persistence across app restarts
 - [ ] EarthArea gravity — is it working or is it a dead scene?
 - [ ] Edge case: rocket drifts infinitely far from all bodies
 - [ ] Performance: confetti labels on victory screen
 - [ ] HTML5 build — IndexedDB save/load, HTTPRequest leaderboard, touch emulation
 - [ ] Web ads (AdSense) display correctly in HTML5 build
+- [ ] PGS achievements — unlock/increment on real Android device
+- [ ] PGS sign-in — auto-sign-in on launch, Achievements button visible
 
 ### Known Bugs 🐛
 - [x] ~~Level 4 "Next Level" button does nothing~~ — fixed, routes to UpgradeShop
@@ -336,18 +341,20 @@ The web build (itch.io / wownero.org) has **no app store rules**. These features
 
 ## 📋 Priority Order
 
-1. **Debug level picker** (dev quality of life)
-2. **Fix existing bugs** (Level 4 completion, asteroids, eartharea print)
-3. **Fuel system + HUD** (core gameplay depth)
-4. **Crypto collectibles** (WOW pickups in levels)
-5. **Upgrade shop** (spend WOW between levels)
-6. **Star rating + best times** (replay value)
-7. **5 new levels** (content)
-8. **Combat system** (guns, basic weapons)
-9. **Visual/audio polish** (particles, screen shake, per-level music)
-10. **Mobile deployment** (Android/iOS real device testing)
-11. **Web build** (itch.io / wownero.org)
-12. **3D prototype** (experimental, future phase)
+1. ~~Debug level picker~~ ✅
+2. ~~Fix existing bugs~~ ✅
+3. ~~Fuel system + HUD~~ ✅
+4. ~~Crypto collectibles~~ ✅
+5. ~~Upgrade shop~~ ✅
+6. ~~Star rating + best times~~ ✅
+7. ~~11 levels + endless mode~~ ✅
+8. ~~Combat system~~ ✅
+9. ~~Visual/audio polish~~ ✅
+10. **Google Play Games Services** — finish PGS setup (create achievements, paste IDs, test on device)
+11. **Mobile deployment** — Android real device testing, release keystore, Play Store upload
+12. **Web build** — itch.io / wownero.org deployment
+13. **iOS export** — Xcode build, TestFlight
+14. 3D prototype (experimental, future phase)
 
 ---
 
@@ -355,7 +362,7 @@ The web build (itch.io / wownero.org) has **no app store rules**. These features
 
 ### Automated Tests (GdUnit4)
 - [x] **Install GdUnit4** — `addons/gdUnit4/` (v6.1.1), enabled in project.godot
-- [x] **globalvar.gd unit tests** — 108 tests covering:
+- [x] **globalvar.gd unit tests** — 121 tests covering:
   - Difficulty multipliers (spawn interval, enemy speed, fuel drain, starting fuel × 3 difficulties)
   - Level unlock gate (free levels 1-4, locked 5+, flag unlock, grind unlock at 2000)
   - Upgrade stats (thrust, fuel, drain floor, crash/landing speed with difficulty, shield, torque, reverse thrust, magnet)
@@ -369,11 +376,17 @@ The web build (itch.io / wownero.org) has **no app store rules**. These features
   - Per-run reset & checkpoint
   - Save/load roundtrip (all keys present, data integrity, missing keys default, default skin always present, new upgrades stay zero)
   - UUID format & uniqueness, platform string
+- [x] **PlayGamesManager.gd unit tests** — 15 tests covering:
+  - Availability check (non-Android returns false)
+  - No-op safety for all public methods (unlock, increment, set_steps, show_achievements)
+  - No-op safety for all game hooks (on_level_completed, on_death, on_endless_wave, on_crypto_earned, on_skin_owned, on_upgrade_maxed)
+  - Achievement ID catalog (all 13 keys present, no empty IDs)
+- **Total: 136 tests** across 2 test files
 - **Run command:**
   ```
   /Applications/Godot.app/Contents/MacOS/Godot --headless --path . \
     -s addons/gdUnit4/bin/GdUnitCmdTool.gd \
-    --add "res://test/globalvar_test.gd" --ignoreHeadlessMode
+    --add "res://test/" --ignoreHeadlessMode
   ```
 
 ### Manual Testing Checklist
@@ -393,7 +406,7 @@ The web build (itch.io / wownero.org) has **no app store rules**. These features
   - [ ] Buy upgrade → wallet deducted, upgrade level visible in shop
   - [ ] Buy skin → wallet deducted, skin applied to rocket in-game
   - [ ] Level 5+ locked without 2000 earned crypto or unlock flag
-  - [ ] Debug: M key = +500 moonrocks, U key = unlock all, D key = level select
+  - [ ] Debug: M key = +500 moonrocks (debug builds only), U key = unlock all, D key = level select
 - [ ] **Save/Load**
   - [ ] Close and reopen game → progress restored (wallet, upgrades, stars, skins)
   - [ ] Cloud save upload succeeds silently
@@ -462,3 +475,28 @@ When ready for release, update `ADMOB_IDS` dict in AdManager.gd:
 - [ ] Web: Interstitial overlay shows between levels with 5s close timer
 - [ ] Web: Rewarded overlay shows for 15s then grants moonrocks
 - [ ] Desktop: No ads shown, `is_ad_free()` returns true
+
+---
+
+## 🎮 Google Play Games Services (PGS)
+
+### Status
+- [x] PGSGP plugin v3.1.2 installed (`android/plugins/`)
+- [x] PlayGamesManager.gd autoload — achievements-only, all no-op on non-Android
+- [x] 13 achievement hooks wired into game logic (globalvar.gd, rocket.gd)
+- [x] Achievements button on Menu (Android only, green)
+- [x] Google Cloud project created (Project ID: 412379035812)
+- [x] OAuth credential created (debug keystore) — Client ID: `412379035812-d3n3k4i7gl4nlmldtgmi0feso8k4p2cp.apps.googleusercontent.com`
+- [ ] OAuth credential for release keystore (before Play Store upload)
+- [ ] 13 achievements created in Play Console
+- [ ] Achievement IDs pasted into `PlayGamesManager.gd`
+- [ ] PGS project published
+- [ ] Test on real Android device
+
+### Architecture
+- **Leaderboards**: Own backend at `api.such.software` (cross-platform, not PGS)
+- **Achievements**: PGS via PGSGP plugin (Android only)
+- **Sidekick**: Automatic with PGS v2 sign-in (no extra code)
+- **Package name**: `com.suchsoftware.wowneromoonlaunch`
+
+See **DEPLOY.md §10** for full setup guide and achievement creation table.
