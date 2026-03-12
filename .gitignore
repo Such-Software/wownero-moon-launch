@@ -39,3 +39,9 @@ android/.build_version
 
 # GdUnit4 test reports
 reports/
+
+# Ad setup guide (untracked, contains placeholder instructions)
+ADS.md
+
+# AdMob downloaded native libraries (large binaries, per-machine)
+addons/admob/downloads/

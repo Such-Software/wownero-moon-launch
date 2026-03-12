@@ -78,7 +78,7 @@ environment/defaults/default_clear_color=Color(0, 0, 0, 1)
 
 [editor_plugins]
 
-enabled=PackedStringArray("res://addons/gdUnit4/plugin.cfg")
+enabled=PackedStringArray("res://addons/admob/plugin.cfg", "res://addons/gdUnit4/plugin.cfg")
 
 [input_devices]
 

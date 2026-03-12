@@ -146,12 +146,10 @@ func _get_ad_id(kind: String) -> String:
 
 
 func _init_admob() -> void:
-	# MobileAds class is provided by the AdMob plugin.
-	# If the plugin isn't installed, ClassDB won't have it — bail gracefully.
-	if not ClassDB.class_exists(&"MobileAds"):
-		push_warning("AdManager: AdMob plugin not installed — ads disabled on mobile")
-		return
-
+	# MobileAds is a GDScript class_name from the poing-studios AdMob plugin.
+	# Its _plugin will be null if the native singleton isn't present (e.g. in
+	# the editor or if the plugin .aar/.xcframework wasn't exported). In that
+	# case all its methods safely no-op, but we still get initialization.
 	var on_init := OnInitializationCompleteListener.new()
 	on_init.on_initialization_complete = func(_status) -> void:
 		_admob_ready = true
