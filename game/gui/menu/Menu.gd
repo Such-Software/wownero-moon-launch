@@ -9,6 +9,9 @@ var _nick_edit: LineEdit = null
 var _editing_nick := false
 var _diff_btn: Button = null
 var _lock_popup: PanelContainer = null
+var _lb_popup: PanelContainer = null
+var _lb_content: RichTextLabel = null
+var _lb_level: int = 1
 
 # Title screen background animation
 var _bg_planets: Array[Dictionary] = []  # {sprite, center, radius, angle, speed}
@@ -66,6 +69,7 @@ func _ready():
 	BS.apply_space_style($VButtonArray/PlayButton, Color.GREEN)
 	BS.apply_space_style($VButtonArray/LevelsButton, Color.ORANGE)
 	BS.apply_space_style($VButtonArray/HelpButton, Color.CYAN)
+	BS.apply_space_style($VButtonArray/LeaderboardButton, Color(1.0, 0.85, 0.2))
 	BS.apply_space_style($VButtonArray/QuitButton, Color.RED)
 	_build_nickname_bar()
 	_build_level_select()
@@ -606,6 +610,154 @@ func _on_LevelsButton_pressed():
 
 func _on_HelpButton_pressed():
 	get_tree().change_scene_to_file("res://game/gui/help/Help.tscn")
+
+
+func _on_LeaderboardButton_pressed():
+	_show_leaderboard_popup()
+
+
+# --- Leaderboard Popup ---
+
+func _show_leaderboard_popup() -> void:
+	if _lb_popup and is_instance_valid(_lb_popup):
+		_lb_popup.queue_free()
+
+	_lb_popup = PanelContainer.new()
+	_lb_popup.name = "LeaderboardPopup"
+	var style := StyleBoxFlat.new()
+	style.bg_color = Color(0.03, 0.03, 0.1, 0.96)
+	style.border_color = Color(1.0, 0.85, 0.2, 0.7)
+	style.set_border_width_all(2)
+	style.set_corner_radius_all(12)
+	style.content_margin_left = 16
+	style.content_margin_right = 16
+	style.content_margin_top = 12
+	style.content_margin_bottom = 12
+	_lb_popup.add_theme_stylebox_override("panel", style)
+	add_child(_lb_popup)
+
+	_lb_popup.set_anchors_preset(Control.PRESET_CENTER)
+	_lb_popup.offset_left = -240
+	_lb_popup.offset_right = 240
+	_lb_popup.offset_top = -200
+	_lb_popup.offset_bottom = 200
+
+	var vbox := VBoxContainer.new()
+	vbox.add_theme_constant_override("separation", 8)
+	_lb_popup.add_child(vbox)
+
+	# Title
+	var title := Label.new()
+	title.text = "🏆  Leaderboard"
+	title.add_theme_font_size_override("font_size", 22)
+	title.add_theme_color_override("font_color", Color(1.0, 0.85, 0.2))
+	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	vbox.add_child(title)
+
+	# Level selector row
+	var level_row := HBoxContainer.new()
+	level_row.add_theme_constant_override("separation", 8)
+	level_row.alignment = BoxContainer.ALIGNMENT_CENTER
+	vbox.add_child(level_row)
+
+	var prev_btn := Button.new()
+	prev_btn.text = "<"
+	prev_btn.custom_minimum_size = Vector2(36, 30)
+	BS.apply_space_style(prev_btn, Color(0.5, 0.8, 1.0))
+	prev_btn.pressed.connect(func(): _lb_change_level(-1))
+	level_row.add_child(prev_btn)
+
+	var level_label := Label.new()
+	level_label.name = "LBLevelLabel"
+	level_label.add_theme_font_size_override("font_size", 16)
+	level_label.add_theme_color_override("font_color", Color.CYAN)
+	level_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	level_label.custom_minimum_size = Vector2(200, 0)
+	level_row.add_child(level_label)
+
+	var next_btn := Button.new()
+	next_btn.text = ">"
+	next_btn.custom_minimum_size = Vector2(36, 30)
+	BS.apply_space_style(next_btn, Color(0.5, 0.8, 1.0))
+	next_btn.pressed.connect(func(): _lb_change_level(1))
+	level_row.add_child(next_btn)
+
+	# Scrollable scores content
+	var scroll := ScrollContainer.new()
+	scroll.custom_minimum_size = Vector2(440, 260)
+	vbox.add_child(scroll)
+
+	_lb_content = RichTextLabel.new()
+	_lb_content.bbcode_enabled = true
+	_lb_content.fit_content = true
+	_lb_content.scroll_active = false
+	_lb_content.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_lb_content.custom_minimum_size = Vector2(420, 0)
+	_lb_content.add_theme_font_size_override("normal_font_size", 14)
+	_lb_content.add_theme_color_override("default_color", Color(0.8, 0.85, 0.9))
+	scroll.add_child(_lb_content)
+
+	# Close button
+	var close := Button.new()
+	close.text = "Close"
+	close.custom_minimum_size = Vector2(120, 34)
+	BS.apply_space_style(close, Color.RED)
+	close.pressed.connect(func(): _lb_popup.queue_free())
+	vbox.add_child(close)
+
+	_lb_level = globalvar.nowlevel
+	_lb_update_level_label()
+	_lb_fetch()
+
+
+func _lb_change_level(delta: int) -> void:
+	_lb_level = clampi(_lb_level + delta, 1, globalvar.MAX_LEVEL)
+	_lb_update_level_label()
+	_lb_fetch()
+
+
+func _lb_update_level_label() -> void:
+	if not _lb_popup or not is_instance_valid(_lb_popup):
+		return
+	var label: Label = _lb_popup.get_node("VBoxContainer/HBoxContainer/LBLevelLabel")
+	if label:
+		var name_str: String = globalvar.LEVEL_NAMES.get(_lb_level, str(_lb_level))
+		label.text = "Level %d — %s" % [_lb_level, name_str]
+
+
+func _lb_fetch() -> void:
+	_lb_content.text = "[center]Loading...[/center]"
+	ScoreClient.leaderboard_received.connect(_on_leaderboard_received, CONNECT_ONE_SHOT)
+	ScoreClient.fetch_leaderboard(_lb_level, 20)
+
+
+func _on_leaderboard_received(success: bool, scores: Array) -> void:
+	if not _lb_content or not is_instance_valid(_lb_content):
+		return
+	if not success or scores.is_empty():
+		_lb_content.text = "[center][color=gray]No scores yet for this level.[/color][/center]"
+		return
+
+	var text := "[table=4]"
+	text += "[cell][b]#[/b][/cell][cell][b]Pilot[/b][/cell][cell][b]Time[/b][/cell][cell][b]Stars[/b][/cell]"
+	var rank := 1
+	for entry in scores:
+		var nick: String = str(entry.get("nickname", "???"))
+		var time_s: float = float(entry.get("completion_time", 0))
+		var star_count: int = int(entry.get("stars", 0))
+		var star_str := "★".repeat(star_count) + "☆".repeat(3 - star_count)
+		var is_me: bool = str(entry.get("device_uuid", "")) == globalvar.device_uuid
+		var color := "[color=cyan]" if is_me else ""
+		var end_color := "[/color]" if is_me else ""
+		text += "[cell]%s%d%s[/cell][cell]%s%s%s[/cell][cell]%s%.2fs%s[/cell][cell]%s[/cell]" % [
+			color, rank, end_color,
+			color, nick.left(14), end_color,
+			color, time_s, end_color,
+			star_str,
+		]
+		rank += 1
+	text += "[/table]"
+	_lb_content.text = text
 
 
 # --- Level Pack Lock Popup ---

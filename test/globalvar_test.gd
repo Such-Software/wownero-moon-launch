@@ -513,6 +513,40 @@ func test_increment_deaths() -> void:
 	globalvar.increment_deaths()
 	assert_int(globalvar.total_deaths).is_equal(1)
 
+func test_crystalbeetle_not_unlocked_without_all_levels() -> void:
+	globalvar.highest_level_completed = 10
+	globalvar.check_achievement_skins()
+	assert_bool("crystalbeetle" in globalvar.owned_skins).is_false()
+
+func test_crystalbeetle_unlocked_when_all_levels_beaten() -> void:
+	globalvar.highest_level_completed = 11
+	globalvar.check_achievement_skins()
+	assert_bool("crystalbeetle" in globalvar.owned_skins).is_true()
+
+func test_crystalbeetle_not_duplicated() -> void:
+	globalvar.highest_level_completed = 11
+	globalvar.check_achievement_skins()
+	globalvar.check_achievement_skins()
+	var count := globalvar.owned_skins.count("crystalbeetle")
+	assert_int(count).is_equal(1)
+
+func test_steamboat_not_unlocked_under_wave_10() -> void:
+	globalvar.endless_best_wave = 9
+	globalvar.check_achievement_skins()
+	assert_bool("steamboat" in globalvar.owned_skins).is_false()
+
+func test_steamboat_unlocked_at_wave_10() -> void:
+	globalvar.endless_best_wave = 10
+	globalvar.check_achievement_skins()
+	assert_bool("steamboat" in globalvar.owned_skins).is_true()
+
+func test_steamboat_not_duplicated() -> void:
+	globalvar.endless_best_wave = 10
+	globalvar.check_achievement_skins()
+	globalvar.check_achievement_skins()
+	var count := globalvar.owned_skins.count("steamboat")
+	assert_int(count).is_equal(1)
+
 
 # ==========================================================================
 #  NICKNAME GENERATION

@@ -106,6 +106,15 @@ func _ready() -> void:
 		# Shift wallet panel left to make room
 		wallet_panel.position = Vector2(80, 50)
 
+		# Remove Ads purchase button
+		var remove_ads_btn := Button.new()
+		remove_ads_btn.text = "🚫  Remove Ads"
+		remove_ads_btn.custom_minimum_size = Vector2(180, 34)
+		BS.apply_space_style(remove_ads_btn, Color(0.9, 0.3, 0.9))
+		remove_ads_btn.pressed.connect(_on_remove_ads)
+		remove_ads_btn.position = Vector2(660, 50)
+		add_child(remove_ads_btn)
+
 	# Show banner ad on shop screen
 	AdManager.show_banner()
 
@@ -145,6 +154,65 @@ func _ready() -> void:
 	for skin_id in globalvar.SKIN_CATALOG.keys():
 		var skin_card := _create_skin_card(skin_id)
 		skin_hbox.add_child(skin_card)
+
+	# --- Stats / Progress section ---
+	var stats_header := Label.new()
+	stats_header.text = "📊  PILOT STATS"
+	stats_header.add_theme_font_size_override("font_size", 18)
+	stats_header.add_theme_color_override("font_color", Color(0.3, 0.85, 1.0))
+	stats_header.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	vbox.add_child(stats_header)
+
+	var stats_panel := PanelContainer.new()
+	var stats_style := StyleBoxFlat.new()
+	stats_style.bg_color = Color(0.04, 0.04, 0.12, 0.85)
+	stats_style.border_color = Color(0.3, 0.6, 1.0, 0.4)
+	stats_style.set_border_width_all(1)
+	stats_style.set_corner_radius_all(8)
+	stats_style.content_margin_left = 16
+	stats_style.content_margin_right = 16
+	stats_style.content_margin_top = 10
+	stats_style.content_margin_bottom = 10
+	stats_panel.add_theme_stylebox_override("panel", stats_style)
+	vbox.add_child(stats_panel)
+
+	var stats_grid := GridContainer.new()
+	stats_grid.columns = 2
+	stats_grid.add_theme_constant_override("h_separation", 24)
+	stats_grid.add_theme_constant_override("v_separation", 6)
+	stats_panel.add_child(stats_grid)
+
+	# Compute stats
+	var levels_beaten: int = globalvar.highest_level_completed
+	var three_star_count := 0
+	var total_stars := 0
+	for lvl in range(1, 12):
+		var s: int = globalvar.get_best_stars(lvl)
+		total_stars += s
+		if s >= 3:
+			three_star_count += 1
+
+	var stats: Array[Array] = [
+		["Levels Completed", "%d / 11" % levels_beaten],
+		["Total Stars", "%d / 33  (%d × 3★)" % [total_stars, three_star_count]],
+		["Endless Best Wave", str(globalvar.endless_best_wave)],
+		["Total Deaths", str(globalvar.total_deaths)],
+		["Lifetime Moonrocks", str(globalvar.total_crypto_earned)],
+		["Current Wallet", str(globalvar.wallet) + " 🪨"],
+		["Skins Owned", "%d / %d" % [globalvar.owned_skins.size(), globalvar.SKIN_CATALOG.size()]],
+		["Difficulty", globalvar.DIFFICULTY_NAMES.get(globalvar.difficulty, "Normal")],
+	]
+	for row in stats:
+		var key_label := Label.new()
+		key_label.text = row[0]
+		key_label.add_theme_font_size_override("font_size", 14)
+		key_label.add_theme_color_override("font_color", Color(0.6, 0.65, 0.7))
+		stats_grid.add_child(key_label)
+		var val_label := Label.new()
+		val_label.text = row[1]
+		val_label.add_theme_font_size_override("font_size", 14)
+		val_label.add_theme_color_override("font_color", Color.WHITE)
+		stats_grid.add_child(val_label)
 
 	# Spacer
 	var spacer := Control.new()
@@ -201,6 +269,20 @@ func _on_rewarded_result(success: bool) -> void:
 		if _ad_button:
 			_ad_button.text = "Ad unavailable"
 			_ad_button.disabled = true
+
+
+func _on_remove_ads() -> void:
+	# TODO: Wire to real IAP flow. For now, call remove_ads() directly.
+	AdManager.remove_ads()
+	# Hide ad-related buttons since they're no longer relevant
+	if _ad_button:
+		_ad_button.queue_free()
+		_ad_button = null
+	# Find and remove the Remove Ads button itself
+	for child in get_children():
+		if child is Button and child.text.contains("Remove Ads"):
+			child.queue_free()
+			break
 
 
 func _create_upgrade_card(upgrade_name: String) -> PanelContainer:
@@ -387,7 +469,7 @@ func _create_skin_card(skin_id: String) -> PanelContainer:
 		BS.apply_space_style(btn, Color(0.4, 0.7, 1.0))
 	elif is_achievement:
 		# Achievement skins can't be bought — show locked status
-		var hint := "50 Deaths" if skin_id == "skull" else "All 3★"
+		var hint := _achievement_hint(skin_id)
 		btn.text = "🔒 " + hint
 		btn.disabled = true
 		BS.apply_space_style(btn, Color(0.4, 0.3, 0.5))
@@ -404,6 +486,15 @@ func _create_skin_card(skin_id: String) -> PanelContainer:
 	_skin_buttons[skin_id] = btn
 
 	return card
+
+
+func _achievement_hint(skin_id: String) -> String:
+	match skin_id:
+		"skull": return "50 Deaths"
+		"champion": return "All 3★"
+		"crystalbeetle": return "Beat All"
+		"steamboat": return "Wave 10"
+	return "???"
 
 
 func _on_skin_pressed(skin_id: String) -> void:
@@ -435,7 +526,7 @@ func _refresh_skin_buttons() -> void:
 			btn.disabled = false
 			BS.apply_space_style(btn, Color(0.4, 0.7, 1.0))
 		elif is_achievement:
-			var hint := "50 Deaths" if sid == "skull" else "All 3★"
+			var hint := _achievement_hint(sid)
 			btn.text = "🔒 " + hint
 			btn.disabled = true
 			BS.apply_space_style(btn, Color(0.4, 0.3, 0.5))

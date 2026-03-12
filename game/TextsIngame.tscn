@@ -93,7 +93,7 @@ custom_minimum_size = Vector2(164, 42)
 focus_mode = 2
 theme_override_fonts/font = SubResource("FontVar_default")
 theme_override_font_sizes/font_size = 20
-text = "Back TO Menu"
+text = "Back to Menu"
 flat = true
 
 [connection signal="pressed" from="left" to="." method="_on_left_pressed"]

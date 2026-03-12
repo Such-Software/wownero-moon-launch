@@ -84,8 +84,10 @@ const SKIN_CATALOG := {
 	"monero": { "path": "res://art/ship/skins/monero.png", "price": 350, "label": "Monero" },
 	"bitcoin": { "path": "res://art/ship/skins/bitcoin.png", "price": 350, "label": "Bitcoin" },
 	"litecoin": { "path": "res://art/ship/skins/litecoin.png", "price": 350, "label": "Litecoin" },
-	"champion": { "path": "res://art/ship/skins/gold.png", "price": 0, "label": "Champion", "achievement": true },
-	"skull": { "path": "res://art/ship/skins/stealth.png", "price": 0, "label": "Skull", "achievement": true },
+	"champion": { "path": "res://art/ship/skins/champion.png", "price": 0, "label": "Champion", "achievement": true },
+	"skull": { "path": "res://art/ship/skins/skull.png", "price": 0, "label": "Skull", "achievement": true },
+	"crystalbeetle": { "path": "res://art/ship/skins/crystalbeetle.png", "price": 0, "label": "Crystal Beetle", "achievement": true },
+	"steamboat": { "path": "res://art/ship/skins/steamboat.png", "price": 0, "label": "Steamboat", "achievement": true },
 }
 
 # --- Achievement skins ---
@@ -102,6 +104,12 @@ func check_achievement_skins() -> void:
 	# Skull: 50 total deaths
 	if total_deaths >= 50 and "skull" not in owned_skins:
 		owned_skins.append("skull")
+	# Crystal Beetle: complete all 11 story levels
+	if highest_level_completed >= 11 and "crystalbeetle" not in owned_skins:
+		owned_skins.append("crystalbeetle")
+	# Steamboat: reach wave 10 in Endless Mode
+	if endless_best_wave >= 10 and "steamboat" not in owned_skins:
+		owned_skins.append("steamboat")
 
 func increment_deaths() -> void:
 	total_deaths += 1

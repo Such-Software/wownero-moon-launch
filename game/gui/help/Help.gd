@@ -215,7 +215,10 @@ func _page_controls() -> String:
 [color=cyan]L[/color] — Laser beam (hold)
 [color=cyan]E[/color] — EMP pulse
 [color=cyan]F3[/color] — FPS/debug overlay
-[color=cyan]D[/color] — Level select (main menu)
+[color=cyan]ESC[/color] — Pause menu (in-game)
+
+[b]Menu[/b]
+Use the [color=cyan]Levels[/color] button to replay completed levels.
 
 [b]Mobile Controls[/b]
 [color=lime]Virtual Joystick[/color] — left side of screen, controls rotation
@@ -547,6 +550,8 @@ Scroll down past upgrades to find the skin gallery.
 [b]Achievement Skins[/b] [color=gold](Special)[/color]
 [color=gold]Champion[/color] — earn 3 stars on ALL levels 1-11
 [color=red]Skull[/color] — die 50 times total (wear it with pride!)
+[color=aqua]Crystal Beetle[/color] — complete all 11 story levels
+[color=silver]Steamboat[/color] — reach wave 10 in Endless Mode
 
 These skins can't be purchased — only [color=cyan]earned[/color].
 Once unlocked, select them in the shop skin gallery.

@@ -95,6 +95,13 @@ theme_override_font_sizes/font_size = 25
 text = "Help"
 flat = true
 
+[node name="LeaderboardButton" type="Button" parent="VButtonArray"]
+custom_minimum_size = Vector2(480, 52)
+theme_override_fonts/font = SubResource("FontVariation_25")
+theme_override_font_sizes/font_size = 25
+text = "Leaderboard"
+flat = true
+
 [node name="QuitButton" type="Button" parent="VButtonArray"]
 custom_minimum_size = Vector2(480, 52)
 theme_override_fonts/font = SubResource("FontVariation_25")
@@ -143,4 +150,5 @@ autoplay = true
 [connection signal="pressed" from="VButtonArray/PlayButton" to="." method="_on_PlayButton_pressed"]
 [connection signal="pressed" from="VButtonArray/LevelsButton" to="." method="_on_LevelsButton_pressed"]
 [connection signal="pressed" from="VButtonArray/HelpButton" to="." method="_on_HelpButton_pressed"]
+[connection signal="pressed" from="VButtonArray/LeaderboardButton" to="." method="_on_LeaderboardButton_pressed"]
 [connection signal="pressed" from="VButtonArray/QuitButton" to="." method="_on_QuitButton_pressed"]
