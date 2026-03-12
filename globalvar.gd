@@ -52,6 +52,23 @@ func get_starting_fuel_mult() -> float:
 		Difficulty.HARD: return 0.9
 		_: return 1.0
 
+# --- Level pack unlock ---
+# Levels 1-4 are free. Levels 5+ require unlock via IAP or earning enough crypto.
+const FREE_LEVELS := 4
+const LEVEL_PACK_GRIND_COST := 2000  # Moonrocks earned (lifetime) to unlock for free
+var levels_unlocked: bool = false  # true = all levels accessible
+var total_crypto_earned: int = 0   # lifetime Moonrocks earned (never decreases)
+var total_deaths: int = 0          # lifetime death count (for achievement skin)
+
+func is_level_unlocked(level: int) -> bool:
+	if level <= FREE_LEVELS:
+		return true
+	return levels_unlocked or total_crypto_earned >= LEVEL_PACK_GRIND_COST
+
+func unlock_all_levels() -> void:
+	levels_unlocked = true
+	save_game()
+
 # --- Ship skins ---
 const SKIN_CATALOG := {
 	"default": { "path": "res://art/ship/rocket.png", "price": 0, "label": "Default" },
@@ -63,7 +80,29 @@ const SKIN_CATALOG := {
 	"monero": { "path": "res://art/ship/skins/monero.png", "price": 350, "label": "Monero" },
 	"bitcoin": { "path": "res://art/ship/skins/bitcoin.png", "price": 350, "label": "Bitcoin" },
 	"litecoin": { "path": "res://art/ship/skins/litecoin.png", "price": 350, "label": "Litecoin" },
+	"champion": { "path": "res://art/ship/skins/gold.png", "price": 0, "label": "Champion", "achievement": true },
+	"skull": { "path": "res://art/ship/skins/stealth.png", "price": 0, "label": "Skull", "achievement": true },
 }
+
+# --- Achievement skins ---
+func check_achievement_skins() -> void:
+	## Call after level completion or death to check if achievement skins should unlock.
+	# Champion: 3 stars on all story levels (1-11)
+	var all_3star := true
+	for lvl in range(1, 12):  # levels 1-11
+		if get_best_stars(lvl) < 3:
+			all_3star = false
+			break
+	if all_3star and "champion" not in owned_skins:
+		owned_skins.append("champion")
+	# Skull: 50 total deaths
+	if total_deaths >= 50 and "skull" not in owned_skins:
+		owned_skins.append("skull")
+
+func increment_deaths() -> void:
+	total_deaths += 1
+	check_achievement_skins()
+	save_game()
 
 var selected_skin: String = "default"
 var owned_skins: Array = ["default"]
@@ -253,6 +292,7 @@ func buy_upgrade(upgrade_name: String) -> bool:
 func add_crypto(amount: int) -> void:
 	wallet += amount
 	level_crypto_collected += amount
+	total_crypto_earned += amount
 	wallet_changed.emit(wallet)
 
 # --- Level config (eliminates hardcoded match statements) ---
@@ -349,6 +389,7 @@ func record_level_result(level: int, time_s: float, fuel_pct: float, crypto: int
 	var prev_stars: int = int(best_stars.get(key, 0))
 	if stars > prev_stars:
 		best_stars[key] = stars
+	check_achievement_skins()
 	return stars
 
 func reset_level_stats() -> void:
@@ -422,6 +463,9 @@ func get_save_data() -> Dictionary:
 		"selected_skin": selected_skin,
 		"owned_skins": owned_skins.duplicate(),
 		"endless_best_wave": endless_best_wave,
+		"levels_unlocked": levels_unlocked,
+		"total_crypto_earned": total_crypto_earned,
+		"total_deaths": total_deaths,
 	}
 
 func save_game() -> void:
@@ -479,6 +523,9 @@ func _apply_save_data(data: Dictionary) -> void:
 		if "default" not in owned_skins:
 			owned_skins.insert(0, "default")
 	endless_best_wave = int(data.get("endless_best_wave", 0))
+	levels_unlocked = bool(data.get("levels_unlocked", false))
+	total_crypto_earned = int(data.get("total_crypto_earned", 0))
+	total_deaths = int(data.get("total_deaths", 0))
 
 func load_game() -> void:
 	if not FileAccess.file_exists("user://savegame.json"):

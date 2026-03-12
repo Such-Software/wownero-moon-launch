@@ -377,6 +377,7 @@ func _create_skin_card(skin_id: String) -> PanelContainer:
 	# Action button
 	var btn := Button.new()
 	btn.custom_minimum_size = Vector2(84, 26)
+	var is_achievement: bool = entry.get("achievement", false)
 	if selected:
 		btn.text = "✓ Active"
 		btn.disabled = true
@@ -384,6 +385,12 @@ func _create_skin_card(skin_id: String) -> PanelContainer:
 	elif owned:
 		btn.text = "Select"
 		BS.apply_space_style(btn, Color(0.4, 0.7, 1.0))
+	elif is_achievement:
+		# Achievement skins can't be bought — show locked status
+		var hint := "50 Deaths" if skin_id == "skull" else "All 3★"
+		btn.text = "🔒 " + hint
+		btn.disabled = true
+		BS.apply_space_style(btn, Color(0.4, 0.3, 0.5))
 	else:
 		btn.text = str(entry["price"]) + " 🪨"
 		if globalvar.wallet >= entry["price"]:
@@ -418,6 +425,7 @@ func _refresh_skin_buttons() -> void:
 		var entry: Dictionary = globalvar.SKIN_CATALOG[sid]
 		var owned: bool = sid in globalvar.owned_skins
 		var selected: bool = sid == globalvar.selected_skin
+		var is_achievement: bool = entry.get("achievement", false)
 		if selected:
 			btn.text = "✓ Active"
 			btn.disabled = true
@@ -426,6 +434,11 @@ func _refresh_skin_buttons() -> void:
 			btn.text = "Select"
 			btn.disabled = false
 			BS.apply_space_style(btn, Color(0.4, 0.7, 1.0))
+		elif is_achievement:
+			var hint := "50 Deaths" if sid == "skull" else "All 3★"
+			btn.text = "🔒 " + hint
+			btn.disabled = true
+			BS.apply_space_style(btn, Color(0.4, 0.3, 0.5))
 		else:
 			btn.text = str(entry["price"]) + " 🪨"
 			if globalvar.wallet >= entry["price"]:

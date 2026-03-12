@@ -25,7 +25,7 @@ tracks/0/keys = {
 
 [sub_resource type="Animation" id="Animation_move"]
 resource_name = "move"
-length = 7.0
+length = 14.0
 loop_mode = 1
 tracks/0/type = "value"
 tracks/0/path = NodePath(".:position")
@@ -34,7 +34,7 @@ tracks/0/loop_wrap = false
 tracks/0/imported = false
 tracks/0/enabled = true
 tracks/0/keys = {
-"times": PackedFloat32Array(0, 4.9),
+"times": PackedFloat32Array(0, 11.0),
 "transitions": PackedFloat32Array(1.03526, 1),
 "update": 0,
 "values": [Vector2(-200, 519), Vector2(1300, 519)]
@@ -98,12 +98,14 @@ flat = true
 [node name="Earth" type="Sprite2D" parent="."]
 position = Vector2(124, 462)
 scale = Vector2(0.5, 0.5)
+z_index = 3
 texture = ExtResource("4")
 
 [node name="RocketSprite" type="Sprite2D" parent="."]
 position = Vector2(142, 519)
 rotation = 1.5708
 scale = Vector2(0.5, 0.5)
+z_index = 4
 texture = ExtResource("5")
 
 [node name="AnimationPlayer" type="AnimationPlayer" parent="RocketSprite"]
@@ -124,6 +126,7 @@ text = "Wownero Moon Launch"
 [node name="Moon" type="Sprite2D" parent="."]
 position = Vector2(948, 374)
 scale = Vector2(0.3, 0.3)
+z_index = 3
 texture = ExtResource("6")
 
 [node name="AudioStreamPlayer" type="AudioStreamPlayer" parent="."]

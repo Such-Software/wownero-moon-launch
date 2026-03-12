@@ -380,6 +380,8 @@ func death():
 	$ExplosionBass.play()
 	# Stop proximity beeping
 	$ProximityBeep.stop()
+	# Track death for achievements
+	globalvar.increment_deaths()
 	# Skull
 	var skull: Sprite2D = get_node("SkullSprite")
 	skull.show()

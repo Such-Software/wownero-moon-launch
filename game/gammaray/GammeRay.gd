@@ -38,6 +38,9 @@ func _physics_process(_delta):
 		var collider = get_collider()
 		if collider and collider.name == 'Rocket':
 			globalvar.sendDeath.emit()
+		# Stop extending when blocked by a planet (StaticBody2D)
+		if collider and collider is StaticBody2D and collider.name != 'Rocket':
+			growing_value = 0
 	target_position.x += 4*growing_value
 #	$Line2D.points[0].x += 1*growing_value
 	$Line2D.points[1] = cast_point

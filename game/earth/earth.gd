@@ -4,8 +4,18 @@ var _gravity_radius: float = 0.0
 var _body_radius: float = 0.0
 const ATMO_COLOR := Color(0.3, 0.6, 1.0)  # blue atmosphere
 
+const EARTH_TEXTURES := [
+	"res://art/planets/earth_real_1.png",
+	"res://art/planets/earth_real_2.png",
+	"res://art/planets/earth_real_3.png",
+]
+
 
 func _ready() -> void:
+	# Randomize earth appearance
+	var tex := load(EARTH_TEXTURES[randi() % EARTH_TEXTURES.size()])
+	if tex and has_node("Sprite2D"):
+		$Sprite2D.texture = tex
 	for child in get_children():
 		if child is Area2D:
 			for shape_node in child.get_children():

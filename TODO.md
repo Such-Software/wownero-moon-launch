@@ -77,7 +77,7 @@
 - [x] **CloudSave autoload** — CloudSave.gd HTTP client for PUT/GET `/v1/moonlaunch/save`. HMAC-signed uploads (same secret as ScoreClient). Fire-and-forget upload on every save_game(). Download on demand via restore_from_cloud().
 - [x] **Backend cloud save endpoints** — PUT `/save` (HMAC-verified, JSONB upsert, 64KB limit) and GET `/save` (device_uuid lookup). moonlaunch_saves table with device_uuid PK, nickname, save_data JSONB, platform, timestamps.
 - [x] **Cloud restore logic** — globalvar.restore_from_cloud() downloads cloud save and overwrites local state only if cloud has more progress (higher level or wallet). Extracted _apply_save_data() shared by load_game() and cloud restore.
-- [ ] **Restore UI** — "Restore from Cloud" button on main menu or settings screen. Shows confirmation before overwriting local progress.
+- [x] **Restore UI** — "Restore from Cloud" button on main menu bottom-right. AcceptDialog confirmation before downloading. Cloud restore keeps better save (won't overwrite if local is ahead).
 
 ---
 
@@ -95,7 +95,7 @@
 - [x] **Skin storage** — selected_skin + owned_skins persisted in savegame.json. globalvar SKIN_CATALOG maps skin_id to path/price/label.
 
 ### Premium Content
-- [ ] **Level pack unlock** — Levels 1–4 free. Levels 5–10 unlockable via one-time $2.99 IAP OR earning 2000 WOW in-game (grindable but incentivizes ad watching).
+- [x] **Level pack unlock** — Levels 1-4 free. Levels 5+ require earning 2000 lifetime Moonrocks (tracked via total_crypto_earned). Lock popup with progress bar shown on Play/level-select. Level select shows lock icons. globalvar.is_level_unlocked() + levels_unlocked flag for future IAP.
 
 ### Crypto Tipping
 - [ ] **"Support the Dev" button** — menu screen, shows Wownero donation address as QR code + copy-to-clipboard. Zero friction, high goodwill.
@@ -130,6 +130,11 @@
 - [x] **Crypto pickup VFX** — sparkle burst of 8-12 colored dots radiating outward on collection, type-colored with white accents, tween fade+shrink.
 - [x] **UI animations** — Victory screen: score count-up (time rolls 0→final with ease-out, fuel/crypto fade in staggered, stars pop in one-by-one with elastic tween, NEW BEST slam-in). Victory buttons slide in from below with stagger. DeathScreen buttons stagger slide-in from right.
 - [x] **Haptic feedback** — `Input.vibrate_handheld()` on death (200ms), landing (100ms), crypto pickup (30ms), cannon fire (20ms), wormhole teleport (80ms), black hole death (300ms). Zero-cost, mobile-only.
+
+### UI & Documentation
+- [x] **Multi-page Help screen** — 12 navigable pages covering all mechanics: Controls, Landing, Fuel, Crypto & Moonrocks, Upgrades, Weapons, Hazards & Enemies, Waypoints & Slingshots, Difficulty, Star Ratings, Leaderboard & Cloud Save, Ship Skins. RichTextLabel with BBCode formatting. Keyboard arrows, touch swipe, and Prev/Next buttons for navigation. Page counter indicator.
+- [x] **Death tracking** — `total_deaths` counter in globalvar, incremented in rocket.gd death(), persisted to save. Used for skull achievement skin.
+- [x] **Lifetime crypto tracking** — `total_crypto_earned` in globalvar (never decreases). Tracks cumulative Moonrocks for level pack unlock progress.
 
 ---
 
@@ -168,7 +173,7 @@
 - [x] **Planet atmospheres** — colored atmosphere glow rings on all 9 planets. Each planet has unique color (Earth=blue, Mars=rusty red, Venus=yellow-orange, Jupiter=amber, Saturn=gold, Neptune=icy blue, Pluto=pale frost, Moon=silver, Io=sulfur yellow). Auto-detects body collision radius.
 - [x] **Parallax depth** — 4-layer parallax system: NebulaLayer (motion_scale 0.03, purple dust particles), deep stars (0.05), mid stars (0.2), MidgroundLayer (0.4, larger/brighter warm-tinted stars)
 - [x] **Landing animation** — dust particle burst on successful landing (24 particles, warm tan, radial burst from feet). GPUParticles2D spawned programmatically in flagplanted().
-- [ ] **Ship skins** — more skins: achievement-unlocked (gold for all 3★, skull for 50 deaths), premium IAP skins with different shapes
+- [x] **Ship skins** — 11 skins total: 8 purchasable (retro, stealth, gold, alien, wownero, monero, bitcoin, litecoin) + 2 achievement skins (Champion for all 3★, Skull for 50 deaths). Achievement skins show 🔒 locked status in shop gallery, auto-unlock and become selectable. Death counter + lifetime crypto tracked in save.
 - [x] **Starfield shader** — procedural animated starfield.gdshader replaces static JPEG. 3 star layers with hash-based placement, per-star twinkle animation, subtle nebula noise. Applied via ShaderMaterial on ColorRect in ParallaxBackground.tscn.
 
 ### Audio

@@ -2,16 +2,16 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://bngqhcvac8kn5"
-path="res://.godot/imported/play1.png-d57bb64182949fe6653fdd8db4793e7a.ctex"
+uid="uid://dlolr3wtchsbn"
+path="res://.godot/imported/earth_real_1.png-12ec324f670e99489a0a527b28ab9dce.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://screenshots/ios/2796x1290/play1.png"
-dest_files=["res://.godot/imported/play1.png-d57bb64182949fe6653fdd8db4793e7a.ctex"]
+source_file="res://art/planets/earth_real_1.png"
+dest_files=["res://.godot/imported/earth_real_1.png-12ec324f670e99489a0a527b28ab9dce.ctex"]
 
 [params]
 
