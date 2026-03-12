@@ -65,6 +65,10 @@ func is_level_unlocked(level: int) -> bool:
 		return true
 	return levels_unlocked or total_crypto_earned >= LEVEL_PACK_GRIND_COST
 
+func is_level_reachable(level: int) -> bool:
+	## True if the player has progressed far enough AND the level is unlocked.
+	return level <= highest_level_completed + 1 and is_level_unlocked(level)
+
 func unlock_all_levels() -> void:
 	levels_unlocked = true
 	save_game()

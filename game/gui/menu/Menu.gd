@@ -60,7 +60,11 @@ func _ready():
 	if earth_tex:
 		$Earth.texture = earth_tex
 	# Style menu buttons
+	# Update Play button to show current level
+	var play_level_name: String = globalvar.LEVEL_NAMES.get(globalvar.nowlevel, "")
+	$VButtonArray/PlayButton.text = "Play — Level " + str(globalvar.nowlevel) + " " + play_level_name
 	BS.apply_space_style($VButtonArray/PlayButton, Color.GREEN)
+	BS.apply_space_style($VButtonArray/LevelsButton, Color.ORANGE)
 	BS.apply_space_style($VButtonArray/HelpButton, Color.CYAN)
 	BS.apply_space_style($VButtonArray/QuitButton, Color.RED)
 	_build_nickname_bar()
@@ -474,8 +478,7 @@ func _on_difficulty_pressed() -> void:
 
 
 func _build_level_select() -> void:
-	# Hidden level select panel — toggled with D key
-	# Wrap in a PanelContainer for a clean dark backdrop
+	# Level select panel — toggled via Levels button (or D key in debug)
 	var panel := PanelContainer.new()
 	panel.name = "LevelSelectPanel"
 	panel.visible = false
@@ -505,8 +508,8 @@ func _build_level_select() -> void:
 
 	# Header label
 	var header := Label.new()
-	header.text = "DEBUG: Level Select"
-	header.add_theme_color_override("font_color", Color.YELLOW)
+	header.text = "Select Level"
+	header.add_theme_color_override("font_color", Color.ORANGE)
 	header.add_theme_font_size_override("font_size", 14)
 	header.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_level_select_container.add_child(header)
@@ -515,18 +518,24 @@ func _build_level_select() -> void:
 	for level_num in globalvar.LEVEL_SCENES.keys():
 		var btn := Button.new()
 		var level_name: String = globalvar.LEVEL_NAMES.get(level_num, str(level_num))
-		var locked := not globalvar.is_level_unlocked(level_num)
-		var prefix := "🔒 " if locked else ""
-		btn.text = prefix + "Level " + str(level_num) + " — " + level_name
+		var reachable := globalvar.is_level_reachable(level_num)
+		var best_stars: int = globalvar.get_best_stars(level_num)
+		var star_str := ""
+		if best_stars > 0:
+			star_str = " " + "★".repeat(best_stars) + "☆".repeat(3 - best_stars)
+		var prefix := "🔒 " if not reachable else ""
+		btn.text = prefix + "Level " + str(level_num) + " — " + level_name + star_str
 		btn.custom_minimum_size = Vector2(250, 32)
 		btn.flat = true
-		BS.apply_space_style(btn, Color(0.4, 0.4, 0.5) if locked else Color.ORANGE)
+		BS.apply_space_style(btn, Color(0.4, 0.4, 0.5) if not reachable else Color.ORANGE)
 		var scene_path: String = globalvar.LEVEL_SCENES[level_num]
 		var lvl_num: int = level_num
 		btn.pressed.connect(func():
-			if not globalvar.is_level_unlocked(lvl_num):
-				_show_lock_popup()
+			if not globalvar.is_level_reachable(lvl_num):
+				if not globalvar.is_level_unlocked(lvl_num):
+					_show_lock_popup()
 				return
+			globalvar.nowlevel = lvl_num
 			globalvar.get_level_scene(lvl_num)  # set endless_mode flag if needed
 			WarpTransition.warp_to(scene_path)
 		)
@@ -534,7 +543,7 @@ func _build_level_select() -> void:
 
 	# Close button
 	var close_btn := Button.new()
-	close_btn.text = "Close  [D]"
+	close_btn.text = "Close"
 	close_btn.custom_minimum_size = Vector2(250, 32)
 	close_btn.flat = true
 	BS.apply_space_style(close_btn, Color.RED)
@@ -591,6 +600,9 @@ func _on_PlayButton_pressed():
 		return
 	var scene := globalvar.get_level_scene(globalvar.nowlevel)
 	WarpTransition.warp_to(scene)
+
+func _on_LevelsButton_pressed():
+	_toggle_level_select()
 
 func _on_HelpButton_pressed():
 	get_tree().change_scene_to_file("res://game/gui/help/Help.tscn")

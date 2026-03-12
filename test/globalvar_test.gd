@@ -124,6 +124,47 @@ func test_level_11_unlocked_via_flag() -> void:
 
 
 # ==========================================================================
+#  LEVEL REACHABILITY (unlock + progression)
+# ==========================================================================
+
+func test_level_1_always_reachable() -> void:
+	globalvar.highest_level_completed = 0
+	globalvar.levels_unlocked = false
+	globalvar.total_crypto_earned = 0
+	assert_bool(globalvar.is_level_reachable(1)).is_true()
+
+func test_level_2_reachable_after_beating_1() -> void:
+	globalvar.highest_level_completed = 1
+	assert_bool(globalvar.is_level_reachable(2)).is_true()
+
+func test_level_2_not_reachable_before_beating_1() -> void:
+	globalvar.highest_level_completed = 0
+	assert_bool(globalvar.is_level_reachable(2)).is_false()
+
+func test_level_5_not_reachable_without_unlock_even_if_progressed() -> void:
+	globalvar.highest_level_completed = 4
+	globalvar.levels_unlocked = false
+	globalvar.total_crypto_earned = 0
+	assert_bool(globalvar.is_level_reachable(5)).is_false()
+
+func test_level_5_reachable_with_unlock_and_progression() -> void:
+	globalvar.highest_level_completed = 4
+	globalvar.levels_unlocked = true
+	assert_bool(globalvar.is_level_reachable(5)).is_true()
+
+func test_level_5_not_reachable_with_unlock_but_no_progression() -> void:
+	globalvar.highest_level_completed = 2
+	globalvar.levels_unlocked = true
+	assert_bool(globalvar.is_level_reachable(5)).is_false()
+
+func test_all_levels_reachable_when_fully_progressed_and_unlocked() -> void:
+	globalvar.highest_level_completed = 11
+	globalvar.levels_unlocked = true
+	for level in range(1, 13):
+		assert_bool(globalvar.is_level_reachable(level)).is_true()
+
+
+# ==========================================================================
 #  UPGRADE STATS
 # ==========================================================================
 

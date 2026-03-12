@@ -81,6 +81,13 @@ theme_override_font_sizes/font_size = 25
 text = "Play!"
 flat = true
 
+[node name="LevelsButton" type="Button" parent="VButtonArray"]
+custom_minimum_size = Vector2(480, 52)
+theme_override_fonts/font = SubResource("FontVariation_25")
+theme_override_font_sizes/font_size = 25
+text = "Levels"
+flat = true
+
 [node name="HelpButton" type="Button" parent="VButtonArray"]
 custom_minimum_size = Vector2(480, 52)
 theme_override_fonts/font = SubResource("FontVariation_25")
@@ -134,5 +141,6 @@ stream = ExtResource("7")
 autoplay = true
 
 [connection signal="pressed" from="VButtonArray/PlayButton" to="." method="_on_PlayButton_pressed"]
+[connection signal="pressed" from="VButtonArray/LevelsButton" to="." method="_on_LevelsButton_pressed"]
 [connection signal="pressed" from="VButtonArray/HelpButton" to="." method="_on_HelpButton_pressed"]
 [connection signal="pressed" from="VButtonArray/QuitButton" to="." method="_on_QuitButton_pressed"]
