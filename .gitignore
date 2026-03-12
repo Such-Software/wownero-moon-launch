@@ -43,6 +43,9 @@ reports/
 # Ad setup guide (untracked, contains placeholder instructions)
 ADS.md
 
+# Deploy guide (untracked, contains signing/release instructions)
+DEPLOY.md
+
 # AdMob downloaded native libraries (large binaries, per-machine)
 addons/admob/downloads/
 addons/admob/android/bin/

@@ -543,6 +543,8 @@ func _build_level_select() -> void:
 
 
 func _unhandled_input(event: InputEvent) -> void:
+	if not OS.is_debug_build():
+		return
 	if event is InputEventKey and event.pressed:
 		match event.keycode:
 			KEY_D:
