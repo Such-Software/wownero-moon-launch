@@ -36,3 +36,6 @@ android/.build_version
 # screenshots/
 *.tmp
 .syncthing*
+
+# GdUnit4 test reports
+reports/

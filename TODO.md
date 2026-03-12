@@ -348,3 +348,111 @@ The web build (itch.io / wownero.org) has **no app store rules**. These features
 10. **Mobile deployment** (Android/iOS real device testing)
 11. **Web build** (itch.io / wownero.org)
 12. **3D prototype** (experimental, future phase)
+
+---
+
+## 🧪 Testing
+
+### Automated Tests (GdUnit4)
+- [x] **Install GdUnit4** — `addons/gdUnit4/` (v6.1.1), enabled in project.godot
+- [x] **globalvar.gd unit tests** — 108 tests covering:
+  - Difficulty multipliers (spawn interval, enemy speed, fuel drain, starting fuel × 3 difficulties)
+  - Level unlock gate (free levels 1-4, locked 5+, flag unlock, grind unlock at 2000)
+  - Upgrade stats (thrust, fuel, drain floor, crash/landing speed with difficulty, shield, torque, reverse thrust, magnet)
+  - Upgrade costs & purchase (cost scaling, wallet deduction, max level rejection, sequential buys)
+  - Crypto accounting (wallet, level crypto, total earned, total never decreases after spend)
+  - Skin purchase & selection (buy, already owned, insufficient funds, nonexistent, select owned/unowned)
+  - Star rating (time thresholds, fuel bonus, cap at 3, exact boundaries, best time/stars tracking)
+  - Achievement skins (champion at all 3-stars, skull at 50 deaths, no duplicates)
+  - Nickname generation (format, valid prefix+suffix)
+  - Level routing (scene lookup, endless mode flag, fallback, has_next_level)
+  - Per-run reset & checkpoint
+  - Save/load roundtrip (all keys present, data integrity, missing keys default, default skin always present, new upgrades stay zero)
+  - UUID format & uniqueness, platform string
+- **Run command:**
+  ```
+  /Applications/Godot.app/Contents/MacOS/Godot --headless --path . \
+    -s addons/gdUnit4/bin/GdUnitCmdTool.gd \
+    --add "res://test/globalvar_test.gd" --ignoreHeadlessMode
+  ```
+
+### Manual Testing Checklist
+- [ ] **Gameplay — Core**
+  - [ ] Launch Level 1, thrust to Moon, land gently → Victory screen with stars
+  - [ ] Crash at high speed → Death screen → Retry works
+  - [ ] Run out of fuel → drift without thrust, crash
+  - [ ] Land at >35° tilt → rollover death
+  - [ ] Collect crypto pickups → wallet increases in HUD
+  - [ ] Collect fuel canisters → fuel bar increases
+  - [ ] Gravity slingshot around a planet → "SLINGSHOT!" popup
+  - [ ] Gamma ray fires → blocked by planet bodies, kills rocket
+  - [ ] Waypoint checkpoint → die after checkpoint → respawn at waypoint
+- [ ] **Progression**
+  - [ ] Complete Level 1 → nowlevel advances, level 2 appears
+  - [ ] Stars computed correctly (fast time = 3★, slow = 1★, fuel bonus +1★)
+  - [ ] Buy upgrade → wallet deducted, upgrade level visible in shop
+  - [ ] Buy skin → wallet deducted, skin applied to rocket in-game
+  - [ ] Level 5+ locked without 2000 earned crypto or unlock flag
+  - [ ] Debug: M key = +500 moonrocks, U key = unlock all, D key = level select
+- [ ] **Save/Load**
+  - [ ] Close and reopen game → progress restored (wallet, upgrades, stars, skins)
+  - [ ] Cloud save upload succeeds silently
+  - [ ] Cloud restore button downloads and applies if cloud has more progress
+- [ ] **Menu & UI**
+  - [ ] Title screen: planets drift in after 5-7s, ships fly across, explosions on collision
+  - [ ] Earth/Moon render above background ships/planets
+  - [ ] Nickname reroll generates new name, edit with >20 chars truncates
+  - [ ] Difficulty cycles Easy → Normal → Hard → Easy, label color changes
+  - [ ] Help screen: 12 pages, Next/Prev bounds, swipe on touch
+- [ ] **Mobile (when applicable)**
+  - [ ] Touch controls (joystick + buttons) functional
+  - [ ] Haptic feedback on death, landing, slingshot, pickup
+  - [ ] Banner ad on menu/shop (once real SDK integrated)
+
+---
+
+## 📺 Ad Integration Plan
+
+### Current State
+AdManager.gd is a well-structured abstraction layer. All game code already calls through it. The **Web** path has partial JS bridge support. The **Mobile** path is fully **stubbed** — rewarded ads always succeed after 0.5s, interstitials emit `interstitial_closed` immediately, banners are no-ops.
+
+### Step 1: Install Godot AdMob Plugin
+- Use [poing-studios/godot-admob-plugin](https://github.com/poing-studios/godot-admob-plugin) for Godot 4.x
+- Clone into `addons/admob/`
+- Enable in project.godot `[editor_plugins]`
+
+### Step 2: Configure Ad Unit IDs
+- Register app on [AdMob dashboard](https://admob.google.com/)
+- Create ad units: **Banner**, **Interstitial**, **Rewarded**
+- Use test IDs during development:
+  - Banner: `ca-app-pub-3940256099942544/6300978111`
+  - Interstitial: `ca-app-pub-3940256099942544/1033173712`
+  - Rewarded: `ca-app-pub-3940256099942544/5224354917`
+- Add App ID to Android export (`AndroidManifest.xml` meta-data)
+- Add App ID to iOS export (`Info.plist` `GADApplicationIdentifier`)
+
+### Step 3: Update AdManager.gd
+- Replace mobile stubs with real AdMob singleton calls:
+  ```
+  _admob = Engine.get_singleton("AdMob")
+  _admob.initialize(app_id, is_test)
+  ```
+- Wire AdMob signals → existing AdManager signals:
+  - `rewarded_ad_earned_reward` → invoke `_rewarded_callback(true)`
+  - `interstitial_closed` → emit `interstitial_closed` signal
+  - `banner_loaded` → auto-show
+- Keep desktop stub behavior (no ads on desktop)
+- Keep web JS bridge for web builds
+
+### Step 4: Android Export Config
+- Ensure `android/build/` has the Gradle template
+- Add AdMob dependency to `build.gradle`
+- Add `INTERNET`, `AD_ID` permissions
+- Set `com.google.android.gms.ads.APPLICATION_ID` in manifest
+
+### Step 5: Testing
+- Test with AdMob test IDs on real Android device
+- Verify rewarded ad grants 50 moonrocks
+- Verify interstitial shows between death→retry and victory→shop
+- Verify banner displays on menu and shop screens
+- Verify "Remove Ads" persists via `adstate.json`
