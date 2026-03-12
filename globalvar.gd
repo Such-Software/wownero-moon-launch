@@ -101,19 +101,24 @@ func check_achievement_skins() -> void:
 			break
 	if all_3star and "champion" not in owned_skins:
 		owned_skins.append("champion")
+		PlayGamesManager.on_skin_owned(owned_skins.size())
 	# Skull: 50 total deaths
 	if total_deaths >= 50 and "skull" not in owned_skins:
 		owned_skins.append("skull")
+		PlayGamesManager.on_skin_owned(owned_skins.size())
 	# Crystal Beetle: complete all 11 story levels
 	if highest_level_completed >= 11 and "crystalbeetle" not in owned_skins:
 		owned_skins.append("crystalbeetle")
+		PlayGamesManager.on_skin_owned(owned_skins.size())
 	# Steamboat: reach wave 10 in Endless Mode
 	if endless_best_wave >= 10 and "steamboat" not in owned_skins:
 		owned_skins.append("steamboat")
+		PlayGamesManager.on_skin_owned(owned_skins.size())
 
 func increment_deaths() -> void:
 	total_deaths += 1
 	check_achievement_skins()
+	PlayGamesManager.on_death(total_deaths)
 	save_game()
 
 var selected_skin: String = "default"
@@ -136,6 +141,7 @@ func buy_skin(skin_id: String) -> bool:
 	owned_skins.append(skin_id)
 	selected_skin = skin_id
 	wallet_changed.emit(wallet)
+	PlayGamesManager.on_skin_owned(owned_skins.size())
 	save_game()
 	return true
 
@@ -298,6 +304,8 @@ func buy_upgrade(upgrade_name: String) -> bool:
 	wallet -= cost
 	upgrades[upgrade_name] += 1
 	wallet_changed.emit(wallet)
+	if upgrades[upgrade_name] >= UPGRADE_MAX_LEVEL:
+		PlayGamesManager.on_upgrade_maxed()
 	save_game()
 	return true
 
@@ -306,6 +314,7 @@ func add_crypto(amount: int) -> void:
 	level_crypto_collected += amount
 	total_crypto_earned += amount
 	wallet_changed.emit(wallet)
+	PlayGamesManager.on_crypto_earned(total_crypto_earned)
 
 # --- Level config (eliminates hardcoded match statements) ---
 const LEVEL_SCENES := {
@@ -402,6 +411,9 @@ func record_level_result(level: int, time_s: float, fuel_pct: float, crypto: int
 	if stars > prev_stars:
 		best_stars[key] = stars
 	check_achievement_skins()
+	# Notify Play Games Services
+	PlayGamesManager.on_level_completed(level, maxi(stars, int(best_stars.get(key, 0))))
+	PlayGamesManager.submit_leaderboard_score(level, int(time_s * 1000))
 	return stars
 
 func reset_level_stats() -> void:

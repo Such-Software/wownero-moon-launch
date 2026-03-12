@@ -75,6 +75,7 @@ func _ready():
 	_build_level_select()
 	_build_difficulty_toggle()
 	_build_cloud_restore_button()
+	_build_pgs_buttons()
 	_bg_action_delay = randf_range(5.0, 7.0)
 	AdManager.show_banner()
 
@@ -705,6 +706,15 @@ func _show_leaderboard_popup() -> void:
 	close.pressed.connect(func(): _lb_popup.queue_free())
 	vbox.add_child(close)
 
+	# Google Play leaderboard button (Android only)
+	if OS.get_name() == "Android":
+		var gp_btn := Button.new()
+		gp_btn.text = "View on Google Play"
+		gp_btn.custom_minimum_size = Vector2(200, 34)
+		BS.apply_space_style(gp_btn, Color(0.4, 0.85, 0.4))
+		gp_btn.pressed.connect(func(): PlayGamesManager.show_leaderboard(_lb_level))
+		vbox.add_child(gp_btn)
+
 	_lb_level = globalvar.nowlevel
 	_lb_update_level_label()
 	_lb_fetch()
@@ -835,6 +845,22 @@ func _show_lock_popup() -> void:
 
 
 # --- Cloud Restore Button ---
+
+func _build_pgs_buttons() -> void:
+	## Add Google Play Games buttons (Achievements) — Android only.
+	if OS.get_name() != "Android":
+		return
+	var ach_btn := Button.new()
+	ach_btn.name = "AchievementsButton"
+	ach_btn.text = "Achievements"
+	ach_btn.custom_minimum_size = Vector2(480, 52)
+	BS.apply_space_style(ach_btn, Color(0.4, 0.85, 0.4))
+	ach_btn.add_theme_font_size_override("font_size", 25)
+	ach_btn.pressed.connect(func(): PlayGamesManager.show_achievements())
+	# Insert before Quit button
+	$VButtonArray.add_child(ach_btn)
+	$VButtonArray.move_child(ach_btn, $VButtonArray/QuitButton.get_index())
+
 
 func _build_cloud_restore_button() -> void:
 	var bar := HBoxContainer.new()

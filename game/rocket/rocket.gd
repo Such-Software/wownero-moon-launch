@@ -482,6 +482,7 @@ func flagplanted():
 		globalvar.endless_wave += 1
 		if globalvar.endless_wave > globalvar.endless_best_wave:
 			globalvar.endless_best_wave = globalvar.endless_wave
+			PlayGamesManager.on_endless_wave(globalvar.endless_wave)
 		globalvar.save_game()
 		get_tree().change_scene_to_file("res://game/levels/12/EndlessMode.tscn")
 	else:
