@@ -411,48 +411,54 @@ The web build (itch.io / wownero.org) has **no app store rules**. These features
 
 ---
 
-## 📺 Ad Integration Plan
+## 📺 Ad Integration
 
-### Current State
-AdManager.gd is a well-structured abstraction layer. All game code already calls through it. The **Web** path has partial JS bridge support. The **Mobile** path is fully **stubbed** — rewarded ads always succeed after 0.5s, interstitials emit `interstitial_closed` immediately, banners are no-ops.
+### Architecture
+- **Desktop** (macOS/Win/Linux): Always ad-free (premium builds)
+- **Web**: AdSense via custom HTML shell (`web/custom_shell.html`) + JS bridge
+- **Mobile** (Android/iOS): AdMob via poing-studios/godot-admob-plugin
+- **AdManager.gd**: Unified abstraction — all game code calls through it
 
-### Step 1: Install Godot AdMob Plugin
-- Use [poing-studios/godot-admob-plugin](https://github.com/poing-studios/godot-admob-plugin) for Godot 4.x
-- Clone into `addons/admob/`
-- Enable in project.godot `[editor_plugins]`
+### Status
+- [x] AdManager.gd updated with real AdMob API calls (banner, interstitial, rewarded)
+- [x] Custom HTML shell created with AdSense containers + JS ad bridge
+- [x] export_presets.cfg updated to use custom HTML shell
+- [x] Test ad unit IDs configured in AdManager.gd ADMOB_IDS dict
+- [ ] Install poing-studios AdMob plugin (see below)
+- [ ] Replace test ad IDs with production IDs
+- [ ] Register AdSense account and update HTML shell publisher/slot IDs
+- [ ] Test on real Android device
+- [ ] Test web build with AdSense
 
-### Step 2: Configure Ad Unit IDs
-- Register app on [AdMob dashboard](https://admob.google.com/)
-- Create ad units: **Banner**, **Interstitial**, **Rewarded**
-- Use test IDs during development:
-  - Banner: `ca-app-pub-3940256099942544/6300978111`
-  - Interstitial: `ca-app-pub-3940256099942544/1033173712`
-  - Rewarded: `ca-app-pub-3940256099942544/5224354917`
-- Add App ID to Android export (`AndroidManifest.xml` meta-data)
-- Add App ID to iOS export (`Info.plist` `GADApplicationIdentifier`)
+### Mobile: Install AdMob Plugin
+1. In Godot editor: **AssetLib** → search `AdMob` by `poing.studios` → Download & Install
+2. Or manually: download from [poingstudios/godot-admob-android releases](https://github.com/poingstudios/godot-admob-android/releases)
+3. **Project → Install Android Build Template** (required for custom plugins)
+4. Enable plugin: **Project → Project Settings → Plugins → AdMob**
+5. The plugin provides `MobileAds`, `AdView`, `InterstitialAdLoader`, `RewardedAdLoader` classes
+6. AdManager.gd already has full integration code — it checks `ClassDB.class_exists(&"MobileAds")` and gracefully falls back if the plugin isn't installed
 
-### Step 3: Update AdManager.gd
-- Replace mobile stubs with real AdMob singleton calls:
-  ```
-  _admob = Engine.get_singleton("AdMob")
-  _admob.initialize(app_id, is_test)
-  ```
-- Wire AdMob signals → existing AdManager signals:
-  - `rewarded_ad_earned_reward` → invoke `_rewarded_callback(true)`
-  - `interstitial_closed` → emit `interstitial_closed` signal
-  - `banner_loaded` → auto-show
-- Keep desktop stub behavior (no ads on desktop)
-- Keep web JS bridge for web builds
+### Mobile: Production Ad IDs
+When ready for release, update `ADMOB_IDS` dict in AdManager.gd:
+1. Register app on [AdMob](https://admob.google.com/)
+2. Create ad units: Banner, Interstitial, Rewarded (for both Android and iOS)
+3. Replace the `ca-app-pub-3940256099942544/...` test IDs with your production IDs
+4. Add your AdMob App ID to: Android manifest (`com.google.android.gms.ads.APPLICATION_ID`), iOS `GADApplicationIdentifier`
 
-### Step 4: Android Export Config
-- Ensure `android/build/` has the Gradle template
-- Add AdMob dependency to `build.gradle`
-- Add `INTERNET`, `AD_ID` permissions
-- Set `com.google.android.gms.ads.APPLICATION_ID` in manifest
+### Web: AdSense Setup
+1. Register on [Google AdSense](https://adsense.google.com/)
+2. In `web/custom_shell.html`, replace the placeholder values:
+   - `$ADSENSE_CLIENT_ID` → your publisher ID (e.g. `ca-pub-1234567890123456`)
+   - `$ADSENSE_BANNER_SLOT` → your banner ad slot ID
+   - `$ADSENSE_INTERSTITIAL_SLOT` → your interstitial/display ad slot ID
+3. The custom shell provides `showBannerAd()`, `hideBannerAd()`, `showInterstitialAd(id)`, `showRewardedAd(id)` — all called by AdManager.gd via JavaScriptBridge
 
-### Step 5: Testing
-- Test with AdMob test IDs on real Android device
-- Verify rewarded ad grants 50 moonrocks
-- Verify interstitial shows between death→retry and victory→shop
-- Verify banner displays on menu and shop screens
-- Verify "Remove Ads" persists via `adstate.json`
+### Testing Checklist
+- [ ] Mobile: Banner shows on Menu and UpgradeShop, hides during gameplay
+- [ ] Mobile: Interstitial shows on death→retry and victory→shop transitions
+- [ ] Mobile: Rewarded ad grants 50 moonrocks, button text updates correctly
+- [ ] Mobile: "Remove Ads" persists via `adstate.json`, hides all ad UI
+- [ ] Web: Banner displays at bottom of page on menu/shop screens
+- [ ] Web: Interstitial overlay shows between levels with 5s close timer
+- [ ] Web: Rewarded overlay shows for 15s then grants moonrocks
+- [ ] Desktop: No ads shown, `is_ad_free()` returns true
