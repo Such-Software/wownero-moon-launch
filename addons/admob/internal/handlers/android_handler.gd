@@ -28,7 +28,7 @@ const AndroidExportPlugin := preload("res://addons/admob/internal/exporters/andr
 const PACKAGE_PATH := "res://addons/admob/android/bin/package.gd"
 const DOWNLOAD_DIR := "res://addons/admob/downloads/android/"
 const EXTRACT_PATH := "res://addons/admob/android/bin/"
-const BASE_URL := "https://github.com/poingstudios/godot-admob-plugin/releases/download/%s/%s"
+const BASE_URL := "https://github.com/poingstudios/godot-admob-android/releases/download/v4.1.0/%s"
 
 const DialogService := preload("res://addons/admob/internal/services/ui/dialog_service.gd")
 
@@ -47,7 +47,7 @@ func check_dependencies() -> void:
 
 func install() -> void:
 	var file_name := _get_zip_file_name()
-	var url := BASE_URL % [PluginVersion.current, file_name]
+	var url := BASE_URL % file_name
 	var destination := DOWNLOAD_DIR.path_join(file_name)
 	
 	_download_service.download_file(url, destination, "Android")

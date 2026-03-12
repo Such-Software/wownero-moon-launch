@@ -27,12 +27,20 @@ WarpTransition="*res://game/warp/WarpTransition.gd"
 
 window/size/viewport_width=1024
 window/size/viewport_height=600
+window/size/mode=3
 window/size/window_width_override=1280
 window/size/window_height_override=720
-window/size/resizable=true
 window/stretch/mode="canvas_items"
 window/stretch/aspect="expand"
 window/handheld/orientation=1
+
+[dotnet]
+
+project/assembly_name="Wownero Moon Launch"
+
+[editor_plugins]
+
+enabled=PackedStringArray("res://addons/admob/plugin.cfg")
 
 [input]
 
@@ -72,14 +80,10 @@ emp={
 ]
 }
 
-[rendering]
-
-environment/defaults/default_clear_color=Color(0, 0, 0, 1)
-
-[editor_plugins]
-
-enabled=PackedStringArray("res://addons/admob/plugin.cfg", "res://addons/gdUnit4/plugin.cfg")
-
 [input_devices]
 
 pointing/emulate_touch_from_mouse=true
+
+[rendering]
+
+environment/defaults/default_clear_color=Color(0, 0, 0, 1)

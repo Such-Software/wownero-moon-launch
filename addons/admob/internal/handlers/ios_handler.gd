@@ -29,7 +29,7 @@ const FileService := preload("res://addons/admob/internal/services/ui/file_servi
 const DOWNLOAD_DIR := "res://addons/admob/downloads/ios/"
 const EXTRACT_PATH := "res://ios/plugins/"
 const PACKAGE_PATH := "res://ios/plugins/package.gd"
-const BASE_URL := "https://github.com/poingstudios/godot-admob-plugin/releases/download/%s/%s"
+const BASE_URL := "https://github.com/poingstudios/godot-admob-ios/releases/download/v4.1.0/%s"
 
 var _download_service: DownloadService
 var _dialog_service: DialogService
@@ -46,7 +46,7 @@ func check_dependencies() -> void:
 
 func install() -> void:
 	var file_name := _get_zip_file_name()
-	var url := BASE_URL % [PluginVersion.current, file_name]
+	var url := BASE_URL % file_name
 	var destination := DOWNLOAD_DIR.path_join(file_name)
 	
 	_download_service.download_file(url, destination, "iOS")
