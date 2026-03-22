@@ -22,6 +22,7 @@ ScoreClient="*res://game/net/ScoreClient.gd"
 CloudSave="*res://game/net/CloudSave.gd"
 AdManager="*res://game/net/AdManager.gd"
 PlayGamesManager="*res://game/net/PlayGamesManager.gd"
+GameCenterManager="*res://game/net/GameCenterManager.gd"
 WarpTransition="*res://game/warp/WarpTransition.gd"
 
 [display]

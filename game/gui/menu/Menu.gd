@@ -838,8 +838,8 @@ func _show_lock_popup() -> void:
 # --- Cloud Restore Button ---
 
 func _build_pgs_buttons() -> void:
-	## Add Google Play Games buttons (Achievements) — Android only.
-	if OS.get_name() != "Android":
+	## Add platform achievements button (Android: PGS, iOS: Game Center).
+	if OS.get_name() != "Android" and OS.get_name() != "iOS":
 		return
 	var ach_btn := Button.new()
 	ach_btn.name = "AchievementsButton"
@@ -847,7 +847,10 @@ func _build_pgs_buttons() -> void:
 	ach_btn.custom_minimum_size = Vector2(480, 52)
 	BS.apply_space_style(ach_btn, Color(0.4, 0.85, 0.4))
 	ach_btn.add_theme_font_size_override("font_size", 25)
-	ach_btn.pressed.connect(func(): PlayGamesManager.show_achievements())
+	if OS.get_name() == "Android":
+		ach_btn.pressed.connect(func(): PlayGamesManager.show_achievements())
+	else:
+		ach_btn.pressed.connect(func(): GameCenterManager.show_achievements())
 	# Insert before Quit button
 	$VButtonArray.add_child(ach_btn)
 	$VButtonArray.move_child(ach_btn, $VButtonArray/QuitButton.get_index())
