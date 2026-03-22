@@ -5,29 +5,28 @@ extends Node
 ## Uses the PGSGP (StudioAdriatic) plugin for Godot 4.x.
 ## On non-Android platforms, every method safely no-ops.
 ##
-## Achievement IDs are placeholders — replace with real IDs from Google Play Console.
+## Achievement IDs from Google Play Console (Project 412379035812).
 ## Leaderboards use our own backend (api.such.software), not PGS.
 
-## Achievement ID mapping — replace these with real IDs from Play Console.
-## Create these achievements at: Play Console > Play Games Services > Achievements
+## Achievement ID mapping — real IDs from Google Play Console.
 const ACHIEVEMENT_IDS := {
 	# Milestone achievements (unlocked on level completion)
-	"first_landing":       "REPLACE_WITH_PLAY_CONSOLE_ID",  # Complete Level 1 (Moon)
-	"mars_explorer":       "REPLACE_WITH_PLAY_CONSOLE_ID",  # Complete Level 2 (Mars)
-	"inner_planets":       "REPLACE_WITH_PLAY_CONSOLE_ID",  # Complete Level 4 (Io)
-	"gas_giants":          "REPLACE_WITH_PLAY_CONSOLE_ID",  # Complete Level 7 (Neptune)
-	"deep_space":          "REPLACE_WITH_PLAY_CONSOLE_ID",  # Complete Level 9 (Asteroid Belt)
-	"mothership_docked":   "REPLACE_WITH_PLAY_CONSOLE_ID",  # Complete Level 11 (all story)
+	"first_landing":       "CgkIpPHSnYAMEAIQBQ",  # Complete Level 1 (Moon)
+	"mars_explorer":       "CgkIpPHSnYAMEAIQCQ",  # Complete Level 2 (Mars)
+	"inner_planets":       "CgkIpPHSnYAMEAIQAw",  # Complete Level 4 (Io)
+	"gas_giants":          "CgkIpPHSnYAMEAIQBg",  # Complete Level 7 (Neptune)
+	"deep_space":          "CgkIpPHSnYAMEAIQAA",  # Complete Level 9 (Asteroid Belt)
+	"mothership_docked":   "CgkIpPHSnYAMEAIQDA",  # Complete Level 11 (all story)
 	# Mastery achievements
-	"champion":            "REPLACE_WITH_PLAY_CONSOLE_ID",  # 3 stars on all levels 1-11
-	"speed_demon":         "REPLACE_WITH_PLAY_CONSOLE_ID",  # Beat any level 3-star time
+	"champion":            "CgkIpPHSnYAMEAIQCg",  # 3 stars on all levels 1-11
+	"speed_demon":         "CgkIpPHSnYAMEAIQBA",  # Beat any level 3-star time
 	# Endurance / grind achievements
-	"endless_wave_10":     "REPLACE_WITH_PLAY_CONSOLE_ID",  # Reach wave 10 in Endless
-	"grim_reaper":         "REPLACE_WITH_PLAY_CONSOLE_ID",  # Die 50 times (incremental)
-	"moonrock_hoarder":    "REPLACE_WITH_PLAY_CONSOLE_ID",  # Earn 5000 lifetime Moonrocks (incremental)
+	"endless_wave_10":     "CgkIpPHSnYAMEAIQBw",  # Reach wave 10 in Endless
+	"grim_reaper":         "CgkIpPHSnYAMEAIQAg",  # Die 50 times (incremental)
+	"moonrock_hoarder":    "CgkIpPHSnYAMEAIQAQ",  # Earn 5000 lifetime Moonrocks (incremental)
 	# Collection achievements
-	"skin_collector":      "REPLACE_WITH_PLAY_CONSOLE_ID",  # Own 5 skins (incremental)
-	"fully_upgraded":      "REPLACE_WITH_PLAY_CONSOLE_ID",  # Max out any 1 upgrade
+	"skin_collector":      "CgkIpPHSnYAMEAIQCw",  # Own 5 skins (incremental)
+	"fully_upgraded":      "CgkIpPHSnYAMEAIQCA",  # Max out any 1 upgrade
 }
 
 var _plugin = null  # GodotPlayGamesServices singleton (Android only)
@@ -67,7 +66,7 @@ func unlock(achievement_key: String) -> void:
 	if not is_available():
 		return
 	var id: String = ACHIEVEMENT_IDS.get(achievement_key, "")
-	if id.is_empty() or id == "REPLACE_WITH_PLAY_CONSOLE_ID":
+	if id.is_empty():
 		return
 	_plugin.unlockAchievement(id)
 
@@ -77,7 +76,7 @@ func increment(achievement_key: String, steps: int) -> void:
 	if not is_available():
 		return
 	var id: String = ACHIEVEMENT_IDS.get(achievement_key, "")
-	if id.is_empty() or id == "REPLACE_WITH_PLAY_CONSOLE_ID":
+	if id.is_empty():
 		return
 	_plugin.incrementAchievement(id, steps)
 
@@ -87,7 +86,7 @@ func set_steps(achievement_key: String, steps: int) -> void:
 	if not is_available():
 		return
 	var id: String = ACHIEVEMENT_IDS.get(achievement_key, "")
-	if id.is_empty() or id == "REPLACE_WITH_PLAY_CONSOLE_ID":
+	if id.is_empty():
 		return
 	_plugin.setAchievementSteps(id, steps)
 
