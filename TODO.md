@@ -70,7 +70,7 @@
 - [x] **Star rating** — 1-3 stars per level based on time + fuel remaining + crypto collected
 - [x] **Best time per level** — save and display on level select
 - [x] **Total crypto wallet** — persisted across sessions, shown in shop
-- [x] **Achievements** — 13 Google Play Games Services achievements via PlayGamesManager.gd autoload (achievements-only, no PGS leaderboards). Milestones: First Landing through Mothership Docked. Mastery: Champion (all 3★), Speed Demon. Endurance: Endless Survivor, Grim Reaper (50 deaths), Moonrock Hoarder (5000 earned). Collection: Skin Collector (5 skins), Fully Upgraded. All no-op on non-Android. See DEPLOY.md §10 for setup.
+- [x] **Achievements** — 13 achievements on both platforms. Android: Google Play Games Services via PlayGamesManager.gd (PGSGP plugin). iOS: Game Center via GameCenterManager.gd (built-in singleton). Both autoloaded, both no-op on wrong platform. Milestones: First Landing through Mothership Docked. Mastery: Champion (all 3★), Speed Demon. Endurance: Endless Survivor, Grim Reaper (50 deaths), Moonrock Hoarder (5000 earned). Collection: Skin Collector (5 skins), Fully Upgraded. See DEPLOY.md §10 for PGS setup.
 - [x] **Leaderboard** — backend API at api.such.software, per-level rankings, auto-submit on victory. Leaderboard viewer popup on Menu (fetches from backend, shows top scores in RichTextLabel table). Cross-platform (not PGS).
 - [x] **Player-facing level select** — "Levels" button on Menu opens scrollable panel with star ratings, best times, and lock icons. Available to all players (not just debug). Debug D key and 3-finger hold still work as shortcuts.
 
@@ -350,8 +350,9 @@ The web build (itch.io / wownero.org) has **no app store rules**. These features
 7. ~~11 levels + endless mode~~ ✅
 8. ~~Combat system~~ ✅
 9. ~~Visual/audio polish~~ ✅
-10. **Google Play Games Services** — finish PGS setup (create achievements, paste IDs, test on device)
-11. **Mobile deployment** — Android real device testing, release keystore, Play Store upload
+10. ~~Google Play Games Services~~ ✅ — PGS published, real IDs in code, Game Center configured for iOS
+11. ~~AdMob production IDs~~ ✅ — 6 ad units + 2 App IDs configured
+12. **Mobile deployment** — Android/iOS real device testing, release keystore, store uploads
 12. **Web build** — itch.io / wownero.org deployment
 13. **iOS export** — Xcode build, TestFlight
 14. 3D prototype (experimental, future phase)
@@ -437,10 +438,11 @@ The web build (itch.io / wownero.org) has **no app store rules**. These features
 - [x] Custom HTML shell created with AdSense containers + JS ad bridge
 - [x] export_presets.cfg updated to use custom HTML shell
 - [x] Test ad unit IDs configured in AdManager.gd ADMOB_IDS dict
-- [ ] Install poing-studios AdMob plugin (see below)
-- [ ] Replace test ad IDs with production IDs
+- [x] Install poing-studios AdMob plugin (v4.2.0 at `addons/admob/`)
+- [x] Replace test ad IDs with production IDs (6 ad units + 2 App IDs)
 - [ ] Register AdSense account and update HTML shell publisher/slot IDs
 - [ ] Test on real Android device
+- [ ] Test on real iOS device
 - [ ] Test web build with AdSense
 
 ### Mobile: Install AdMob Plugin
@@ -483,20 +485,25 @@ When ready for release, update `ADMOB_IDS` dict in AdManager.gd:
 ### Status
 - [x] PGSGP plugin v3.1.2 installed (`android/plugins/`)
 - [x] PlayGamesManager.gd autoload — achievements-only, all no-op on non-Android
-- [x] 13 achievement hooks wired into game logic (globalvar.gd, rocket.gd)
-- [x] Achievements button on Menu (Android only, green)
+- [x] GameCenterManager.gd autoload — iOS Game Center achievements, mirrors PlayGamesManager API
+- [x] 13 achievement hooks wired into game logic (globalvar.gd ×9, rocket.gd ×1) — both managers called
+- [x] Achievements button on Menu (Android: PGS overlay, iOS: Game Center overlay)
 - [x] Google Cloud project created (Project ID: 412379035812)
 - [x] OAuth credential created (debug keystore) — Client ID: `412379035812-d3n3k4i7gl4nlmldtgmi0feso8k4p2cp.apps.googleusercontent.com`
+- [x] 13 achievements created in Play Console (bulk-imported via ZIP)
+- [x] Achievement IDs pasted into `PlayGamesManager.gd`
+- [x] PGS project published
+- [x] 13 achievements created in App Store Connect (Game Center)
+- [x] Game Center entitlement enabled in iOS export preset
 - [ ] OAuth credential for release keystore (before Play Store upload)
-- [ ] 13 achievements created in Play Console
-- [ ] Achievement IDs pasted into `PlayGamesManager.gd`
-- [ ] PGS project published
 - [ ] Test on real Android device
+- [ ] Test on real iOS device
 
 ### Architecture
 - **Leaderboards**: Own backend at `api.such.software` (cross-platform, not PGS)
-- **Achievements**: PGS via PGSGP plugin (Android only)
+- **Achievements (Android)**: PGS via PGSGP plugin
+- **Achievements (iOS)**: Game Center via built-in Godot singleton
 - **Sidekick**: Automatic with PGS v2 sign-in (no extra code)
 - **Package name**: `com.suchsoftware.wowneromoonlaunch`
 
-See **DEPLOY.md §10** for full setup guide and achievement creation table.
+See **DEPLOY.md §10** for full PGS setup guide and achievement creation table.
