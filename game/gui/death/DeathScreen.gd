@@ -93,8 +93,8 @@ func _build_ui() -> void:
 		waypoint_btn.pressed.connect(_on_retry_waypoint)
 		vbox.add_child(waypoint_btn)
 
-	# Rewarded ad button (only if ads are available)
-	if AdManager.is_ad_supported() and not AdManager.is_ad_free():
+	# Rewarded ad button (always available on ad-supported platforms)
+	if AdManager.is_rewarded_available():
 		_ad_button = Button.new()
 		_ad_button.text = "Watch Ad for %d 🪨" % AdManager.REWARDED_AD_MOONROCKS
 		_ad_button.custom_minimum_size = Vector2(280, 44)

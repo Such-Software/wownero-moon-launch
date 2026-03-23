@@ -27,9 +27,6 @@ const ADMOB_IDS := {
 	"rewarded_ios": "ca-app-pub-2501747033825166/1915746383",
 }
 
-## Whether the user purchased ad removal (persisted in save)
-var _ads_removed: bool = false
-
 ## Whether a rewarded ad is currently showing
 var _rewarded_pending: bool = false
 
@@ -55,7 +52,6 @@ func _ready() -> void:
 	_platform = OS.get_name()
 	_is_web = _platform == "Web"
 	_is_mobile = _platform in ["Android", "iOS"]
-	_load_ad_state()
 
 	if is_ad_free():
 		return
@@ -65,16 +61,21 @@ func _ready() -> void:
 		_init_admob()
 
 
-## Returns true if this build/user should never see ads.
+## Returns true if this build/user should never see forced ads (banners + interstitials).
 func is_ad_free() -> bool:
 	if _platform in AD_FREE_PLATFORMS:
 		return true
-	return _ads_removed
+	return globalvar.is_ads_removed()
 
 
 ## Returns true if ads are supported on this platform (web or mobile).
 func is_ad_supported() -> bool:
 	return not (_platform in AD_FREE_PLATFORMS)
+
+
+## Returns true if rewarded ads can be shown (always available on ad-supported platforms).
+func is_rewarded_available() -> bool:
+	return is_ad_supported()
 
 
 ## Show an interstitial ad (between levels). No-op if ad-free.
@@ -92,8 +93,8 @@ func show_interstitial() -> void:
 
 ## Show a rewarded video ad. Calls callback(true) if watched, callback(false) if skipped.
 func show_rewarded(callback: Callable) -> void:
-	if is_ad_free():
-		callback.call(true)
+	if not is_rewarded_available():
+		callback.call(false)
 		return
 	_rewarded_pending = true
 	_rewarded_callback = callback
@@ -103,7 +104,7 @@ func show_rewarded(callback: Callable) -> void:
 		_mobile_show_rewarded()
 	else:
 		_rewarded_pending = false
-		callback.call(true)
+		callback.call(false)
 
 
 ## Show a banner ad (menu/shop screens only).
@@ -124,16 +125,18 @@ func hide_banner() -> void:
 		_mobile_hide_banner()
 
 
-## Purchase ad removal (IAP). Persists to save file.
-func remove_ads() -> void:
-	_ads_removed = true
-	hide_banner()
-	_save_ad_state()
+## Purchase ad removal via moonrocks (delegates to globalvar).
+func remove_ads() -> bool:
+	var success := globalvar.buy_ad_removal()
+	if success:
+		hide_banner()
+	return success
 
 
-## Restore ad removal state (e.g. after reinstall, check receipt).
+## Restore ad removal state (reads from globalvar save data — no separate file).
 func restore_purchase() -> void:
-	_load_ad_state()
+	# ads_removed is now part of savegame.json via globalvar; nothing extra to do.
+	pass
 
 
 # ============================================================
@@ -312,26 +315,4 @@ func _web_show_rewarded() -> void:
 	)
 
 
-# ============================================================
-# Persistence
-# ============================================================
 
-func _save_ad_state() -> void:
-	var f := FileAccess.open("user://adstate.json", FileAccess.WRITE)
-	if f:
-		f.store_line(JSON.stringify({"ads_removed": _ads_removed}))
-		f.close()
-
-
-func _load_ad_state() -> void:
-	if not FileAccess.file_exists("user://adstate.json"):
-		return
-	var f := FileAccess.open("user://adstate.json", FileAccess.READ)
-	if not f:
-		return
-	var json := JSON.new()
-	if json.parse(f.get_as_text()) == OK:
-		var data = json.get_data()
-		if data is Dictionary:
-			_ads_removed = bool(data.get("ads_removed", false))
-	f.close()

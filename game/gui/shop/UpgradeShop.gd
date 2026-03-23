@@ -9,6 +9,7 @@ var _upgrade_pips := {}     # upgrade_name -> HBoxContainer of pip rects
 var _wallet_label: Label = null
 var _title_label: Label = null
 var _ad_button: Button = null
+var _remove_ads_btn: Button = null
 var _skin_buttons := {}  # skin_id -> Button
 
 # Icons for each upgrade
@@ -94,8 +95,8 @@ func _ready() -> void:
 	wallet_panel.add_child(_wallet_label)
 	_update_wallet_label()
 
-	# Rewarded ad button (only if ads supported and not ad-free)
-	if AdManager.is_ad_supported() and not AdManager.is_ad_free():
+	# Rewarded ad button (only if ads supported)
+	if AdManager.is_ad_supported():
 		_ad_button = Button.new()
 		_ad_button.text = "🎬  Watch Ad for %d 🪨" % AdManager.REWARDED_AD_MOONROCKS
 		_ad_button.custom_minimum_size = Vector2(280, 34)
@@ -106,14 +107,19 @@ func _ready() -> void:
 		# Shift wallet panel left to make room
 		wallet_panel.position = Vector2(80, 50)
 
-		# Remove Ads purchase button
-		var remove_ads_btn := Button.new()
-		remove_ads_btn.text = "🚫  Remove Ads"
-		remove_ads_btn.custom_minimum_size = Vector2(180, 34)
-		BS.apply_space_style(remove_ads_btn, Color(0.9, 0.3, 0.9))
-		remove_ads_btn.pressed.connect(_on_remove_ads)
-		remove_ads_btn.position = Vector2(660, 50)
-		add_child(remove_ads_btn)
+		# Remove Ads purchase button (only if not already purchased)
+		if not globalvar.is_ads_removed():
+			_remove_ads_btn = Button.new()
+			_remove_ads_btn.text = "🚫  Remove Ads — %d 🪨" % globalvar.AD_REMOVAL_COST
+			_remove_ads_btn.custom_minimum_size = Vector2(240, 34)
+			if globalvar.wallet >= globalvar.AD_REMOVAL_COST:
+				BS.apply_space_style(_remove_ads_btn, Color(0.9, 0.3, 0.9))
+			else:
+				_remove_ads_btn.disabled = true
+				BS.apply_space_style(_remove_ads_btn, Color(0.25, 0.25, 0.35))
+			_remove_ads_btn.pressed.connect(_on_remove_ads)
+			_remove_ads_btn.position = Vector2(660, 50)
+			add_child(_remove_ads_btn)
 
 	# Show banner ad on shop screen
 	AdManager.show_banner()
@@ -256,6 +262,8 @@ func _on_rewarded_result(success: bool) -> void:
 			_style_buy_button(uname)
 		# Refresh skin buttons too
 		_refresh_skin_buttons()
+		# Refresh Remove Ads button (may now be affordable)
+		_refresh_remove_ads_button()
 		if _ad_button:
 			_ad_button.text = "+%d 🪨!" % AdManager.REWARDED_AD_MOONROCKS
 			# Re-enable after a brief cooldown
@@ -272,17 +280,37 @@ func _on_rewarded_result(success: bool) -> void:
 
 
 func _on_remove_ads() -> void:
-	# TODO: Wire to real IAP flow. For now, call remove_ads() directly.
-	AdManager.remove_ads()
-	# Hide ad-related buttons since they're no longer relevant
-	if _ad_button:
-		_ad_button.queue_free()
-		_ad_button = null
-	# Find and remove the Remove Ads button itself
-	for child in get_children():
-		if child is Button and child.text.contains("Remove Ads"):
-			child.queue_free()
-			break
+	# Show confirmation dialog before spending moonrocks
+	var dialog := AcceptDialog.new()
+	dialog.title = "Remove Ads"
+	dialog.dialog_text = "Spend %d 🪨 to remove banner and interstitial ads?\n\nRewarded ads (Watch Ad for 🪨) will still be available." % globalvar.AD_REMOVAL_COST
+	dialog.ok_button_text = "Buy"
+	dialog.add_cancel_button("Cancel")
+	dialog.confirmed.connect(func():
+		if AdManager.remove_ads():
+			_update_wallet_label()
+			if _remove_ads_btn:
+				_remove_ads_btn.queue_free()
+				_remove_ads_btn = null
+			# Refresh upgrade/skin buttons (wallet changed)
+			for uname in _upgrade_buttons.keys():
+				_style_buy_button(uname)
+			_refresh_skin_buttons()
+		dialog.queue_free()
+	)
+	dialog.canceled.connect(func(): dialog.queue_free())
+	add_child(dialog)
+	dialog.popup_centered()
+
+
+func _refresh_remove_ads_button() -> void:
+	if _remove_ads_btn and is_instance_valid(_remove_ads_btn):
+		if globalvar.wallet >= globalvar.AD_REMOVAL_COST:
+			_remove_ads_btn.disabled = false
+			BS.apply_space_style(_remove_ads_btn, Color(0.9, 0.3, 0.9))
+		else:
+			_remove_ads_btn.disabled = true
+			BS.apply_space_style(_remove_ads_btn, Color(0.25, 0.25, 0.35))
 
 
 func _create_upgrade_card(upgrade_name: String) -> PanelContainer:

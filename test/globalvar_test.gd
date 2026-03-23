@@ -27,6 +27,7 @@ func before_test() -> void:
 	globalvar.level_crypto_collected = 0
 	globalvar.level_fuel_remaining = 0.0
 	globalvar.has_checkpoint = false
+	globalvar.ads_removed = false
 	for key in globalvar.upgrades.keys():
 		globalvar.upgrades[key] = 0
 
@@ -639,7 +640,7 @@ func test_get_save_data_contains_all_keys() -> void:
 		"level", "highest_completed", "completed", "wallet", "upgrades",
 		"best_times", "best_stars", "device_uuid", "nickname", "tutorial_shown",
 		"difficulty", "selected_skin", "owned_skins", "endless_best_wave",
-		"levels_unlocked", "total_crypto_earned", "total_deaths",
+		"levels_unlocked", "total_crypto_earned", "total_deaths", "ads_removed",
 	]
 	for key in required_keys:
 		assert_bool(data.has(key)).is_true()
@@ -660,6 +661,7 @@ func test_save_data_roundtrip() -> void:
 	globalvar.best_stars["1"] = 3
 	globalvar.levels_unlocked = true
 	globalvar.endless_best_wave = 7
+	globalvar.ads_removed = true
 
 	var data := globalvar.get_save_data()
 
@@ -684,6 +686,7 @@ func test_save_data_roundtrip() -> void:
 	assert_int(globalvar.total_deaths).is_equal(25)
 	assert_bool(globalvar.levels_unlocked).is_true()
 	assert_int(globalvar.endless_best_wave).is_equal(7)
+	assert_bool(globalvar.ads_removed).is_true()
 
 func test_apply_save_data_missing_keys_use_defaults() -> void:
 	# Simulate an old save with minimal data
@@ -737,3 +740,51 @@ func test_uuid_uniqueness() -> void:
 	var uuid1 := globalvar._generate_uuid()
 	var uuid2 := globalvar._generate_uuid()
 	assert_str(uuid1).is_not_equal(uuid2)
+
+
+# ==========================================================================
+#  AD REMOVAL PURCHASE
+# ==========================================================================
+
+func test_buy_ad_removal_success() -> void:
+	globalvar.wallet = 10000
+	var result := globalvar.buy_ad_removal()
+	assert_bool(result).is_true()
+	assert_int(globalvar.wallet).is_equal(0)
+	assert_bool(globalvar.ads_removed).is_true()
+	assert_bool(globalvar.is_ads_removed()).is_true()
+
+func test_buy_ad_removal_insufficient_funds() -> void:
+	globalvar.wallet = 9999
+	var result := globalvar.buy_ad_removal()
+	assert_bool(result).is_false()
+	assert_int(globalvar.wallet).is_equal(9999)
+	assert_bool(globalvar.ads_removed).is_false()
+
+func test_buy_ad_removal_already_purchased() -> void:
+	globalvar.wallet = 20000
+	globalvar.ads_removed = true
+	var result := globalvar.buy_ad_removal()
+	assert_bool(result).is_false()
+	assert_int(globalvar.wallet).is_equal(20000)  # not deducted again
+
+func test_buy_ad_removal_exact_cost() -> void:
+	globalvar.wallet = 10000
+	globalvar.buy_ad_removal()
+	assert_int(globalvar.wallet).is_equal(0)
+
+func test_ads_removed_persists_in_save_data() -> void:
+	globalvar.ads_removed = true
+	var data := globalvar.get_save_data()
+	assert_bool(data["ads_removed"]).is_true()
+
+func test_ads_removed_restores_from_save_data() -> void:
+	globalvar._apply_save_data({"ads_removed": true})
+	assert_bool(globalvar.ads_removed).is_true()
+
+func test_ads_removed_defaults_false_in_old_save() -> void:
+	globalvar._apply_save_data({"wallet": 100})
+	assert_bool(globalvar.ads_removed).is_false()
+
+func test_ad_removal_cost_constant() -> void:
+	assert_int(globalvar.AD_REMOVAL_COST).is_equal(10000)

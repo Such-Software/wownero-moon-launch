@@ -52,6 +52,22 @@ func get_starting_fuel_mult() -> float:
 		Difficulty.HARD: return 0.9
 		_: return 1.0
 
+# --- Ad removal ---
+const AD_REMOVAL_COST := 10000  # Moonrocks to remove banners + interstitials
+var ads_removed: bool = false
+
+func is_ads_removed() -> bool:
+	return ads_removed
+
+func buy_ad_removal() -> bool:
+	if ads_removed or wallet < AD_REMOVAL_COST:
+		return false
+	wallet -= AD_REMOVAL_COST
+	ads_removed = true
+	wallet_changed.emit(wallet)
+	save_game()
+	return true
+
 # --- Level pack unlock ---
 # Levels 1-4 are free. Levels 5+ require unlock via IAP or earning enough crypto.
 const FREE_LEVELS := 4
@@ -498,6 +514,7 @@ func get_save_data() -> Dictionary:
 		"levels_unlocked": levels_unlocked,
 		"total_crypto_earned": total_crypto_earned,
 		"total_deaths": total_deaths,
+		"ads_removed": ads_removed,
 	}
 
 func save_game() -> void:
@@ -558,6 +575,7 @@ func _apply_save_data(data: Dictionary) -> void:
 	levels_unlocked = bool(data.get("levels_unlocked", false))
 	total_crypto_earned = int(data.get("total_crypto_earned", 0))
 	total_deaths = int(data.get("total_deaths", 0))
+	ads_removed = bool(data.get("ads_removed", false))
 
 func load_game() -> void:
 	if not FileAccess.file_exists("user://savegame.json"):
