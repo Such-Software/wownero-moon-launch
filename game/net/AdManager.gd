@@ -17,14 +17,14 @@ const AD_FREE_PLATFORMS := ["macOS", "Windows", "Linux"]
 ## Rewarded ad Moonrocks grant amount
 const REWARDED_AD_MOONROCKS := 50
 
-## AdMob test ad unit IDs (replace with production IDs before release)
+## AdMob production ad unit IDs
 const ADMOB_IDS := {
-	"banner_android": "ca-app-pub-3940256099942544/6300978111",
-	"banner_ios": "ca-app-pub-3940256099942544/2934735716",
-	"interstitial_android": "ca-app-pub-3940256099942544/1033173712",
-	"interstitial_ios": "ca-app-pub-3940256099942544/4411468910",
-	"rewarded_android": "ca-app-pub-3940256099942544/5224354917",
-	"rewarded_ios": "ca-app-pub-3940256099942544/1712485313",
+	"banner_android": "ca-app-pub-2501747033825166/3145067570",
+	"banner_ios": "ca-app-pub-2501747033825166/3228828051",
+	"interstitial_android": "ca-app-pub-2501747033825166/8510609741",
+	"interstitial_ios": "ca-app-pub-2501747033825166/8578325259",
+	"rewarded_android": "ca-app-pub-2501747033825166/4266577551",
+	"rewarded_ios": "ca-app-pub-2501747033825166/1915746383",
 }
 
 ## Whether the user purchased ad removal (persisted in save)
