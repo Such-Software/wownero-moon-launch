@@ -32,7 +32,7 @@ func _ready():
 # ── Submit a score ────────────────────────────────────────────────────
 
 func submit_score(level: int, completion_time: float, fuel_remaining: float,
-		crypto_collected: int, stars: int) -> void:
+		crypto_collected: int, stars: int, wave: int = 0) -> void:
 	var body := {
 		"device_uuid": globalvar.device_uuid,
 		"nickname": globalvar.nickname,
@@ -43,6 +43,8 @@ func submit_score(level: int, completion_time: float, fuel_remaining: float,
 		"stars": stars,
 		"platform": globalvar.get_platform_string(),
 	}
+	if wave > 0:
+		body["wave"] = wave
 	var json_str := JSON.stringify(body)
 	var headers := ["Content-Type: application/json"]
 
@@ -80,9 +82,9 @@ func _on_submit_completed(result: int, response_code: int, _headers: PackedStrin
 
 # ── Fetch leaderboard ────────────────────────────────────────────────
 
-func fetch_leaderboard(level: int, limit: int = 50) -> void:
-	var url := "%s/scores?level=%d&limit=%d&device_uuid=%s" % [
-		API_BASE, level, limit, globalvar.device_uuid]
+func fetch_leaderboard(level: int, limit: int = 50, board: String = "time") -> void:
+	var url := "%s/scores?level=%d&limit=%d&device_uuid=%s&board=%s" % [
+		API_BASE, level, limit, globalvar.device_uuid, board]
 	var err := _leaderboard_http.request(url)
 	if err != OK:
 		push_warning("ScoreClient: leaderboard request failed to start: %d" % err)
@@ -107,9 +109,9 @@ func _on_leaderboard_completed(result: int, response_code: int, _headers: Packed
 
 # ── Fetch player rank ────────────────────────────────────────────────
 
-func fetch_rank(level: int) -> void:
-	var url := "%s/rank?level=%d&device_uuid=%s" % [
-		API_BASE, level, globalvar.device_uuid]
+func fetch_rank(level: int, board: String = "time") -> void:
+	var url := "%s/rank?level=%d&device_uuid=%s&board=%s" % [
+		API_BASE, level, globalvar.device_uuid, board]
 	var err := _rank_http.request(url)
 	if err != OK:
 		push_warning("ScoreClient: rank request failed to start: %d" % err)

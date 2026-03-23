@@ -12,6 +12,7 @@ var _lock_popup: PanelContainer = null
 var _lb_popup: PanelContainer = null
 var _lb_content: RichTextLabel = null
 var _lb_level: int = 1
+var _lb_board: String = "time"
 
 # Title screen background animation
 var _bg_planets: Array[Dictionary] = []  # {sprite, center, radius, angle, speed}
@@ -683,6 +684,14 @@ func _show_leaderboard_popup() -> void:
 	next_btn.pressed.connect(func(): _lb_change_level(1))
 	level_row.add_child(next_btn)
 
+	# Board type selector row
+	var board_row := HBoxContainer.new()
+	board_row.name = "BoardRow"
+	board_row.add_theme_constant_override("separation", 6)
+	board_row.alignment = BoxContainer.ALIGNMENT_CENTER
+	vbox.add_child(board_row)
+	_lb_build_board_buttons(board_row)
+
 	# Scrollable scores content
 	var scroll := ScrollContainer.new()
 	scroll.custom_minimum_size = Vector2(440, 260)
@@ -707,13 +716,61 @@ func _show_leaderboard_popup() -> void:
 	vbox.add_child(close)
 
 	_lb_level = globalvar.nowlevel
+	_lb_board = "time"
 	_lb_update_level_label()
+	_lb_fetch()
+
+
+func _lb_build_board_buttons(row: HBoxContainer) -> void:
+	for child in row.get_children():
+		child.queue_free()
+
+	var boards: Array
+	if _lb_level == 12:
+		boards = [
+			{"id": "wave", "label": "Waves"},
+			{"id": "score", "label": "Moonrocks"},
+			{"id": "time", "label": "Fastest"},
+		]
+	else:
+		boards = [
+			{"id": "time", "label": "Fastest"},
+			{"id": "score", "label": "Moonrocks"},
+		]
+
+	for b in boards:
+		var btn := Button.new()
+		btn.text = b["label"]
+		btn.custom_minimum_size = Vector2(100, 28)
+		var is_active: bool = (b["id"] == _lb_board)
+		var col := Color(1.0, 0.85, 0.2) if is_active else Color(0.4, 0.5, 0.6)
+		BS.apply_space_style(btn, col)
+		var board_id: String = b["id"]
+		btn.pressed.connect(func(): _lb_switch_board(board_id))
+		row.add_child(btn)
+
+
+func _lb_switch_board(board: String) -> void:
+	_lb_board = board
+	# Rebuild board buttons to update highlight
+	if _lb_popup and is_instance_valid(_lb_popup):
+		var board_row = _lb_popup.find_child("BoardRow", true, false)
+		if board_row:
+			_lb_build_board_buttons(board_row)
 	_lb_fetch()
 
 
 func _lb_change_level(delta: int) -> void:
 	_lb_level = clampi(_lb_level + delta, 1, globalvar.MAX_LEVEL)
+	# Reset board — wave only for level 12
+	if _lb_board == "wave" and _lb_level != 12:
+		_lb_board = "time"
 	_lb_update_level_label()
+	# Rebuild board buttons for new level
+	if _lb_popup and is_instance_valid(_lb_popup):
+		var board_row = _lb_popup.find_child("BoardRow", true, false)
+		if board_row:
+			_lb_build_board_buttons(board_row)
 	_lb_fetch()
 
 
@@ -729,7 +786,7 @@ func _lb_update_level_label() -> void:
 func _lb_fetch() -> void:
 	_lb_content.text = "[center]Loading...[/center]"
 	ScoreClient.leaderboard_received.connect(_on_leaderboard_received, CONNECT_ONE_SHOT)
-	ScoreClient.fetch_leaderboard(_lb_level, 20)
+	ScoreClient.fetch_leaderboard(_lb_level, 20, _lb_board)
 
 
 func _on_leaderboard_received(success: bool, scores: Array) -> void:
@@ -739,23 +796,52 @@ func _on_leaderboard_received(success: bool, scores: Array) -> void:
 		_lb_content.text = "[center][color=gray]No scores yet for this level.[/color][/center]"
 		return
 
-	var text := "[table=4]"
-	text += "[cell][b]#[/b][/cell][cell][b]Pilot[/b][/cell][cell][b]Time[/b][/cell][cell][b]Stars[/b][/cell]"
+	var text := ""
+	if _lb_board == "wave":
+		text = "[table=4]"
+		text += "[cell][b]#[/b][/cell][cell][b]Pilot[/b][/cell][cell][b]Wave[/b][/cell][cell][b]Moonrocks[/b][/cell]"
+	elif _lb_board == "score":
+		text = "[table=4]"
+		text += "[cell][b]#[/b][/cell][cell][b]Pilot[/b][/cell][cell][b]Moonrocks[/b][/cell][cell][b]Time[/b][/cell]"
+	else:  # time
+		text = "[table=4]"
+		text += "[cell][b]#[/b][/cell][cell][b]Pilot[/b][/cell][cell][b]Time[/b][/cell][cell][b]Stars[/b][/cell]"
+
 	var rank := 1
 	for entry in scores:
 		var nick: String = str(entry.get("nickname", "???"))
-		var time_s: float = float(entry.get("completion_time", 0))
-		var star_count: int = int(entry.get("stars", 0))
-		var star_str := "★".repeat(star_count) + "☆".repeat(3 - star_count)
-		var is_me: bool = str(entry.get("device_uuid", "")) == globalvar.device_uuid
+		var is_me: bool = entry.get("is_self", false)
 		var color := "[color=cyan]" if is_me else ""
 		var end_color := "[/color]" if is_me else ""
-		text += "[cell]%s%d%s[/cell][cell]%s%s%s[/cell][cell]%s%.2fs%s[/cell][cell]%s[/cell]" % [
-			color, rank, end_color,
-			color, nick.left(14), end_color,
-			color, time_s, end_color,
-			star_str,
-		]
+
+		if _lb_board == "wave":
+			var wave_n: int = int(entry.get("wave", 0))
+			var rocks: int = int(entry.get("crypto_collected", 0))
+			text += "[cell]%s%d%s[/cell][cell]%s%s%s[/cell][cell]%s%d%s[/cell][cell]%s%d%s[/cell]" % [
+				color, rank, end_color,
+				color, nick.left(14), end_color,
+				color, wave_n, end_color,
+				color, rocks, end_color,
+			]
+		elif _lb_board == "score":
+			var rocks: int = int(entry.get("crypto_collected", 0))
+			var time_s: float = float(entry.get("completion_time", 0))
+			text += "[cell]%s%d%s[/cell][cell]%s%s%s[/cell][cell]%s%d%s[/cell][cell]%s%.2fs%s[/cell]" % [
+				color, rank, end_color,
+				color, nick.left(14), end_color,
+				color, rocks, end_color,
+				color, time_s, end_color,
+			]
+		else:  # time
+			var time_s: float = float(entry.get("completion_time", 0))
+			var star_count: int = int(entry.get("stars", 0))
+			var star_str := "★".repeat(star_count) + "☆".repeat(3 - star_count)
+			text += "[cell]%s%d%s[/cell][cell]%s%s%s[/cell][cell]%s%.2fs%s[/cell][cell]%s[/cell]" % [
+				color, rank, end_color,
+				color, nick.left(14), end_color,
+				color, time_s, end_color,
+				star_str,
+			]
 		rank += 1
 	text += "[/table]"
 	_lb_content.text = text

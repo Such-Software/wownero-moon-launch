@@ -496,6 +496,19 @@ func switchtomenu():
 
 func _show_death_screen() -> void:
 	## Show the DeathScreen overlay instead of jumping straight to menu.
+	# Submit endless mode score on death (wave + moonrocks)
+	if globalvar.endless_mode and globalvar.endless_wave > 0:
+		var elapsed: float = get_node("../CanvasLayer").get_node("TimeLabel").time
+		var pct_fuel: float = (fuel / max_fuel) * 100.0
+		var moonrocks: int = globalvar.level_crypto_collected
+		var wave: int = globalvar.endless_wave
+		# Stars based on waves survived: 1-3 = 1★, 4-7 = 2★, 8+ = 3★
+		var stars: int = 1
+		if wave >= 8:
+			stars = 3
+		elif wave >= 4:
+			stars = 2
+		ScoreClient.submit_score(12, elapsed, pct_fuel, moonrocks, stars, wave)
 	var death_scene := preload("res://game/gui/death/DeathScreen.tscn")
 	get_tree().current_scene.add_child(death_scene.instantiate())
 

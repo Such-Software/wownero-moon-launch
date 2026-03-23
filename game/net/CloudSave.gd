@@ -69,7 +69,17 @@ func _on_upload_completed(result: int, response_code: int, _headers: PackedStrin
 func download_save() -> void:
 	## Download cloud save for the current device_uuid.
 	var url := "%s/save?device_uuid=%s" % [API_BASE, globalvar.device_uuid]
-	var err := _download_http.request(url)
+	var headers := PackedStringArray()
+
+	# HMAC signing (GET /save now requires auth)
+	var hmac_secret := ScoreClient._get_hmac_secret()
+	if hmac_secret != "":
+		var timestamp := str(int(Time.get_unix_time_from_system()))
+		var signature := ScoreClient._sign(hmac_secret, timestamp, PackedByteArray())
+		headers.append("X-Timestamp: " + timestamp)
+		headers.append("X-Signature: " + signature)
+
+	var err := _download_http.request(url, headers)
 	if err != OK:
 		push_warning("CloudSave: download request failed to start: %d" % err)
 		save_downloaded.emit(false, {})
