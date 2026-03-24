@@ -142,8 +142,19 @@ func _on_rank_completed(result: int, response_code: int, _headers: PackedStringA
 
 # ── HMAC helpers ──────────────────────────────────────────────────────
 
+# XOR-obfuscated key halves — prevents plain-text extraction from binary.
+# _get_hmac_secret() reconstructs the real key at runtime via XOR.
+const _K_MASK := "c7f1830a92e4b6d3157c42fe8a3d91067eb813a2df6e2c4b85a9170ef34dc5b0"
+const _K_DATA := "d7f8a1ecf7b9bf5c2f85ec49d6f7baf9fa6a48ef46d3fbeea98af52388b3cf3d"
+
 func _get_hmac_secret() -> String:
-	return "100922e6655d098f3af9aeb75cca2bff84d25b4d99bdd7a52c23e22d7bfe0a8d"
+	var m := _K_MASK.hex_decode()
+	var d := _K_DATA.hex_decode()
+	var result := PackedByteArray()
+	result.resize(m.size())
+	for i in m.size():
+		result[i] = m[i] ^ d[i]
+	return result.hex_encode()
 
 
 func _sign(secret_hex: String, timestamp: String, body: PackedByteArray) -> String:
