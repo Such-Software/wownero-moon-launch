@@ -11,6 +11,7 @@ var _diff_btn: Button = null
 var _lock_popup: PanelContainer = null
 var _lb_popup: PanelContainer = null
 var _lb_content: RichTextLabel = null
+var _lb_level_label: Label = null
 var _lb_level: int = 1
 var _lb_board: String = "time"
 
@@ -54,6 +55,27 @@ const DIFF_COLORS := {
 func _ready():
 	$RocketSprite/AnimationPlayer.play("move")
 	globalvar.load_game()
+
+	# Adapt layout to actual viewport size (handles ultrawide displays)
+	var vp := get_viewport_rect().size
+	# Center and scale background starfield to cover viewport
+	if $SpaceBG.texture:
+		$SpaceBG.position = Vector2(vp.x / 2.0, vp.y / 2.0)
+		var tex_size: Vector2 = $SpaceBG.texture.get_size()
+		var s := maxf(vp.x / tex_size.x, vp.y / tex_size.y) * 1.02
+		$SpaceBG.scale = Vector2(s, s)
+	# Center button array and title label horizontally
+	$VButtonArray.anchor_left = 0.5
+	$VButtonArray.anchor_right = 0.5
+	$VButtonArray.offset_left = -240
+	$VButtonArray.offset_right = 240
+	$Label.anchor_left = 0.5
+	$Label.anchor_right = 0.5
+	$Label.offset_left = -237
+	$Label.offset_right = 237
+	# Moon tracks right edge
+	$Moon.position.x = vp.x - 76
+
 	# Randomize Earth texture
 	var earth_textures := [
 		"res://art/planets/earth_real_1.png",
@@ -66,7 +88,7 @@ func _ready():
 	# Style menu buttons
 	# Update Play button to show current level
 	var play_level_name: String = globalvar.LEVEL_NAMES.get(globalvar.nowlevel, "")
-	$VButtonArray/PlayButton.text = "Play — Level " + str(globalvar.nowlevel) + " " + play_level_name
+	$VButtonArray/PlayButton.text = "Play - Level " + str(globalvar.nowlevel) + " " + play_level_name
 	BS.apply_space_style($VButtonArray/PlayButton, Color.GREEN)
 	BS.apply_space_style($VButtonArray/LevelsButton, Color.ORANGE)
 	BS.apply_space_style($VButtonArray/HelpButton, Color.CYAN)
@@ -636,6 +658,7 @@ func _show_leaderboard_popup() -> void:
 	style.content_margin_top = 12
 	style.content_margin_bottom = 12
 	_lb_popup.add_theme_stylebox_override("panel", style)
+	_lb_popup.z_index = 10
 	add_child(_lb_popup)
 
 	_lb_popup.set_anchors_preset(Control.PRESET_CENTER)
@@ -669,13 +692,13 @@ func _show_leaderboard_popup() -> void:
 	prev_btn.pressed.connect(func(): _lb_change_level(-1))
 	level_row.add_child(prev_btn)
 
-	var level_label := Label.new()
-	level_label.name = "LBLevelLabel"
-	level_label.add_theme_font_size_override("font_size", 16)
-	level_label.add_theme_color_override("font_color", Color.CYAN)
-	level_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	level_label.custom_minimum_size = Vector2(200, 0)
-	level_row.add_child(level_label)
+	_lb_level_label = Label.new()
+	_lb_level_label.name = "LBLevelLabel"
+	_lb_level_label.add_theme_font_size_override("font_size", 16)
+	_lb_level_label.add_theme_color_override("font_color", Color.CYAN)
+	_lb_level_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_lb_level_label.custom_minimum_size = Vector2(260, 0)
+	level_row.add_child(_lb_level_label)
 
 	var next_btn := Button.new()
 	next_btn.text = ">"
@@ -775,12 +798,10 @@ func _lb_change_level(delta: int) -> void:
 
 
 func _lb_update_level_label() -> void:
-	if not _lb_popup or not is_instance_valid(_lb_popup):
+	if not _lb_level_label or not is_instance_valid(_lb_level_label):
 		return
-	var label: Label = _lb_popup.get_node("VBoxContainer/HBoxContainer/LBLevelLabel")
-	if label:
-		var name_str: String = globalvar.LEVEL_NAMES.get(_lb_level, str(_lb_level))
-		label.text = "Level %d — %s" % [_lb_level, name_str]
+	var name_str: String = globalvar.LEVEL_NAMES.get(_lb_level, str(_lb_level))
+	_lb_level_label.text = "Level %d - %s" % [_lb_level, name_str]
 
 
 func _lb_fetch() -> void:
@@ -798,14 +819,14 @@ func _on_leaderboard_received(success: bool, scores: Array) -> void:
 
 	var text := ""
 	if _lb_board == "wave":
-		text = "[table=4]"
-		text += "[cell][b]#[/b][/cell][cell][b]Pilot[/b][/cell][cell][b]Wave[/b][/cell][cell][b]Moonrocks[/b][/cell]"
+		text = "[table=5]"
+		text += "[cell][b]#[/b][/cell][cell][b]Pilot[/b][/cell][cell][b]Wave[/b][/cell][cell][b]Moonrocks[/b][/cell][cell][/cell]"
 	elif _lb_board == "score":
-		text = "[table=4]"
-		text += "[cell][b]#[/b][/cell][cell][b]Pilot[/b][/cell][cell][b]Moonrocks[/b][/cell][cell][b]Time[/b][/cell]"
+		text = "[table=5]"
+		text += "[cell][b]#[/b][/cell][cell][b]Pilot[/b][/cell][cell][b]Moonrocks[/b][/cell][cell][b]Time[/b][/cell][cell][/cell]"
 	else:  # time
-		text = "[table=4]"
-		text += "[cell][b]#[/b][/cell][cell][b]Pilot[/b][/cell][cell][b]Time[/b][/cell][cell][b]Stars[/b][/cell]"
+		text = "[table=5]"
+		text += "[cell][b]#[/b][/cell][cell][b]Pilot[/b][/cell][cell][b]Time[/b][/cell][cell][b]Stars[/b][/cell][cell][/cell]"
 
 	var rank := 1
 	for entry in scores:
@@ -813,38 +834,53 @@ func _on_leaderboard_received(success: bool, scores: Array) -> void:
 		var is_me: bool = entry.get("is_self", false)
 		var color := "[color=cyan]" if is_me else ""
 		var end_color := "[/color]" if is_me else ""
+		var plat_icon := _platform_icon(str(entry.get("platform", "")))
 
 		if _lb_board == "wave":
 			var wave_n: int = int(entry.get("wave", 0))
 			var rocks: int = int(entry.get("crypto_collected", 0))
-			text += "[cell]%s%d%s[/cell][cell]%s%s%s[/cell][cell]%s%d%s[/cell][cell]%s%d%s[/cell]" % [
+			text += "[cell]%s%d%s[/cell][cell]%s%s%s[/cell][cell]%s%d%s[/cell][cell]%s%d%s[/cell][cell]%s[/cell]" % [
 				color, rank, end_color,
 				color, nick.left(14), end_color,
 				color, wave_n, end_color,
 				color, rocks, end_color,
+				plat_icon,
 			]
 		elif _lb_board == "score":
 			var rocks: int = int(entry.get("crypto_collected", 0))
 			var time_s: float = float(entry.get("completion_time", 0))
-			text += "[cell]%s%d%s[/cell][cell]%s%s%s[/cell][cell]%s%d%s[/cell][cell]%s%.2fs%s[/cell]" % [
+			text += "[cell]%s%d%s[/cell][cell]%s%s%s[/cell][cell]%s%d%s[/cell][cell]%s%.2fs%s[/cell][cell]%s[/cell]" % [
 				color, rank, end_color,
 				color, nick.left(14), end_color,
 				color, rocks, end_color,
 				color, time_s, end_color,
+				plat_icon,
 			]
 		else:  # time
 			var time_s: float = float(entry.get("completion_time", 0))
 			var star_count: int = int(entry.get("stars", 0))
 			var star_str := "★".repeat(star_count) + "☆".repeat(3 - star_count)
-			text += "[cell]%s%d%s[/cell][cell]%s%s%s[/cell][cell]%s%.2fs%s[/cell][cell]%s[/cell]" % [
+			text += "[cell]%s%d%s[/cell][cell]%s%s%s[/cell][cell]%s%.2fs%s[/cell][cell]%s[/cell][cell]%s[/cell]" % [
 				color, rank, end_color,
 				color, nick.left(14), end_color,
 				color, time_s, end_color,
 				star_str,
+				plat_icon,
 			]
 		rank += 1
 	text += "[/table]"
 	_lb_content.text = text
+
+
+static func _platform_icon(platform: String) -> String:
+	match platform.to_upper():
+		"ANDROID": return "[color=lime]A[/color]"
+		"IOS": return "[color=white]i[/color]"
+		"WEB": return "[color=orange]W[/color]"
+		"MACOS": return "[color=silver]M[/color]"
+		"WINDOWS": return "[color=dodgerblue]P[/color]"
+		"LINUX": return "[color=yellow]L[/color]"
+	return ""
 
 
 # --- Level Pack Lock Popup ---
@@ -867,6 +903,7 @@ func _show_lock_popup() -> void:
 	style.shadow_color = Color(1.0, 0.85, 0.2, 0.2)
 	style.shadow_size = 10
 	_lock_popup.add_theme_stylebox_override("panel", style)
+	_lock_popup.z_index = 10
 	add_child(_lock_popup)
 
 	# Center it
@@ -934,9 +971,20 @@ func _build_pgs_buttons() -> void:
 	BS.apply_space_style(ach_btn, Color(0.4, 0.85, 0.4))
 	ach_btn.add_theme_font_size_override("font_size", 25)
 	if OS.get_name() == "Android":
-		ach_btn.pressed.connect(func(): PlayGamesManager.show_achievements())
+		ach_btn.pressed.connect(func():
+			if PlayGamesManager.is_available():
+				PlayGamesManager.show_achievements()
+			else:
+				PlayGamesManager.try_sign_in()
+				_show_toast("Signing in to Google Play Games...")
+		)
 	else:
-		ach_btn.pressed.connect(func(): GameCenterManager.show_achievements())
+		ach_btn.pressed.connect(func():
+			if GameCenterManager.is_available():
+				GameCenterManager.show_achievements()
+			else:
+				_show_toast("Sign in to Game Center in Settings to view achievements")
+		)
 	# Insert before Quit button
 	$VButtonArray.add_child(ach_btn)
 	$VButtonArray.move_child(ach_btn, $VButtonArray/QuitButton.get_index())
@@ -976,3 +1024,33 @@ func _on_cloud_restore_pressed() -> void:
 	)
 	add_child(popup)
 	popup.popup_centered()
+
+
+func _show_toast(msg: String) -> void:
+	var toast := PanelContainer.new()
+	var ts := StyleBoxFlat.new()
+	ts.bg_color = Color(0.06, 0.04, 0.14, 0.95)
+	ts.border_color = Color(1.0, 0.85, 0.2, 0.6)
+	ts.set_border_width_all(1)
+	ts.set_corner_radius_all(8)
+	ts.content_margin_left = 16
+	ts.content_margin_right = 16
+	ts.content_margin_top = 8
+	ts.content_margin_bottom = 8
+	toast.add_theme_stylebox_override("panel", ts)
+	toast.z_index = 20
+	toast.set_anchors_preset(Control.PRESET_CENTER_BOTTOM)
+	toast.grow_horizontal = Control.GROW_DIRECTION_BOTH
+	toast.offset_top = -120
+	toast.offset_bottom = -80
+	var lbl := Label.new()
+	lbl.text = msg
+	lbl.add_theme_font_size_override("font_size", 16)
+	lbl.add_theme_color_override("font_color", Color(1.0, 0.85, 0.2))
+	lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	toast.add_child(lbl)
+	add_child(toast)
+	get_tree().create_timer(3.0).timeout.connect(func():
+		if is_instance_valid(toast):
+			toast.queue_free()
+	)

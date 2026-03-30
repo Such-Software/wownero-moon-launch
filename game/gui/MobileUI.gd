@@ -57,14 +57,14 @@ func _setup_mobile() -> void:
 		if btn:
 			btn.visible = false
 
+	var vp := get_viewport().get_visible_rect().size
+
 	# Create virtual joystick (bottom-left)
 	_joystick = Control.new()
 	_joystick.set_script(VirtualJoystickScript)
 	_joystick.name = "VirtualJoystick"
 	add_child(_joystick)
-	# Position: bottom-left with some padding
-	# Joystick size is 140x140, place at bottom-left
-	_joystick.position = Vector2(20, 430)
+	_joystick.position = Vector2(20, vp.y - 170)
 
 	# Create thrust button (right side, upper)
 	_thrust_btn = Control.new()
@@ -73,7 +73,7 @@ func _setup_mobile() -> void:
 	_thrust_btn.set("action_name", "thrust")
 	_thrust_btn.set("arrow_up", true)
 	add_child(_thrust_btn)
-	_thrust_btn.position = Vector2(920, 350)
+	_thrust_btn.position = Vector2(vp.x - 104, vp.y - 250)
 
 	# Create reverse thrust button (right side, lower)
 	_reverse_btn = Control.new()
@@ -82,7 +82,7 @@ func _setup_mobile() -> void:
 	_reverse_btn.set("action_name", "revthrust")
 	_reverse_btn.set("arrow_up", false)
 	add_child(_reverse_btn)
-	_reverse_btn.position = Vector2(920, 460)
+	_reverse_btn.position = Vector2(vp.x - 104, vp.y - 140)
 
 	# Fire button — only if cannon upgrade purchased (left side, above joystick)
 	if globalvar.upgrades.get("cannon", 0) > 0:
@@ -90,10 +90,10 @@ func _setup_mobile() -> void:
 		_fire_btn.set_script(FireButtonScript)
 		_fire_btn.name = "FireBtn"
 		add_child(_fire_btn)
-		_fire_btn.position = Vector2(20, 340)
+		_fire_btn.position = Vector2(20, vp.y - 260)
 
-	# Weapon buttons — stack vertically on right side below thrust buttons
-	var weapon_y := 280.0
+	# Weapon buttons — stack vertically on right side above thrust buttons
+	var weapon_y := vp.y - 320
 	if globalvar.upgrades.get("missile", 0) > 0:
 		_missile_btn = Control.new()
 		_missile_btn.set_script(WeaponButtonScript)
@@ -104,7 +104,7 @@ func _setup_mobile() -> void:
 		_missile_btn.set("ring_color", Color(1.0, 0.4, 0.2, 0.35))
 		_missile_btn.set("ammo_count", globalvar.upgrades.get("missile", 0) * 2)
 		add_child(_missile_btn)
-		_missile_btn.position = Vector2(850, weapon_y)
+		_missile_btn.position = Vector2(vp.x - 174, weapon_y)
 		weapon_y -= 68.0
 
 	if globalvar.upgrades.get("laser", 0) > 0:
@@ -116,7 +116,7 @@ func _setup_mobile() -> void:
 		_laser_btn.set("base_color", Color(0.2, 0.8, 1.0))
 		_laser_btn.set("ring_color", Color(0.3, 0.7, 1.0, 0.35))
 		add_child(_laser_btn)
-		_laser_btn.position = Vector2(850, weapon_y)
+		_laser_btn.position = Vector2(vp.x - 174, weapon_y)
 		weapon_y -= 68.0
 
 	if globalvar.upgrades.get("emp", 0) > 0:
@@ -129,7 +129,27 @@ func _setup_mobile() -> void:
 		_emp_btn.set("ring_color", Color(0.5, 0.7, 1.0, 0.35))
 		_emp_btn.set("ammo_count", globalvar.upgrades.get("emp", 0))
 		add_child(_emp_btn)
-		_emp_btn.position = Vector2(850, weapon_y)
+		_emp_btn.position = Vector2(vp.x - 174, weapon_y)
+
+	# Reposition controls on viewport resize (orientation change, etc.)
+	get_viewport().size_changed.connect(_reposition_controls)
+
+
+func _reposition_controls() -> void:
+	var vp := get_viewport().get_visible_rect().size
+	if _joystick:
+		_joystick.position = Vector2(20, vp.y - 170)
+	if _thrust_btn:
+		_thrust_btn.position = Vector2(vp.x - 104, vp.y - 250)
+	if _reverse_btn:
+		_reverse_btn.position = Vector2(vp.x - 104, vp.y - 140)
+	if _fire_btn:
+		_fire_btn.position = Vector2(20, vp.y - 260)
+	var weapon_y := vp.y - 320
+	for btn in [_missile_btn, _laser_btn, _emp_btn]:
+		if btn and is_instance_valid(btn):
+			btn.position = Vector2(vp.x - 174, weapon_y)
+			weapon_y -= 68.0
 
 
 func _setup_desktop() -> void:
@@ -205,7 +225,11 @@ func _on_down_released():
 
 func _on_menu_pressed():
 	get_tree().paused = true
-	$popupMenu.show()
+	var popup := $popupMenu
+	var vp := get_viewport().get_visible_rect().size
+	var sz: Vector2 = popup.get_combined_minimum_size()
+	popup.position = Vector2((vp.x - sz.x) / 2.0, (vp.y - sz.y) / 2.0)
+	popup.show()
 
 func _on_Resume_pressed():
 	get_tree().paused = false

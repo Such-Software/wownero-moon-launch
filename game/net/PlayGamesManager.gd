@@ -2,7 +2,7 @@ extends Node
 ## PlayGamesManager — Google Play Games Services integration (Android only).
 ## Autoloaded singleton. All game code calls through this.
 ##
-## Uses the PGSGP (StudioAdriatic) plugin for Godot 4.x.
+## Uses the GodotPlayGameServices plugin v3.2.0 by Jacob Ibáñez Sánchez.
 ## On non-Android platforms, every method safely no-ops.
 ##
 ## Achievement IDs from Google Play Console (Project 412379035812).
@@ -29,30 +29,50 @@ const ACHIEVEMENT_IDS := {
 	"fully_upgraded":      "CgkIpPHSnYAMEAIQCA",  # Max out any 1 upgrade
 }
 
-var _plugin = null  # GodotPlayGamesServices singleton (Android only)
+var _plugin = null  # GodotPlayGameServices singleton (Android only)
 var _signed_in: bool = false
+var _last_reported_steps: Dictionary = {}  # Track last reported for incremental achievements
 
 
 func _ready() -> void:
 	if OS.get_name() != "Android":
 		return
-	if not Engine.has_singleton("GodotPlayGamesServices"):
-		push_warning("PlayGamesManager: PGSGP plugin not found — PGS disabled")
+	if not Engine.has_singleton("GodotPlayGameServices"):
+		push_warning("PlayGamesManager: GodotPlayGameServices plugin not found — PGS disabled")
 		return
-	_plugin = Engine.get_singleton("GodotPlayGamesServices")
-	_plugin.init(false, false, false, "")
-	_plugin.connect("_on_sign_in_success", _on_sign_in_success)
-	_plugin.connect("_on_sign_in_failed", _on_sign_in_failed)
-	_plugin.signIn()
+	_plugin = Engine.get_singleton("GodotPlayGameServices")
+	_plugin.initialize()
+	_plugin.userAuthenticated.connect(_on_user_authenticated)
+	_plugin.isAuthenticated()
 
 
-func _on_sign_in_success(_user_profile: String) -> void:
-	_signed_in = true
+func _on_user_authenticated(is_authenticated: bool) -> void:
+	if is_authenticated:
+		_signed_in = true
+		print("PlayGamesManager: user authenticated successfully")
+	else:
+		print("PlayGamesManager: not authenticated, will attempt sign-in")
+		_signed_in = false
+		_plugin.signIn()
+		# Re-check auth after sign-in flow completes
+		var tree := Engine.get_main_loop() as SceneTree
+		if tree:
+			tree.create_timer(3.0).timeout.connect(func():
+				if _plugin and not _signed_in:
+					_plugin.isAuthenticated()
+			)
 
 
-func _on_sign_in_failed(_error_code: int) -> void:
-	push_warning("PlayGamesManager: sign-in failed (code %d)" % _error_code)
-	_signed_in = false
+func try_sign_in() -> void:
+	## Manually trigger sign-in (called from menu achievements button).
+	if _plugin and not _signed_in:
+		_plugin.signIn()
+		var tree := Engine.get_main_loop() as SceneTree
+		if tree:
+			tree.create_timer(3.0).timeout.connect(func():
+				if _plugin and not _signed_in:
+					_plugin.isAuthenticated()
+			)
 
 
 # ── Public API — called from game code ────────────────────────────────
@@ -83,12 +103,17 @@ func increment(achievement_key: String, steps: int) -> void:
 
 func set_steps(achievement_key: String, steps: int) -> void:
 	## Set absolute step count for an incremental achievement.
+	## Converted to increment delta since plugin v3.2.0 lacks setAchievementSteps.
 	if not is_available():
 		return
 	var id: String = ACHIEVEMENT_IDS.get(achievement_key, "")
 	if id.is_empty():
 		return
-	_plugin.setAchievementSteps(id, steps)
+	var last: int = _last_reported_steps.get(id, 0)
+	var delta := steps - last
+	if delta > 0:
+		_plugin.incrementAchievement(id, delta)
+		_last_reported_steps[id] = steps
 
 
 func show_achievements() -> void:

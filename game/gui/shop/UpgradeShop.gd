@@ -98,7 +98,7 @@ func _ready() -> void:
 	# Rewarded ad button (only if ads supported)
 	if AdManager.is_ad_supported():
 		_ad_button = Button.new()
-		_ad_button.text = "🎬  Watch Ad for %d 🪨" % AdManager.REWARDED_AD_MOONROCKS
+		_ad_button.text = "Watch Ad for %d Moonrocks" % AdManager.REWARDED_AD_MOONROCKS
 		_ad_button.custom_minimum_size = Vector2(280, 34)
 		BS.apply_space_style(_ad_button, Color(1.0, 0.85, 0.1))
 		_ad_button.pressed.connect(_on_watch_ad)
@@ -265,13 +265,13 @@ func _on_rewarded_result(success: bool) -> void:
 		# Refresh Remove Ads button (may now be affordable)
 		_refresh_remove_ads_button()
 		if _ad_button:
-			_ad_button.text = "+%d 🪨!" % AdManager.REWARDED_AD_MOONROCKS
+			_ad_button.text = "+%d Moonrocks!" % AdManager.REWARDED_AD_MOONROCKS
 			# Re-enable after a brief cooldown
 			var timer := get_tree().create_timer(3.0)
 			timer.timeout.connect(func():
 				if is_instance_valid(_ad_button):
 					_ad_button.disabled = false
-					_ad_button.text = "🎬  Watch Ad for %d 🪨" % AdManager.REWARDED_AD_MOONROCKS
+					_ad_button.text = "Watch Ad for %d Moonrocks" % AdManager.REWARDED_AD_MOONROCKS
 			)
 	else:
 		if _ad_button:
@@ -283,7 +283,7 @@ func _on_remove_ads() -> void:
 	# Show confirmation dialog before spending moonrocks
 	var dialog := AcceptDialog.new()
 	dialog.title = "Remove Ads"
-	dialog.dialog_text = "Spend %d 🪨 to remove banner and interstitial ads?\n\nRewarded ads (Watch Ad for 🪨) will still be available." % globalvar.AD_REMOVAL_COST
+	dialog.dialog_text = "Spend %d Moonrocks to remove banner and interstitial ads?\n\nRewarded ads (Watch Ad for Moonrocks) will still be available." % globalvar.AD_REMOVAL_COST
 	dialog.ok_button_text = "Buy"
 	dialog.add_cancel_button("Cancel")
 	dialog.confirmed.connect(func():

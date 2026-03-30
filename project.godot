@@ -13,7 +13,10 @@ config_version=5
 config/name="Wownero Moon Launch"
 run/main_scene="res://game/gui/menu/Menu.tscn"
 config/features=PackedStringArray("4.6")
-config/icon="res://icon.png"
+boot_splash/bg_color=Color(0.05, 0.05, 0.1, 1)
+boot_splash/stretch_mode=0
+boot_splash/image="res://art/branding/circuit_dark_w_text.png"
+config/icon="res://art/branding/icon.png"
 
 [autoload]
 
@@ -21,6 +24,7 @@ globalvar="*res://globalvar.gd"
 ScoreClient="*res://game/net/ScoreClient.gd"
 CloudSave="*res://game/net/CloudSave.gd"
 AdManager="*res://game/net/AdManager.gd"
+GodotPlayGameServices="*uid://bjuenlsq84yr1"
 PlayGamesManager="*res://game/net/PlayGamesManager.gd"
 GameCenterManager="*res://game/net/GameCenterManager.gd"
 WarpTransition="*res://game/warp/WarpTransition.gd"
@@ -34,7 +38,7 @@ window/size/window_width_override=1280
 window/size/window_height_override=720
 window/stretch/mode="canvas_items"
 window/stretch/aspect="expand"
-window/handheld/orientation=1
+window/handheld/orientation=4
 
 [dotnet]
 
@@ -42,7 +46,7 @@ project/assembly_name="Wownero Moon Launch"
 
 [editor_plugins]
 
-enabled=PackedStringArray("res://addons/admob/plugin.cfg")
+enabled=PackedStringArray("res://addons/admob/plugin.cfg", "res://addons/GodotPlayGameServices/plugin.cfg")
 
 [input]
 
@@ -88,4 +92,5 @@ pointing/emulate_touch_from_mouse=true
 
 [rendering]
 
+textures/vram_compression/import_etc2_astc=true
 environment/defaults/default_clear_color=Color(0, 0, 0, 1)

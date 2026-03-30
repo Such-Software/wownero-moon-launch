@@ -33,9 +33,6 @@ var _rewarded_pending: bool = false
 ## Pending callback for rewarded ad
 var _rewarded_callback: Callable
 
-## Counter for JS callback routing (web only)
-var _callback_id: int = 0
-
 ## Platform detection
 var _is_web: bool = false
 var _is_mobile: bool = false
@@ -46,6 +43,12 @@ var _admob_ready: bool = false
 var _ad_view  # AdView (banner) — untyped because class only exists when plugin loaded
 var _interstitial_ad  # InterstitialAd
 var _rewarded_ad  # RewardedAd
+
+## Web nag banner (in-game CanvasLayer shown instead of AdSense)
+var _nag_banner: CanvasLayer = null
+
+## itch.io URL for this game
+const ITCH_URL := "https://suchsoftware.itch.io/wownero-moon-launch"
 
 
 func _ready() -> void:
@@ -112,7 +115,7 @@ func show_banner() -> void:
 	if is_ad_free():
 		return
 	if _is_web:
-		JavaScriptBridge.eval("if(window.showBannerAd) window.showBannerAd();")
+		_web_show_nag_banner()
 	elif _is_mobile:
 		_mobile_show_banner()
 
@@ -120,7 +123,7 @@ func show_banner() -> void:
 ## Hide the banner ad (during gameplay).
 func hide_banner() -> void:
 	if _is_web:
-		JavaScriptBridge.eval("if(window.hideBannerAd) window.hideBannerAd();")
+		_web_hide_nag_banner()
 	elif _is_mobile:
 		_mobile_hide_banner()
 
@@ -278,41 +281,135 @@ func _mobile_show_rewarded() -> void:
 
 
 # ============================================================
-# Web — AdSense via JavaScript bridge
+# Web — Nag screens (AdSense unavailable, promote itch.io)
 # ============================================================
 
 func _setup_web_bridge() -> void:
-	JavaScriptBridge.eval("""
-		window.godotAdCallback = function(id, success) {
-			if (window.godotAdBridge) {
-				window.godotAdBridge.callback(id, success);
-			}
-		};
-	""")
+	# No JS ad bridge needed — using in-game nag banners instead
+	pass
+
+
+func _web_show_nag_banner() -> void:
+	if _nag_banner and is_instance_valid(_nag_banner):
+		return  # Already showing
+	_nag_banner = CanvasLayer.new()
+	_nag_banner.layer = 100
+	add_child(_nag_banner)
+	var panel := PanelContainer.new()
+	var style := StyleBoxFlat.new()
+	style.bg_color = Color(0.08, 0.05, 0.15, 0.92)
+	style.border_color = Color(1.0, 0.85, 0.2, 0.6)
+	style.border_width_top = 2
+	style.content_margin_left = 12
+	style.content_margin_right = 12
+	style.content_margin_top = 6
+	style.content_margin_bottom = 6
+	panel.add_theme_stylebox_override("panel", style)
+	panel.set_anchors_preset(Control.PRESET_BOTTOM_WIDE)
+	panel.offset_top = -40
+	_nag_banner.add_child(panel)
+	var hbox := HBoxContainer.new()
+	hbox.alignment = BoxContainer.ALIGNMENT_CENTER
+	hbox.add_theme_constant_override("separation", 16)
+	panel.add_child(hbox)
+	var lbl := Label.new()
+	lbl.text = "Enjoy the game? Get the full version on itch.io!"
+	lbl.add_theme_font_size_override("font_size", 14)
+	lbl.add_theme_color_override("font_color", Color(1.0, 0.85, 0.2))
+	hbox.add_child(lbl)
+	var btn := Button.new()
+	btn.text = "Visit itch.io"
+	btn.add_theme_font_size_override("font_size", 13)
+	btn.custom_minimum_size = Vector2(100, 24)
+	btn.pressed.connect(func(): OS.shell_open(ITCH_URL))
+	hbox.add_child(btn)
+
+
+func _web_hide_nag_banner() -> void:
+	if _nag_banner and is_instance_valid(_nag_banner):
+		_nag_banner.queue_free()
+		_nag_banner = null
 
 
 func _web_show_interstitial() -> void:
-	_callback_id += 1
-	var cid := _callback_id
-	JavaScriptBridge.eval(
-		"if(window.showInterstitialAd) window.showInterstitialAd(%d); else window.godotAdCallback(%d, true);" % [cid, cid]
-	)
-	var timer := get_tree().create_timer(1.0)
-	timer.timeout.connect(func(): interstitial_closed.emit())
+	_web_show_nag_popup(func(): interstitial_closed.emit())
 
 
 func _web_show_rewarded() -> void:
-	_callback_id += 1
-	var cid := _callback_id
-	JavaScriptBridge.eval(
-		"if(window.showRewardedAd) window.showRewardedAd(%d); else window.godotAdCallback(%d, true);" % [cid, cid]
-	)
-	var timer := get_tree().create_timer(2.0)
-	timer.timeout.connect(func():
+	_web_show_nag_popup(func():
+		# Grant reward anyway as a goodwill gesture (like watching an ad)
 		_rewarded_pending = false
 		if _rewarded_callback.is_valid():
 			_rewarded_callback.call(true)
 	)
 
 
+func _web_show_nag_popup(on_close: Callable) -> void:
+	var overlay := CanvasLayer.new()
+	overlay.layer = 110
+	add_child(overlay)
 
+	var bg := ColorRect.new()
+	bg.color = Color(0, 0, 0, 0.7)
+	bg.set_anchors_preset(Control.PRESET_FULL_RECT)
+	overlay.add_child(bg)
+
+	var panel := PanelContainer.new()
+	var style := StyleBoxFlat.new()
+	style.bg_color = Color(0.04, 0.03, 0.12, 0.97)
+	style.border_color = Color(1.0, 0.85, 0.2, 0.8)
+	style.set_border_width_all(2)
+	style.set_corner_radius_all(14)
+	style.content_margin_left = 24
+	style.content_margin_right = 24
+	style.content_margin_top = 20
+	style.content_margin_bottom = 20
+	panel.add_theme_stylebox_override("panel", style)
+	panel.set_anchors_preset(Control.PRESET_CENTER)
+	panel.offset_left = -200
+	panel.offset_right = 200
+	panel.offset_top = -120
+	panel.offset_bottom = 120
+	overlay.add_child(panel)
+
+	var vbox := VBoxContainer.new()
+	vbox.add_theme_constant_override("separation", 12)
+	vbox.alignment = BoxContainer.ALIGNMENT_CENTER
+	panel.add_child(vbox)
+
+	var title := Label.new()
+	title.text = "Support the Developer!"
+	title.add_theme_font_size_override("font_size", 22)
+	title.add_theme_color_override("font_color", Color(1.0, 0.85, 0.2))
+	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	vbox.add_child(title)
+
+	var msg := Label.new()
+	msg.text = "Get the full version on itch.io!\nAd-free, supports development,\nand play on desktop or mobile."
+	msg.add_theme_font_size_override("font_size", 15)
+	msg.add_theme_color_override("font_color", Color(0.8, 0.85, 0.9))
+	msg.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	msg.autowrap_mode = TextServer.AUTOWRAP_WORD
+	vbox.add_child(msg)
+
+	var btn_row := HBoxContainer.new()
+	btn_row.alignment = BoxContainer.ALIGNMENT_CENTER
+	btn_row.add_theme_constant_override("separation", 16)
+	vbox.add_child(btn_row)
+
+	var visit := Button.new()
+	visit.text = "Visit itch.io"
+	visit.custom_minimum_size = Vector2(140, 36)
+	visit.add_theme_font_size_override("font_size", 16)
+	visit.pressed.connect(func(): OS.shell_open(ITCH_URL))
+	btn_row.add_child(visit)
+
+	var close := Button.new()
+	close.text = "Continue"
+	close.custom_minimum_size = Vector2(120, 36)
+	close.add_theme_font_size_override("font_size", 16)
+	close.pressed.connect(func():
+		overlay.queue_free()
+		on_close.call()
+	)
+	btn_row.add_child(close)

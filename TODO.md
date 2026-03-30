@@ -70,7 +70,7 @@
 - [x] **Star rating** — 1-3 stars per level based on time + fuel remaining + crypto collected
 - [x] **Best time per level** — save and display on level select
 - [x] **Total crypto wallet** — persisted across sessions, shown in shop
-- [x] **Achievements** — 13 achievements on both platforms. Android: Google Play Games Services via PlayGamesManager.gd (PGSGP plugin). iOS: Game Center via GameCenterManager.gd (built-in singleton). Both autoloaded, both no-op on wrong platform. Milestones: First Landing through Mothership Docked. Mastery: Champion (all 3★), Speed Demon. Endurance: Endless Survivor, Grim Reaper (50 deaths), Moonrock Hoarder (5000 earned). Collection: Skin Collector (5 skins), Fully Upgraded. See DEPLOY.md §10 for PGS setup.
+- [x] **Achievements** — 13 achievements on both platforms. Android: Google Play Games Services via PlayGamesManager.gd (GodotPlayGameServices v3.2.0 plugin). iOS: Game Center via GameCenterManager.gd (built-in singleton). Both autoloaded, both no-op on wrong platform. Milestones: First Landing through Mothership Docked. Mastery: Champion (all 3★), Speed Demon. Endurance: Endless Survivor, Grim Reaper (50 deaths), Moonrock Hoarder (5000 earned). Collection: Skin Collector (5 skins), Fully Upgraded. See DEPLOY.md §10 for PGS setup.
 - [x] **Leaderboard** — backend API at api.such.software, per-level rankings, auto-submit on victory. Leaderboard viewer popup on Menu (fetches from backend, shows top scores in RichTextLabel table). Cross-platform (not PGS).
 - [x] **Player-facing level select** — "Levels" button on Menu opens scrollable panel with star ratings, best times, and lock icons. Available to all players (not just debug). Debug D key and 3-finger hold still work as shortcuts.
 
@@ -215,7 +215,7 @@
 - [ ] **Android export** — signed APK/AAB, Google Play + F-Droid
 - [ ] **iOS export** — Xcode build, TestFlight distribution
 - [ ] **Desktop builds** — Windows .exe, macOS .dmg, Linux .AppImage via itch.io + GitHub Releases
-- [ ] **Landscape lock** — ensure all platforms run in landscape only
+- [x] **Landscape lock** — orientation=4 (SCREEN_SENSOR_LANDSCAPE) set in project.godot and export_presets.cfg
 - [ ] **Touch controls testing** — verify joystick + thrust buttons feel good on actual phones
 - [ ] **Adaptive UI** — scale controls for different screen sizes/aspect ratios
 - [ ] **Controller support** — gamepad input mapping (Xbox/PS/Switch Pro)
@@ -352,7 +352,7 @@ The web build (itch.io / wownero.org) has **no app store rules**. These features
 9. ~~Visual/audio polish~~ ✅
 10. ~~Google Play Games Services~~ ✅ — PGS published, real IDs in code, Game Center configured for iOS
 11. ~~AdMob production IDs~~ ✅ — 6 ad units + 2 App IDs configured
-12. **Mobile deployment** — Android/iOS real device testing, release keystore, store uploads
+12. **Mobile deployment** — Android/iOS real device testing, store uploads *(release keystore ✅, Gradle build ✅, PGS OAuth credentials ✅)*
 12. **Web build** — itch.io / wownero.org deployment
 13. **iOS export** — Xcode build, TestFlight
 14. 3D prototype (experimental, future phase)
@@ -382,7 +382,7 @@ The web build (itch.io / wownero.org) has **no app store rules**. These features
   - No-op safety for all public methods (unlock, increment, set_steps, show_achievements)
   - No-op safety for all game hooks (on_level_completed, on_death, on_endless_wave, on_crypto_earned, on_skin_owned, on_upgrade_maxed)
   - Achievement ID catalog (all 13 keys present, no empty IDs)
-- **Total: 136 tests** across 2 test files
+- **Total: 144 tests** across 2 test files
 - **Run command:**
   ```
   /Applications/Godot.app/Contents/MacOS/Godot --headless --path . \
@@ -483,25 +483,28 @@ When ready for release, update `ADMOB_IDS` dict in AdManager.gd:
 ## 🎮 Google Play Games Services (PGS)
 
 ### Status
-- [x] PGSGP plugin v3.1.2 installed (`android/plugins/`)
+- [x] GodotPlayGameServices plugin v3.2.0 installed (`addons/GodotPlayGameServices/`) — by Jacob Ibáñez Sánchez
+- [x] GodotPlayGameServices autoload registered in project.godot (required by plugin v3.x)
+- [x] `android/build/res/values/games-ids.xml` created (`game_services_project_id = 412379035812`)
+- [x] Gradle build enabled (`export_presets.cfg` → `use_gradle_build=true`)
 - [x] PlayGamesManager.gd autoload — achievements-only, all no-op on non-Android
 - [x] GameCenterManager.gd autoload — iOS Game Center achievements, mirrors PlayGamesManager API
 - [x] 13 achievement hooks wired into game logic (globalvar.gd ×9, rocket.gd ×1) — both managers called
 - [x] Achievements button on Menu (Android: PGS overlay, iOS: Game Center overlay)
 - [x] Google Cloud project created (Project ID: 412379035812)
-- [x] OAuth credential created (debug keystore) — Client ID: `412379035812-d3n3k4i7gl4nlmldtgmi0feso8k4p2cp.apps.googleusercontent.com`
+- [x] OAuth credential — Debug: "Wownero Moon Launch Debug OAuth" (SHA-1: `C0:77:E2:83:...`, Client ID: `412379035812-d3n3...`)
+- [x] OAuth credential — Release: "Wownero Moon Launch Prod OAuth" (SHA-1: `BC:6B:16:08:...`, Client ID: `412379035812-c089...`)
 - [x] 13 achievements created in Play Console (bulk-imported via ZIP)
 - [x] Achievement IDs pasted into `PlayGamesManager.gd`
 - [x] PGS project published
 - [x] 13 achievements created in App Store Connect (Game Center)
 - [x] Game Center entitlement enabled in iOS export preset
-- [ ] OAuth credential for release keystore (before Play Store upload)
 - [ ] Test on real Android device
 - [ ] Test on real iOS device
 
 ### Architecture
 - **Leaderboards**: Own backend at `api.such.software` (cross-platform, not PGS)
-- **Achievements (Android)**: PGS via PGSGP plugin
+- **Achievements (Android)**: PGS via GodotPlayGameServices v3.2.0 plugin
 - **Achievements (iOS)**: Game Center via built-in Godot singleton
 - **Sidekick**: Automatic with PGS v2 sign-in (no extra code)
 - **Package name**: `com.suchsoftware.wowneromoonlaunch`

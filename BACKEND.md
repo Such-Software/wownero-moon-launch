@@ -140,7 +140,7 @@ Only overwrites local state if the cloud copy has more progress (higher `highest
 |-------|------|-------------|
 | `level` | int | Next level to play |
 | `highest_completed` | int | Furthest level beaten |
-| `completed` | bool | Beat all 10 levels? |
+| `completed` | bool | Beat all 11 story levels? |
 | `wallet` | int | Moonrocks balance |
 | `upgrades` | dict | All 10 upgrade levels (thrust, fuel, armor, etc.) |
 | `best_times` | dict | Best time per level (`{"1": 25.3, "2": 42.1}`) |
@@ -151,6 +151,10 @@ Only overwrites local state if the cloud copy has more progress (higher `highest
 | `difficulty` | int | 0=Easy, 1=Normal, 2=Hard |
 | `selected_skin` | string | Current ship skin ID |
 | `owned_skins` | array | List of purchased skin IDs |
+| `total_deaths` | int | Lifetime death count |
+| `total_crypto_earned` | int | Lifetime Moonrocks earned (never decreases) |
+| `best_wave` | int | Best endless mode wave reached |
+| `levels_unlocked` | bool | All levels unlocked flag |
 
 ---
 

@@ -1,21 +1,24 @@
-[gd_scene load_steps=13 format=3]
+[gd_scene format=3 uid="uid://boftpqjj8nybo"]
 
-[ext_resource type="Texture2D" path="res://art/backgrounds/starfield.jpg" id="1"]
-[ext_resource type="Script" path="res://game/gui/menu/Menu.gd" id="2"]
-[ext_resource type="FontFile" path="res://fonts/Computer Speak v0.3.ttf" id="3"]
-[ext_resource type="Texture2D" path="res://art/planets/Earth-800px.png" id="4"]
-[ext_resource type="Texture2D" path="res://art/ship/rocket.png" id="5"]
-[ext_resource type="Texture2D" path="res://art/planets/1311069131-800px.png" id="6"]
-[ext_resource type="AudioStream" path="res://art/audio/introwavybgm.ogg" id="7"]
+[ext_resource type="Texture2D" uid="uid://2plynjhgtt1i" path="res://art/backgrounds/starfield.jpg" id="1"]
+[ext_resource type="Script" uid="uid://culpfrqs5mqfm" path="res://game/gui/menu/Menu.gd" id="2"]
+[ext_resource type="FontFile" uid="uid://iynt8c8y52pl" path="res://fonts/Computer Speak v0.3.ttf" id="3"]
+[ext_resource type="Texture2D" uid="uid://gx817gwqqab6" path="res://art/planets/Earth-800px.png" id="4"]
+[ext_resource type="Texture2D" uid="uid://bmer0dr5o1w5u" path="res://art/ship/rocket.png" id="5"]
+[ext_resource type="Texture2D" uid="uid://crwtp8q32dvoh" path="res://art/planets/1311069131-800px.png" id="6"]
+[ext_resource type="AudioStream" uid="uid://cc1a6e8eqn1vg" path="res://art/audio/introwavybgm.ogg" id="7"]
+
+[sub_resource type="FontVariation" id="FontVariation_25"]
+base_font = ExtResource("3")
 
 [sub_resource type="Animation" id="Animation_reset"]
 length = 0.001
 tracks/0/type = "value"
+tracks/0/imported = false
+tracks/0/enabled = true
 tracks/0/path = NodePath(".:position")
 tracks/0/interp = 1
 tracks/0/loop_wrap = true
-tracks/0/imported = false
-tracks/0/enabled = true
 tracks/0/keys = {
 "times": PackedFloat32Array(0),
 "transitions": PackedFloat32Array(1),
@@ -28,13 +31,13 @@ resource_name = "move"
 length = 14.0
 loop_mode = 1
 tracks/0/type = "value"
+tracks/0/imported = false
+tracks/0/enabled = true
 tracks/0/path = NodePath(".:position")
 tracks/0/interp = 1
 tracks/0/loop_wrap = false
-tracks/0/imported = false
-tracks/0/enabled = true
 tracks/0/keys = {
-"times": PackedFloat32Array(0, 11.0),
+"times": PackedFloat32Array(0, 11),
 "transitions": PackedFloat32Array(1.03526, 1),
 "update": 0,
 "values": [Vector2(-200, 519), Vector2(1300, 519)]
@@ -42,17 +45,14 @@ tracks/0/keys = {
 
 [sub_resource type="AnimationLibrary" id="AnimationLibrary_1"]
 _data = {
-"RESET": SubResource("Animation_reset"),
-"move": SubResource("Animation_move")
+&"RESET": SubResource("Animation_reset"),
+&"move": SubResource("Animation_move")
 }
-
-[sub_resource type="FontVariation" id="FontVariation_25"]
-base_font = ExtResource("3")
 
 [sub_resource type="FontVariation" id="FontVariation_40"]
 base_font = ExtResource("3")
 
-[node name="Menu" type="Control"]
+[node name="Menu" type="Control" unique_id=53649834]
 layout_mode = 3
 anchors_preset = 15
 anchor_right = 1.0
@@ -61,12 +61,13 @@ grow_horizontal = 2
 grow_vertical = 2
 script = ExtResource("2")
 
-[node name="SpaceBG" type="Sprite2D" parent="."]
+[node name="SpaceBG" type="Sprite2D" parent="." unique_id=1905961611]
 position = Vector2(503, 291)
 scale = Vector2(1.08008, 1)
 texture = ExtResource("1")
 
-[node name="VButtonArray" type="VBoxContainer" parent="."]
+[node name="VButtonArray" type="VBoxContainer" parent="." unique_id=29454630]
+layout_mode = 0
 offset_left = 265.0
 offset_top = 136.0
 offset_right = 745.0
@@ -74,61 +75,65 @@ offset_bottom = 417.0
 theme_override_constants/separation = 20
 alignment = 1
 
-[node name="PlayButton" type="Button" parent="VButtonArray"]
+[node name="PlayButton" type="Button" parent="VButtonArray" unique_id=1266878910]
 custom_minimum_size = Vector2(480, 52)
+layout_mode = 2
 theme_override_fonts/font = SubResource("FontVariation_25")
 theme_override_font_sizes/font_size = 25
 text = "Play!"
 flat = true
 
-[node name="LevelsButton" type="Button" parent="VButtonArray"]
+[node name="LevelsButton" type="Button" parent="VButtonArray" unique_id=1441942914]
 custom_minimum_size = Vector2(480, 52)
+layout_mode = 2
 theme_override_fonts/font = SubResource("FontVariation_25")
 theme_override_font_sizes/font_size = 25
 text = "Levels"
 flat = true
 
-[node name="HelpButton" type="Button" parent="VButtonArray"]
+[node name="HelpButton" type="Button" parent="VButtonArray" unique_id=2098720081]
 custom_minimum_size = Vector2(480, 52)
+layout_mode = 2
 theme_override_fonts/font = SubResource("FontVariation_25")
 theme_override_font_sizes/font_size = 25
 text = "Help"
 flat = true
 
-[node name="LeaderboardButton" type="Button" parent="VButtonArray"]
+[node name="LeaderboardButton" type="Button" parent="VButtonArray" unique_id=825066941]
 custom_minimum_size = Vector2(480, 52)
+layout_mode = 2
 theme_override_fonts/font = SubResource("FontVariation_25")
 theme_override_font_sizes/font_size = 25
 text = "Leaderboard"
 flat = true
 
-[node name="QuitButton" type="Button" parent="VButtonArray"]
+[node name="QuitButton" type="Button" parent="VButtonArray" unique_id=777731530]
 custom_minimum_size = Vector2(480, 52)
+layout_mode = 2
 theme_override_fonts/font = SubResource("FontVariation_25")
 theme_override_font_sizes/font_size = 25
 text = "Quit"
 flat = true
 
-[node name="Earth" type="Sprite2D" parent="."]
+[node name="Earth" type="Sprite2D" parent="." unique_id=983362565]
+z_index = 3
 position = Vector2(124, 462)
 scale = Vector2(0.5, 0.5)
-z_index = 3
 texture = ExtResource("4")
 
-[node name="RocketSprite" type="Sprite2D" parent="."]
+[node name="RocketSprite" type="Sprite2D" parent="." unique_id=632231868]
+z_index = 4
 position = Vector2(142, 519)
 rotation = 1.5708
 scale = Vector2(0.5, 0.5)
-z_index = 4
 texture = ExtResource("5")
 
-[node name="AnimationPlayer" type="AnimationPlayer" parent="RocketSprite"]
-autoplay = "move"
-libraries = {
-"": SubResource("AnimationLibrary_1")
-}
+[node name="AnimationPlayer" type="AnimationPlayer" parent="RocketSprite" unique_id=644535963]
+libraries/ = SubResource("AnimationLibrary_1")
+autoplay = &"move"
 
-[node name="Label" type="Label" parent="."]
+[node name="Label" type="Label" parent="." unique_id=1557254050]
+layout_mode = 0
 offset_left = 266.0
 offset_top = 49.0
 offset_right = 740.0
@@ -137,13 +142,13 @@ theme_override_fonts/font = SubResource("FontVariation_40")
 theme_override_font_sizes/font_size = 40
 text = "Wownero Moon Launch"
 
-[node name="Moon" type="Sprite2D" parent="."]
+[node name="Moon" type="Sprite2D" parent="." unique_id=1692560880]
+z_index = 3
 position = Vector2(948, 374)
 scale = Vector2(0.3, 0.3)
-z_index = 3
 texture = ExtResource("6")
 
-[node name="AudioStreamPlayer" type="AudioStreamPlayer" parent="."]
+[node name="AudioStreamPlayer" type="AudioStreamPlayer" parent="." unique_id=1294118773]
 stream = ExtResource("7")
 autoplay = true
 

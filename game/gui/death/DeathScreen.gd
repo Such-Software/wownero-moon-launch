@@ -34,6 +34,8 @@ func _build_ui() -> void:
 	# Center panel
 	_panel = PanelContainer.new()
 	_panel.set_anchors_and_offsets_preset(Control.PRESET_CENTER)
+	_panel.grow_horizontal = Control.GROW_DIRECTION_BOTH
+	_panel.grow_vertical = Control.GROW_DIRECTION_BOTH
 	_panel.custom_minimum_size = Vector2(340, 0)
 	var panel_style := StyleBoxFlat.new()
 	panel_style.bg_color = Color(0.04, 0.04, 0.12, 0.95)
@@ -96,7 +98,7 @@ func _build_ui() -> void:
 	# Rewarded ad button (always available on ad-supported platforms)
 	if AdManager.is_rewarded_available():
 		_ad_button = Button.new()
-		_ad_button.text = "Watch Ad for %d 🪨" % AdManager.REWARDED_AD_MOONROCKS
+		_ad_button.text = "Watch Ad for %d Moonrocks" % AdManager.REWARDED_AD_MOONROCKS
 		_ad_button.custom_minimum_size = Vector2(280, 44)
 		BS.apply_space_style(_ad_button, Color(1.0, 0.85, 0.1))
 		_ad_button.pressed.connect(_on_watch_ad)
@@ -177,7 +179,7 @@ func _on_rewarded_result(success: bool) -> void:
 	if success:
 		globalvar.add_crypto(AdManager.REWARDED_AD_MOONROCKS)
 		if _ad_button:
-			_ad_button.text = "+%d 🪨!" % AdManager.REWARDED_AD_MOONROCKS
+			_ad_button.text = "+%d Moonrocks!" % AdManager.REWARDED_AD_MOONROCKS
 			_ad_button.disabled = true
 	else:
 		if _ad_button:
