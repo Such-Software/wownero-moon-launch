@@ -149,7 +149,7 @@ func _ready() -> void:
 	vbox.add_child(skin_header)
 
 	var skin_scroll := ScrollContainer.new()
-	skin_scroll.custom_minimum_size = Vector2(840, 120)
+	skin_scroll.custom_minimum_size = Vector2(840, 80)
 	skin_scroll.vertical_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
 	vbox.add_child(skin_scroll)
 
@@ -467,7 +467,7 @@ func _create_skin_card(skin_id: String) -> PanelContainer:
 	card_style.content_margin_top = 6
 	card_style.content_margin_bottom = 6
 	card.add_theme_stylebox_override("panel", card_style)
-	card.custom_minimum_size = Vector2(100, 100)
+	card.custom_minimum_size = Vector2(80, 70)
 
 	var vbox := VBoxContainer.new()
 	vbox.add_theme_constant_override("separation", 4)
@@ -480,8 +480,12 @@ func _create_skin_card(skin_id: String) -> PanelContainer:
 		var tex_rect := TextureRect.new()
 		tex_rect.texture = tex
 		tex_rect.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
-		tex_rect.custom_minimum_size = Vector2(40, 55)
+		tex_rect.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+		tex_rect.custom_minimum_size = Vector2(40, 40)
+		tex_rect.size = Vector2(40,40)
+		tex_rect.clip_contents = true
 		tex_rect.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+		tex_rect.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 		vbox.add_child(tex_rect)
 
 	# Action button
