@@ -618,6 +618,8 @@ func _toggle_level_select() -> void:
 	_level_select_visible = !_level_select_visible
 	var panel: PanelContainer = get_node("LevelSelectPanel")
 	panel.visible = _level_select_visible
+	# Fade Moon based on level select visibility
+	$Moon.modulate.a = 0.2 if _level_select_visible else 1.0
 
 func _on_QuitButton_pressed():
 	get_tree().quit()

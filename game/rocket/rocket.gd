@@ -357,6 +357,10 @@ func death():
 	if _in_slowmo:
 		_in_slowmo = false
 		Engine.time_scale = 1.0
+	#Stops the timer after death
+	var time_labels = get_tree().get_nodes_in_group("time_label")
+	if time_labels.size() > 0:
+		time_labels[0].stop()
 	# Clean up 3D landing mode
 	_deactivate_landing_mode()
 	# Haptic feedback on death
