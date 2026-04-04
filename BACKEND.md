@@ -112,10 +112,10 @@ Every call to `globalvar.save_game()` triggers a fire-and-forget cloud upload:
 
 ```
 save_game() → write savegame.json locally → CloudSave.upload_save()
-                                                 ↓
-                                          PUT /save (HMAC-signed)
-                                                 ↓
-                                          Server upserts JSONB
+												 ↓
+										  PUT /save (HMAC-signed)
+												 ↓
+										  Server upserts JSONB
 ```
 
 Triggered on: level completion, upgrade purchase, skin unlock, difficulty change.
@@ -124,11 +124,11 @@ Triggered on: level completion, upgrade purchase, skin unlock, difficulty change
 
 ```
 globalvar.restore_from_cloud()
-         ↓
+		 ↓
   CloudSave.download_save()
-         ↓
+		 ↓
   GET /save?device_uuid=...
-         ↓
+		 ↓
   _on_cloud_save_downloaded() → _apply_save_data() → save_game()
 ```
 
