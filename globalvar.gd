@@ -497,7 +497,7 @@ func get_save_data() -> Dictionary:
 	## Returns the full save-state dictionary (used by local save and cloud save).
 	highest_level_completed = maxi(highest_level_completed, nowlevel)
 	return {
-		"level": mini(nowlevel + 1, MAX_LEVEL),
+		"level": mini(nowlevel, MAX_LEVEL),
 		"highest_completed": highest_level_completed,
 		"completed": nowlevel >= MAX_LEVEL or all_completed,
 		"wallet": wallet,
