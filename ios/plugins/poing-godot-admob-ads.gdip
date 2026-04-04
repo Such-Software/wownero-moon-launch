@@ -21,7 +21,7 @@ admob_packages=[
 ;Warning: You will need to update the [plist] section every time you reinstall/upgrade the plugin!
 
 ;@ IMPORTANT @: Replace with your app id: https://support.google.com/admob/answer/7356431
-GADApplicationIdentifier:string_input="ca-app-pub-2501747033825166~9592024025"
+GADApplicationIdentifier:string_input="ca-app-pub-3940256099942544~1458002511"
 
 ;Warning: Select third-party buyer Mediators: https://developers.google.com/admob/ios/3p-skadnetworks
 SKAdNetworkItems:raw="

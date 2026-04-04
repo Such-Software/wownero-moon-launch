@@ -361,6 +361,10 @@ func death():
 	var time_labels = get_tree().get_nodes_in_group("time_label")
 	if time_labels.size() > 0:
 		time_labels[0].stop()
+	#Stops the velocity calculator after death
+	var velocity_labels = get_tree().get_nodes_in_group("velocity_label")
+	if velocity_labels.size() > 0:
+		velocity_labels[0].stop()
 	# Clean up 3D landing mode
 	_deactivate_landing_mode()
 	# Haptic feedback on death
