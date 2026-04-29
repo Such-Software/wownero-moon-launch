@@ -4,10 +4,8 @@ const BS = preload("res://game/gui/ButtonStyles.gd")
 
 var _level_select_visible := false
 var _level_select_container: VBoxContainer = null
-var _nick_label: Label = null
-var _nick_edit: LineEdit = null
-var _editing_nick := false
-var _diff_btn: Button = null
+var _options_popup: PanelContainer = null
+var _options_diff_label: Label = null
 var _lock_popup: PanelContainer = null
 var _lb_popup: PanelContainer = null
 var _lb_content: RichTextLabel = null
@@ -91,12 +89,10 @@ func _ready():
 	$VButtonArray/PlayButton.text = "Play - Level " + str(globalvar.nowlevel) + " " + play_level_name
 	BS.apply_space_style($VButtonArray/PlayButton, Color.GREEN)
 	BS.apply_space_style($VButtonArray/LevelsButton, Color.ORANGE)
-	BS.apply_space_style($VButtonArray/HelpButton, Color.CYAN)
 	BS.apply_space_style($VButtonArray/LeaderboardButton, Color(1.0, 0.85, 0.2))
 	BS.apply_space_style($VButtonArray/QuitButton, Color.RED)
-	_build_nickname_bar()
+	_build_help_options_buttons()
 	_build_level_select()
-	_build_difficulty_toggle()
 	_build_cloud_restore_button()
 	_build_pgs_buttons()
 	_bg_action_delay = randf_range(5.0, 7.0)
@@ -370,139 +366,201 @@ func _explode_ship(pos: Vector2, ship_scale: float) -> void:
 	timer.timeout.connect(particles.queue_free)
 
 
-func _build_nickname_bar() -> void:
-	## Nickname bar at bottom-left: "Pilot: NickName  [🎲] [✏️]"
-	# Dark panel behind the bar so it's readable over any background
-	var panel := PanelContainer.new()
-	panel.name = "NicknamePanel"
-	panel.set_anchors_preset(Control.PRESET_BOTTOM_LEFT)
-	panel.position = Vector2(4, -56)
-	var panel_style := StyleBoxFlat.new()
-	panel_style.bg_color = Color(0.02, 0.02, 0.08, 0.85)
-	panel_style.set_corner_radius_all(6)
-	panel_style.content_margin_left = 10
-	panel_style.content_margin_right = 10
-	panel_style.content_margin_top = 6
-	panel_style.content_margin_bottom = 6
-	panel.add_theme_stylebox_override("panel", panel_style)
-	add_child(panel)
-
-	var bar := HBoxContainer.new()
-	bar.name = "NicknameBar"
-	bar.add_theme_constant_override("separation", 10)
-	panel.add_child(bar)
-
-	var pilot_label := Label.new()
-	pilot_label.text = "Pilot:"
-	pilot_label.add_theme_color_override("font_color", Color(0.5, 0.5, 0.6))
-	pilot_label.add_theme_font_size_override("font_size", 18)
-	bar.add_child(pilot_label)
-
-	_nick_label = Label.new()
-	_nick_label.name = "NickLabel"
-	_nick_label.text = globalvar.nickname
-	_nick_label.add_theme_color_override("font_color", Color(0.6, 0.9, 1.0))
-	_nick_label.add_theme_font_size_override("font_size", 18)
-	bar.add_child(_nick_label)
-
-	# Dice button — reroll random name
-	var dice_btn := Button.new()
-	dice_btn.text = "Reroll"
-	dice_btn.custom_minimum_size = Vector2(80, 32)
-	BS.apply_space_style(dice_btn, Color(1.0, 0.7, 0.1))
-	dice_btn.add_theme_font_size_override("font_size", 15)
-	dice_btn.pressed.connect(_on_reroll_nickname)
-	bar.add_child(dice_btn)
-
-	# Edit button — toggle inline text edit
-	var edit_btn := Button.new()
-	edit_btn.text = "Edit"
-	edit_btn.custom_minimum_size = Vector2(65, 32)
-	BS.apply_space_style(edit_btn, Color(0.5, 0.8, 1.0))
-	edit_btn.add_theme_font_size_override("font_size", 15)
-	edit_btn.pressed.connect(_on_edit_nickname)
-	bar.add_child(edit_btn)
-
-	# Hidden LineEdit for custom entry
-	_nick_edit = LineEdit.new()
-	_nick_edit.name = "NickEdit"
-	_nick_edit.visible = false
-	_nick_edit.custom_minimum_size = Vector2(180, 32)
-	_nick_edit.max_length = 20
-	_nick_edit.placeholder_text = "Enter nickname..."
-	_nick_edit.text = globalvar.nickname
-	_nick_edit.add_theme_font_size_override("font_size", 16)
-	_nick_edit.add_theme_color_override("font_color", Color.WHITE)
-	_nick_edit.add_theme_color_override("caret_color", Color.CYAN)
-	var edit_style := StyleBoxFlat.new()
-	edit_style.bg_color = Color(0.06, 0.06, 0.14, 0.95)
-	edit_style.border_color = Color.CYAN
-	edit_style.set_border_width_all(1)
-	edit_style.set_corner_radius_all(4)
-	edit_style.content_margin_left = 6
-	edit_style.content_margin_right = 6
-	_nick_edit.add_theme_stylebox_override("normal", edit_style)
-	_nick_edit.text_submitted.connect(_on_nickname_submitted)
-	bar.add_child(_nick_edit)
 
 
-func _on_reroll_nickname() -> void:
-	globalvar.nickname = globalvar.generate_random_nickname()
-	globalvar.save_game()
-	_nick_label.text = globalvar.nickname
-	_nick_edit.text = globalvar.nickname
+
+func _build_help_options_buttons() -> void:
+	## Replace Help button with side-by-side Help and Options buttons
+	# Remove the original HelpButton
+	var help_btn_original = $VButtonArray.find_child("HelpButton", true, false)
+	if help_btn_original:
+		help_btn_original.queue_free()
+
+	# Create container for Help and Options buttons side-by-side
+	var button_row := HBoxContainer.new()
+	button_row.name = "HelpOptionsRow"
+	button_row.add_theme_constant_override("separation", 8)
+	button_row.alignment = BoxContainer.ALIGNMENT_CENTER
+	$VButtonArray.add_child(button_row)
+
+	# Help button (half-width)
+	var help_btn := Button.new()
+	help_btn.name = "HelpButton"
+	help_btn.text = "Help"
+	help_btn.custom_minimum_size = Vector2(110, 36)
+	help_btn.add_theme_font_size_override("font_size", 14)
+	BS.apply_space_style(help_btn, Color.CYAN)
+	help_btn.pressed.connect(_on_HelpButton_pressed)
+	button_row.add_child(help_btn)
+
+	# Options button (half-width)
+	var options_btn := Button.new()
+	options_btn.name = "OptionsButton"
+	options_btn.text = "Options"
+	options_btn.custom_minimum_size = Vector2(110, 36)
+	options_btn.add_theme_font_size_override("font_size", 14)
+	BS.apply_space_style(options_btn, Color(0.5, 0.8, 1.0))
+	options_btn.pressed.connect(_show_options_popup)
+	button_row.add_child(options_btn)
 
 
-func _on_edit_nickname() -> void:
-	_editing_nick = !_editing_nick
-	if _editing_nick:
-		_nick_label.visible = false
-		_nick_edit.visible = true
-		_nick_edit.text = globalvar.nickname
-		_nick_edit.grab_focus()
-		_nick_edit.caret_column = _nick_edit.text.length()
-	else:
-		_apply_nickname(_nick_edit.text)
+func _show_options_popup() -> void:
+	if _options_popup and is_instance_valid(_options_popup):
+		_options_popup.queue_free()
+
+	_options_popup = PanelContainer.new()
+	_options_popup.name = "OptionsPopup"
+	var style := StyleBoxFlat.new()
+	style.bg_color = Color(0.03, 0.03, 0.1, 0.96)
+	style.border_color = Color(0.5, 0.8, 1.0, 0.7)
+	style.set_border_width_all(2)
+	style.set_corner_radius_all(12)
+	style.content_margin_left = 16
+	style.content_margin_right = 16
+	style.content_margin_top = 12
+	style.content_margin_bottom = 12
+	_options_popup.add_theme_stylebox_override("panel", style)
+	_options_popup.z_index = 10
+	add_child(_options_popup)
+
+	_options_popup.set_anchors_preset(Control.PRESET_CENTER)
+	_options_popup.offset_left = -200
+	_options_popup.offset_right = 200
+	_options_popup.offset_top = -220
+	_options_popup.offset_bottom = 220
+
+	var vbox := VBoxContainer.new()
+	vbox.add_theme_constant_override("separation", 12)
+	_options_popup.add_child(vbox)
+
+	# Title
+	var title := Label.new()
+	title.text = "⚙️ Options"
+	title.add_theme_font_size_override("font_size", 20)
+	title.add_theme_color_override("font_color", Color(0.5, 0.8, 1.0))
+	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	vbox.add_child(title)
+
+	# Separator
+	var sep := HSeparator.new()
+	vbox.add_child(sep)
+
+	# --- Difficulty Section ---
+	var diff_label := Label.new()
+	diff_label.text = "Difficulty"
+	diff_label.add_theme_font_size_override("font_size", 14)
+	diff_label.add_theme_color_override("font_color", Color.ORANGE)
+	vbox.add_child(diff_label)
+
+	var diff_hbox := HBoxContainer.new()
+	diff_hbox.add_theme_constant_override("separation", 8)
+	var diff_name_str: String = globalvar.DIFFICULTY_NAMES.get(globalvar.difficulty, "Normal")
+	_options_diff_label = Label.new()
+	_options_diff_label.text = diff_name_str
+	_options_diff_label.add_theme_font_size_override("font_size", 13)
+	_options_diff_label.add_theme_color_override("font_color", DIFF_COLORS.get(globalvar.difficulty, Color.YELLOW))
+	_options_diff_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	diff_hbox.add_child(_options_diff_label)
+
+	var diff_change_btn := Button.new()
+	diff_change_btn.text = "Change"
+	diff_change_btn.custom_minimum_size = Vector2(90, 28)
+	BS.apply_space_style(diff_change_btn, Color.YELLOW)
+	diff_change_btn.add_theme_font_size_override("font_size", 12)
+	diff_change_btn.pressed.connect(func():
+		globalvar.difficulty = (globalvar.difficulty + 1) % 3
+		globalvar.save_game()
+		var new_diff_name: String = globalvar.DIFFICULTY_NAMES.get(globalvar.difficulty, "Normal")
+		_options_diff_label.text = new_diff_name
+		_options_diff_label.add_theme_color_override("font_color", DIFF_COLORS.get(globalvar.difficulty, Color.YELLOW))
+	)
+	diff_hbox.add_child(diff_change_btn)
+	vbox.add_child(diff_hbox)
+
+	# --- Nickname Section ---
+	var nick_label := Label.new()
+	nick_label.text = "Nickname"
+	nick_label.add_theme_font_size_override("font_size", 14)
+	nick_label.add_theme_color_override("font_color", Color.ORANGE)
+	vbox.add_child(nick_label)
+
+	var nick_hbox := HBoxContainer.new()
+	nick_hbox.add_theme_constant_override("separation", 8)
+	var curr_nick_label := Label.new()
+	curr_nick_label.text = globalvar.nickname
+	curr_nick_label.add_theme_font_size_override("font_size", 13)
+	curr_nick_label.add_theme_color_override("font_color", Color(0.6, 0.9, 1.0))
+	curr_nick_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	nick_hbox.add_child(curr_nick_label)
+
+	var reroll_nick_btn := Button.new()
+	reroll_nick_btn.text = "Generate Random Nickname"
+	reroll_nick_btn.custom_minimum_size = Vector2(75, 28)
+	BS.apply_space_style(reroll_nick_btn, Color(1.0, 0.7, 0.1))
+	reroll_nick_btn.add_theme_font_size_override("font_size", 12)
+	reroll_nick_btn.pressed.connect(func():
+		globalvar.nickname = globalvar.generate_random_nickname()
+		globalvar.save_game()
+		curr_nick_label.text = globalvar.nickname
+	)
+	nick_hbox.add_child(reroll_nick_btn)
+
+	var edit_nick_btn := Button.new()
+	edit_nick_btn.text = "Edit"
+	edit_nick_btn.custom_minimum_size = Vector2(75, 28)
+	BS.apply_space_style(edit_nick_btn, Color(0.5, 0.8, 1.0))
+	edit_nick_btn.add_theme_font_size_override("font_size", 12)
+	edit_nick_btn.pressed.connect(func(): _show_nickname_edit_popup(curr_nick_label))
+	nick_hbox.add_child(edit_nick_btn)
+	vbox.add_child(nick_hbox)
+
+	# Separator
+	var sep2 := HSeparator.new()
+	vbox.add_child(sep2)
+
+	# Close button
+	var close := Button.new()
+	close.text = "Close"
+	close.custom_minimum_size = Vector2(120, 32)
+	BS.apply_space_style(close, Color.RED)
+	close.pressed.connect(func(): _options_popup.queue_free())
+	vbox.add_child(close)
 
 
-func _on_nickname_submitted(new_text: String) -> void:
-	_apply_nickname(new_text)
+func _show_nickname_edit_popup(nick_label: Label) -> void:
+	var dialog := AcceptDialog.new()
+	dialog.title = "Edit Nickname"
+	dialog.dialog_text = ""  # Clear default text
+	dialog.add_cancel_button("Cancel")
 
+	var vbox := VBoxContainer.new()
 
-func _apply_nickname(raw: String) -> void:
-	var cleaned := raw.strip_edges().left(20)
-	if cleaned == "":
-		cleaned = globalvar.generate_random_nickname()
-	globalvar.nickname = cleaned
-	globalvar.save_game()
-	_editing_nick = false
-	_nick_label.text = globalvar.nickname
-	_nick_label.visible = true
-	_nick_edit.visible = false
+	var prompt_label := Label.new()  # Add label manually
+	prompt_label.text = "Enter your new nickname:"
+	vbox.add_child(prompt_label)
 
+	var line_edit := LineEdit.new()
+	line_edit.text = globalvar.nickname
+	line_edit.max_length = 20
+	line_edit.custom_minimum_size = Vector2(300, 32)
+	vbox.add_child(line_edit)
 
-func _build_difficulty_toggle() -> void:
-	_diff_btn = Button.new()
-	_diff_btn.name = "DifficultyButton"
-	_diff_btn.custom_minimum_size = Vector2(180, 36)
-	_diff_btn.add_theme_font_size_override("font_size", 14)
-	_update_difficulty_button()
-	_diff_btn.pressed.connect(_on_difficulty_pressed)
-	# Place below main buttons
-	$VButtonArray.add_child(_diff_btn)
+	dialog.add_child(vbox)
+	dialog.move_child(vbox, 1)
 
+	dialog.confirmed.connect(func():
+		var cleaned := line_edit.text.strip_edges().left(20)
+		if cleaned == "":
+			cleaned = globalvar.generate_random_nickname()
+		globalvar.nickname = cleaned
+		globalvar.save_game()
+		nick_label.text = cleaned
+	)
 
-func _update_difficulty_button() -> void:
-	var name_str: String = globalvar.DIFFICULTY_NAMES.get(globalvar.difficulty, "Normal")
-	_diff_btn.text = "Difficulty: " + name_str
-	var color: Color = DIFF_COLORS.get(globalvar.difficulty, Color.YELLOW)
-	BS.apply_space_style(_diff_btn, color)
-
-
-func _on_difficulty_pressed() -> void:
-	globalvar.difficulty = (globalvar.difficulty + 1) % 3
-	globalvar.save_game()
-	_update_difficulty_button()
+	add_child(dialog)
+	dialog.popup_centered()
+	line_edit.grab_focus()
+	line_edit.caret_column = line_edit.text.length()
 
 
 func _build_level_select() -> void:
