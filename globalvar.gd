@@ -592,3 +592,51 @@ func load_game() -> void:
 	if not data is Dictionary:
 		return
 	_apply_save_data(data)
+
+func reset_progress() -> void:
+	## Reset all progress and start fresh — generates new device UUID and nickname.
+	# Reset level progress
+	nowlevel = 1
+	highest_level_completed = 0
+	all_completed = false
+	tutorial_shown = false
+	endless_mode = false
+	endless_wave = 1
+	endless_best_wave = 0
+	
+	# Reset difficulty
+	difficulty = Difficulty.NORMAL
+	
+	# Reset wallet and upgrades
+	wallet = 0
+	for key in upgrades.keys():
+		upgrades[key] = 0
+	
+	# Reset best times and stars
+	best_times.clear()
+	best_stars.clear()
+	
+	# Reset cosmetics
+	selected_skin = "default"
+	owned_skins = ["default"]
+	
+	# Reset stats
+	total_crypto_earned = 0
+	total_deaths = 0
+	levels_unlocked = false
+	ads_removed = false
+	
+	# Generate new device UUID
+	device_uuid = _generate_uuid()
+	
+	# Generate new random nickname
+	nickname = generate_random_nickname()
+	
+	# Clear local save file
+	if FileAccess.file_exists("user://savegame.json"):
+		var err := DirAccess.remove_absolute("user://savegame.json")
+		if err != OK:
+			push_warning("Failed to delete savegame.json: %d" % err)
+	
+	# Save fresh game state
+	save_game()
