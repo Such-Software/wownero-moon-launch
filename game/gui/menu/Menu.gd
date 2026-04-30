@@ -95,6 +95,12 @@ func _ready():
 	_build_level_select()
 	_build_cloud_restore_button()
 	_build_pgs_buttons()
+	
+	# Show nickname prompt on first launch
+	if not globalvar.tutorial_shown:
+		var timer := get_tree().create_timer(0.5)
+		timer.timeout.connect(_show_first_time_nickname_prompt)
+	
 	_bg_action_delay = randf_range(5.0, 7.0)
 	AdManager.show_banner()
 
@@ -518,6 +524,14 @@ func _show_options_popup() -> void:
 	var sep2 := HSeparator.new()
 	vbox.add_child(sep2)
 
+	# Reset Progress button
+	var reset_btn := Button.new()
+	reset_btn.text = "Reset Progress"
+	reset_btn.custom_minimum_size = Vector2(240, 32)
+	BS.apply_space_style(reset_btn, Color(1.0, 0.2, 0.2))
+	reset_btn.pressed.connect(_show_reset_confirmation)
+	vbox.add_child(reset_btn)
+
 	# Close button
 	var close := Button.new()
 	close.text = "Close"
@@ -525,6 +539,90 @@ func _show_options_popup() -> void:
 	BS.apply_space_style(close, Color.RED)
 	close.pressed.connect(func(): _options_popup.queue_free())
 	vbox.add_child(close)
+
+
+func _show_reset_confirmation() -> void:
+	## Show confirmation dialog before resetting progress.
+	var confirm := ConfirmationDialog.new()
+	confirm.title = "Reset Progress?"
+	confirm.dialog_text = "This will delete all your progress, stats, and upgrades.\n\nYou will get a new nickname and restart the tutorial.\n\nThis cannot be undone!"
+	confirm.ok_button_text = "Reset"
+	confirm.cancel_button_text = "Cancel"
+	confirm.confirmed.connect(func():
+		globalvar.reset_progress()
+		if _options_popup and is_instance_valid(_options_popup):
+			_options_popup.queue_free()
+		_show_reset_toast()
+		# Reload the menu scene so nickname prompt and tutorial check run again
+		var timer := get_tree().create_timer(2.0)
+		timer.timeout.connect(func():
+			get_tree().change_scene_to_file("res://game/gui/menu/Menu.tscn")
+		)
+	)
+	add_child(confirm)
+	confirm.popup_centered()
+
+
+func _show_reset_toast() -> void:
+	## Show toast message that progress was reset.
+	var toast := PanelContainer.new()
+	var ts := StyleBoxFlat.new()
+	ts.bg_color = Color(0.06, 0.04, 0.14, 0.95)
+	ts.border_color = Color(1.0, 0.85, 0.2, 0.6)
+	ts.set_border_width_all(1)
+	ts.set_corner_radius_all(8)
+	ts.content_margin_left = 16
+	ts.content_margin_right = 16
+	ts.content_margin_top = 8
+	ts.content_margin_bottom = 8
+	toast.add_theme_stylebox_override("panel", ts)
+	toast.z_index = 20
+	toast.set_anchors_preset(Control.PRESET_CENTER_BOTTOM)
+	toast.grow_horizontal = Control.GROW_DIRECTION_BOTH
+	toast.offset_top = -120
+	toast.offset_bottom = -80
+	var lbl := Label.new()
+	lbl.text = "Progress reset! You'll see the tutorial when you play."
+	lbl.add_theme_font_size_override("font_size", 16)
+	lbl.add_theme_color_override("font_color", Color(1.0, 0.85, 0.2))
+	lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	toast.add_child(lbl)
+	add_child(toast)
+	get_tree().create_timer(3.0).timeout.connect(func():
+		if is_instance_valid(toast):
+			toast.queue_free()
+	)
+
+
+func _show_first_time_nickname_prompt() -> void:
+	## Show nickname prompt dialog on first launch.
+	var dialog := AcceptDialog.new()
+	dialog.title = "Welcome!"
+	dialog.ok_button_text = "Start Game"
+	
+	var vbox := VBoxContainer.new()
+	var prompt_label := Label.new()
+	prompt_label.text = "Enter your pilot nickname:\n(or leave blank for a random one)"
+	vbox.add_child(prompt_label)
+	var line_edit := LineEdit.new()
+	line_edit.max_length = 20
+	line_edit.placeholder_text = "Enter nickname..."
+	line_edit.custom_minimum_size = Vector2(300, 36)
+	vbox.add_child(line_edit)
+	
+	dialog.add_child(vbox)
+	dialog.move_child(vbox, 1)  # Insert after title
+	
+	dialog.confirmed.connect(func():
+		var cleaned := line_edit.text.strip_edges().left(20)
+		if cleaned != "":
+			globalvar.nickname = cleaned
+		globalvar.save_game()
+	)
+	
+	add_child(dialog)
+	dialog.popup_centered()
+	line_edit.grab_focus()
 
 
 func _show_nickname_edit_popup(nick_label: Label) -> void:
