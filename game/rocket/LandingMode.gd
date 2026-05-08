@@ -52,9 +52,10 @@ func _ready() -> void:
 
 
 func _build_3d_viewport() -> void:
-	# Use half-res viewport to reduce GPU cost — upscaled via stretch
+	# Lower-res viewport to reduce GPU cost on activation — upscaled via stretch.
+	# Smaller size = less shader-compile work on first render = smaller stutter.
 	_viewport_3d = SubViewport.new()
-	_viewport_3d.size = Vector2i(512, 300)
+	_viewport_3d.size = Vector2i(384, 224)
 	_viewport_3d.render_target_update_mode = SubViewport.UPDATE_ALWAYS
 	_viewport_3d.transparent_bg = false
 	_viewport_3d.own_world_3d = true
@@ -124,21 +125,10 @@ func _build_3d_viewport() -> void:
 				surface_color = Color(r / count, g / count, b / count)
 	ground_mat.albedo_color = surface_color
 	ground_mat.roughness = 0.85
-	# Procedural noise for terrain variation (craters/highlands)
-	var noise := FastNoiseLite.new()
-	noise.noise_type = FastNoiseLite.TYPE_SIMPLEX
-	noise.frequency = 0.02
-	noise.fractal_octaves = 3
-	var noise_tex := NoiseTexture2D.new()
-	noise_tex.noise = noise
-	noise_tex.width = 256
-	noise_tex.height = 256
-	noise_tex.seamless = true
-	ground_mat.detail_enabled = true
-	ground_mat.detail_blend_mode = BaseMaterial3D.BLEND_MODE_MUL
-	ground_mat.detail_albedo = noise_tex
-	ground_mat.detail_uv_layer = BaseMaterial3D.DETAIL_UV_1
-	# Rim lighting for atmosphere glow
+	# Skip the procedural NoiseTexture2D — it generates synchronously on the GPU
+	# and was the dominant cost of activating landing mode. Rim light + ambient
+	# still gives the planet enough shape; we trade a bit of crater detail for
+	# a stutter-free transition.
 	ground_mat.rim_enabled = true
 	ground_mat.rim = 0.4
 	ground_mat.rim_tint = 0.3
@@ -176,7 +166,7 @@ func _add_background_stars() -> void:
 	star_mat.no_depth_test = true
 	var star_mesh := QuadMesh.new()
 	star_mesh.size = Vector2(0.04, 0.04)
-	for i in range(30):
+	for i in range(12):
 		var mi := MeshInstance3D.new()
 		mi.mesh = star_mesh
 		mi.material_override = star_mat

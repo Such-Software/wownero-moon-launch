@@ -1,7 +1,7 @@
 [gd_scene format=3 uid="uid://boftpqjj8nybo"]
 
 [ext_resource type="Texture2D" uid="uid://2plynjhgtt1i" path="res://art/backgrounds/starfield.jpg" id="1"]
-[ext_resource type="Script" uid="uid://cd7ti8mli06pg" path="res://game/gui/menu/Menu.gd" id="2"]
+[ext_resource type="Script" uid="uid://culpfrqs5mqfm" path="res://game/gui/menu/Menu.gd" id="2"]
 [ext_resource type="FontFile" uid="uid://iynt8c8y52pl" path="res://fonts/Computer Speak v0.3.ttf" id="3"]
 [ext_resource type="Texture2D" uid="uid://gx817gwqqab6" path="res://art/planets/Earth-800px.png" id="4"]
 [ext_resource type="Texture2D" uid="uid://bmer0dr5o1w5u" path="res://art/ship/rocket.png" id="5"]

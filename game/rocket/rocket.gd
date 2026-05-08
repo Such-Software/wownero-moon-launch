@@ -91,6 +91,9 @@ var _emp_radius: float = 150.0
 const EMP_BASE_RADIUS := 150.0
 const EMP_RADIUS_PER_LEVEL := 30.0
 const EMPPulseScript = preload("res://game/rocket/EMPPulse.gd")
+# Preload LandingMode so the script + 3D shader compile happen at level load,
+# not at the moment we approach a planet (was a noticeable freeze).
+const LANDING_MODE_SCRIPT = preload("res://game/rocket/LandingMode.gd")
 
 func _ready():
 	# Add to group so HUD widgets (FuelBar etc.) can find us
@@ -455,9 +458,8 @@ func _activate_landing_mode(landing_target: Node2D = null, trigger_range: float 
 	if not landing_target:
 		return
 	_landing_mode_active = true
-	var LandingModeScript = load("res://game/rocket/LandingMode.gd")
 	_landing_mode = CanvasLayer.new()
-	_landing_mode.set_script(LandingModeScript)
+	_landing_mode.set_script(LANDING_MODE_SCRIPT)
 	_landing_mode.setup(self, landing_target, trigger_range)
 	# Add to the scene tree root so it overlays everything
 	get_tree().current_scene.add_child(_landing_mode)

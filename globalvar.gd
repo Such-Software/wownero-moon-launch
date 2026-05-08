@@ -12,6 +12,7 @@ var finaltime: float = 0.0
 var all_completed: bool = false
 var highest_level_completed: int = 0  # Tracks progress for level select
 var tutorial_shown: bool = false  # Level 1 tutorial prompts (first-time only)
+var welcome_shown: bool = false   # First-launch nickname/welcome prompt (independent of tutorial)
 
 # --- Endless mode ---
 var endless_mode: bool = false
@@ -507,6 +508,7 @@ func get_save_data() -> Dictionary:
 		"device_uuid": device_uuid,
 		"nickname": nickname,
 		"tutorial_shown": tutorial_shown,
+		"welcome_shown": welcome_shown,
 		"difficulty": difficulty,
 		"selected_skin": selected_skin,
 		"owned_skins": owned_skins.duplicate(),
@@ -564,6 +566,12 @@ func _apply_save_data(data: Dictionary) -> void:
 	device_uuid = str(data.get("device_uuid", device_uuid))
 	nickname = str(data.get("nickname", nickname))
 	tutorial_shown = bool(data.get("tutorial_shown", false))
+	# welcome_shown: legacy saves predate this flag — assume returning players have already seen it
+	# (any save with progress > 0 or a custom nickname means they've been past the prompt)
+	if data.has("welcome_shown"):
+		welcome_shown = bool(data["welcome_shown"])
+	else:
+		welcome_shown = int(data.get("highest_completed", 0)) > 0 or str(data.get("nickname", "")) != ""
 	difficulty = int(data.get("difficulty", Difficulty.NORMAL))
 	selected_skin = str(data.get("selected_skin", "default"))
 	var saved_skins = data.get("owned_skins", ["default"])
@@ -594,49 +602,40 @@ func load_game() -> void:
 	_apply_save_data(data)
 
 func reset_progress() -> void:
-	## Reset all progress and start fresh — generates new device UUID and nickname.
-	# Reset level progress
+	## Reset all progress and start fresh.
+	## Keeps device_uuid so the cloud save is overwritten with the clean state on next save —
+	## no orphaned cloud row, and no new endpoint required. Cloud overwrite is permanent.
 	nowlevel = 1
 	highest_level_completed = 0
 	all_completed = false
 	tutorial_shown = false
+	welcome_shown = false
 	endless_mode = false
 	endless_wave = 1
 	endless_best_wave = 0
-	
-	# Reset difficulty
+
 	difficulty = Difficulty.NORMAL
-	
-	# Reset wallet and upgrades
+
 	wallet = 0
 	for key in upgrades.keys():
 		upgrades[key] = 0
-	
-	# Reset best times and stars
+
 	best_times.clear()
 	best_stars.clear()
-	
-	# Reset cosmetics
+
 	selected_skin = "default"
 	owned_skins = ["default"]
-	
-	# Reset stats
+
 	total_crypto_earned = 0
 	total_deaths = 0
 	levels_unlocked = false
 	ads_removed = false
-	
-	# Generate new device UUID
-	device_uuid = _generate_uuid()
-	
-	# Generate new random nickname
+
+	# Keep existing device_uuid (so cloud row gets overwritten, not orphaned)
+	if device_uuid == "":
+		device_uuid = _generate_uuid()
+
 	nickname = generate_random_nickname()
-	
-	# Clear local save file
-	if FileAccess.file_exists("user://savegame.json"):
-		var err := DirAccess.remove_absolute("user://savegame.json")
-		if err != OK:
-			push_warning("Failed to delete savegame.json: %d" % err)
-	
-	# Save fresh game state
+
+	# Save (writes local file + uploads to cloud, replacing old cloud save)
 	save_game()
