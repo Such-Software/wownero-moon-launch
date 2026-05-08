@@ -183,11 +183,28 @@ func test_thrust_force_max_level() -> void:
 	assert_float(globalvar.get_thrust_force()).is_equal(600.0)
 
 func test_max_fuel_base() -> void:
+	# NORMAL difficulty (set in before_test) — mult is 1.0
 	assert_float(globalvar.get_max_fuel()).is_equal(200.0)
 
 func test_max_fuel_level_5() -> void:
 	globalvar.upgrades["fuel_capacity"] = 5
 	assert_float(globalvar.get_max_fuel()).is_equal(400.0)
+
+func test_max_fuel_easy_has_bigger_tank() -> void:
+	# Easy mode bakes the 1.2x multiplier into max_fuel itself.
+	# This prevents the rocket from starting with >100% fuel and reporting
+	# bogus percentages on the Victory screen.
+	globalvar.difficulty = globalvar.Difficulty.EASY
+	assert_float(globalvar.get_max_fuel()).is_equal_approx(240.0, 0.001)
+
+func test_max_fuel_hard_has_smaller_tank() -> void:
+	globalvar.difficulty = globalvar.Difficulty.HARD
+	assert_float(globalvar.get_max_fuel()).is_equal_approx(180.0, 0.001)
+
+func test_max_fuel_easy_with_upgrades() -> void:
+	globalvar.difficulty = globalvar.Difficulty.EASY
+	globalvar.upgrades["fuel_capacity"] = 5
+	assert_float(globalvar.get_max_fuel()).is_equal_approx(480.0, 0.001)
 
 func test_fuel_drain_base() -> void:
 	assert_float(globalvar.get_fuel_drain()).is_equal(8.0)
