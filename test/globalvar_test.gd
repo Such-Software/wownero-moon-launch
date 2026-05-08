@@ -22,6 +22,7 @@ func before_test() -> void:
 	globalvar.endless_mode = false
 	globalvar.endless_wave = 1
 	globalvar.tutorial_shown = false
+	globalvar.welcome_shown = false
 	globalvar.best_times = {}
 	globalvar.best_stars = {}
 	globalvar.level_crypto_collected = 0
@@ -639,6 +640,7 @@ func test_get_save_data_contains_all_keys() -> void:
 	var required_keys := [
 		"level", "highest_completed", "completed", "wallet", "upgrades",
 		"best_times", "best_stars", "device_uuid", "nickname", "tutorial_shown",
+		"welcome_shown",
 		"difficulty", "selected_skin", "owned_skins", "endless_best_wave",
 		"levels_unlocked", "total_crypto_earned", "total_deaths", "ads_removed",
 	]

@@ -96,8 +96,8 @@ func _ready():
 	_build_cloud_restore_button()
 	_build_pgs_buttons()
 	
-	# Show nickname prompt on first launch
-	if not globalvar.tutorial_shown:
+	# Show nickname prompt on first launch only (independent of Level 1 tutorial)
+	if not globalvar.welcome_shown:
 		var timer := get_tree().create_timer(0.5)
 		timer.timeout.connect(_show_first_time_nickname_prompt)
 	
@@ -542,25 +542,87 @@ func _show_options_popup() -> void:
 
 
 func _show_reset_confirmation() -> void:
-	## Show confirmation dialog before resetting progress.
-	var confirm := ConfirmationDialog.new()
-	confirm.title = "Reset Progress?"
-	confirm.dialog_text = "This will delete all your progress, stats, and upgrades.\n\nYou will get a new nickname and restart the tutorial.\n\nThis cannot be undone!"
-	confirm.ok_button_text = "Reset"
-	confirm.cancel_button_text = "Cancel"
-	confirm.confirmed.connect(func():
+	## Custom-styled, scary reset confirmation. Cloud save gets overwritten —
+	## this is permanent and cannot be undone.
+	var popup := _build_styled_popup(Color(1.0, 0.25, 0.2, 0.9))
+	popup.name = "ResetConfirmPopup"
+	add_child(popup)
+	popup.set_anchors_preset(Control.PRESET_CENTER)
+	popup.offset_left = -260
+	popup.offset_right = 260
+	popup.offset_top = -210
+	popup.offset_bottom = 210
+
+	var vbox := VBoxContainer.new()
+	vbox.add_theme_constant_override("separation", 12)
+	popup.add_child(vbox)
+
+	var title := Label.new()
+	title.text = "⚠️  RESET PROGRESS?  ⚠️"
+	title.add_theme_font_size_override("font_size", 24)
+	title.add_theme_color_override("font_color", Color(1.0, 0.25, 0.2))
+	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	vbox.add_child(title)
+
+	var sep := HSeparator.new()
+	vbox.add_child(sep)
+
+	var warn := Label.new()
+	warn.text = "THIS CANNOT BE UNDONE"
+	warn.add_theme_font_size_override("font_size", 18)
+	warn.add_theme_color_override("font_color", Color(1.0, 0.85, 0.2))
+	warn.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	vbox.add_child(warn)
+
+	var body := RichTextLabel.new()
+	body.bbcode_enabled = true
+	body.fit_content = true
+	body.scroll_active = false
+	body.custom_minimum_size = Vector2(440, 0)
+	body.add_theme_font_size_override("normal_font_size", 14)
+	body.add_theme_color_override("default_color", Color(0.85, 0.88, 0.95))
+	body.text = (
+		"You will permanently lose:\n"
+		+ "  • All level progress and best times\n"
+		+ "  • Your wallet, upgrades, and skins\n"
+		+ "  • Your stats (deaths, lifetime crypto)\n\n"
+		+ "[color=#ff8866]Your cloud save will also be overwritten[/color] with the empty progress, "
+		+ "so [b]even restoring from cloud will not bring it back[/b].\n\n"
+		+ "You will get a new random nickname and see the tutorial again."
+	)
+	vbox.add_child(body)
+
+	var btn_row := HBoxContainer.new()
+	btn_row.alignment = BoxContainer.ALIGNMENT_CENTER
+	btn_row.add_theme_constant_override("separation", 12)
+	vbox.add_child(btn_row)
+
+	var cancel_btn := Button.new()
+	cancel_btn.text = "Keep My Progress"
+	cancel_btn.custom_minimum_size = Vector2(180, 36)
+	cancel_btn.add_theme_font_size_override("font_size", 14)
+	BS.apply_space_style(cancel_btn, Color.GREEN)
+	cancel_btn.pressed.connect(func(): popup.queue_free())
+	btn_row.add_child(cancel_btn)
+
+	var reset_btn := Button.new()
+	reset_btn.text = "Reset Everything"
+	reset_btn.custom_minimum_size = Vector2(180, 36)
+	reset_btn.add_theme_font_size_override("font_size", 14)
+	BS.apply_space_style(reset_btn, Color(1.0, 0.25, 0.2))
+	reset_btn.pressed.connect(func():
+		popup.queue_free()
 		globalvar.reset_progress()
 		if _options_popup and is_instance_valid(_options_popup):
 			_options_popup.queue_free()
 		_show_reset_toast()
-		# Reload the menu scene so nickname prompt and tutorial check run again
 		var timer := get_tree().create_timer(2.0)
 		timer.timeout.connect(func():
 			get_tree().change_scene_to_file("res://game/gui/menu/Menu.tscn")
 		)
 	)
-	add_child(confirm)
-	confirm.popup_centered()
+	btn_row.add_child(reset_btn)
+	cancel_btn.grab_focus()
 
 
 func _show_reset_toast() -> void:
@@ -594,69 +656,168 @@ func _show_reset_toast() -> void:
 	)
 
 
+func _build_styled_nickname_line_edit(initial_text: String) -> LineEdit:
+	## Styled LineEdit matching the dark/cyan space theme.
+	var le := LineEdit.new()
+	le.text = initial_text
+	le.max_length = 20
+	le.placeholder_text = "Enter nickname..."
+	le.custom_minimum_size = Vector2(320, 38)
+	le.add_theme_font_size_override("font_size", 16)
+	le.add_theme_color_override("font_color", Color(0.95, 0.97, 1.0))
+	le.add_theme_color_override("font_placeholder_color", Color(0.5, 0.6, 0.7))
+	le.add_theme_color_override("caret_color", Color(0.5, 0.85, 1.0))
+	le.add_theme_color_override("selection_color", Color(0.3, 0.6, 1.0, 0.5))
+	var sb := StyleBoxFlat.new()
+	sb.bg_color = Color(0.06, 0.07, 0.14, 0.9)
+	sb.border_color = Color(0.5, 0.8, 1.0, 0.7)
+	sb.set_border_width_all(1)
+	sb.set_corner_radius_all(6)
+	sb.content_margin_left = 10
+	sb.content_margin_right = 10
+	sb.content_margin_top = 6
+	sb.content_margin_bottom = 6
+	le.add_theme_stylebox_override("normal", sb)
+	var sb_focus := sb.duplicate()
+	sb_focus.border_color = Color(0.6, 0.95, 1.0, 1.0)
+	sb_focus.set_border_width_all(2)
+	le.add_theme_stylebox_override("focus", sb_focus)
+	return le
+
+
+func _build_styled_popup(border_color: Color) -> PanelContainer:
+	var panel := PanelContainer.new()
+	var style := StyleBoxFlat.new()
+	style.bg_color = Color(0.03, 0.03, 0.1, 0.97)
+	style.border_color = border_color
+	style.set_border_width_all(2)
+	style.set_corner_radius_all(12)
+	style.content_margin_left = 20
+	style.content_margin_right = 20
+	style.content_margin_top = 16
+	style.content_margin_bottom = 16
+	style.shadow_color = Color(border_color.r, border_color.g, border_color.b, 0.25)
+	style.shadow_size = 12
+	panel.add_theme_stylebox_override("panel", style)
+	panel.z_index = 15
+	return panel
+
+
 func _show_first_time_nickname_prompt() -> void:
-	## Show nickname prompt dialog on first launch.
-	var dialog := AcceptDialog.new()
-	dialog.title = "Welcome!"
-	dialog.ok_button_text = "Start Game"
-	
+	## First-launch welcome popup. Custom-styled to match the rest of the menu.
+	var popup := _build_styled_popup(Color(0.5, 0.85, 1.0, 0.7))
+	popup.name = "WelcomePopup"
+	add_child(popup)
+	popup.set_anchors_preset(Control.PRESET_CENTER)
+	popup.offset_left = -220
+	popup.offset_right = 220
+	popup.offset_top = -150
+	popup.offset_bottom = 150
+
 	var vbox := VBoxContainer.new()
-	var prompt_label := Label.new()
-	prompt_label.text = "Enter your pilot nickname:\n(or leave blank for a random one)"
-	vbox.add_child(prompt_label)
-	var line_edit := LineEdit.new()
-	line_edit.max_length = 20
-	line_edit.placeholder_text = "Enter nickname..."
-	line_edit.custom_minimum_size = Vector2(300, 36)
+	vbox.add_theme_constant_override("separation", 12)
+	popup.add_child(vbox)
+
+	var title := Label.new()
+	title.text = "🚀  Welcome, Pilot!"
+	title.add_theme_font_size_override("font_size", 22)
+	title.add_theme_color_override("font_color", Color(0.5, 0.85, 1.0))
+	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	vbox.add_child(title)
+
+	var prompt := Label.new()
+	prompt.text = "Enter your pilot nickname"
+	prompt.add_theme_font_size_override("font_size", 14)
+	prompt.add_theme_color_override("font_color", Color(0.8, 0.85, 0.9))
+	prompt.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	vbox.add_child(prompt)
+
+	var hint := Label.new()
+	hint.text = "(leave blank for a random one)"
+	hint.add_theme_font_size_override("font_size", 11)
+	hint.add_theme_color_override("font_color", Color(0.55, 0.6, 0.7))
+	hint.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	vbox.add_child(hint)
+
+	var line_edit := _build_styled_nickname_line_edit("")
 	vbox.add_child(line_edit)
-	
-	dialog.add_child(vbox)
-	dialog.move_child(vbox, 1)  # Insert after title
-	
-	dialog.confirmed.connect(func():
+
+	var start_btn := Button.new()
+	start_btn.text = "Start Game"
+	start_btn.custom_minimum_size = Vector2(180, 36)
+	BS.apply_space_style(start_btn, Color.GREEN)
+	start_btn.add_theme_font_size_override("font_size", 14)
+	var commit := func():
 		var cleaned := line_edit.text.strip_edges().left(20)
 		if cleaned != "":
 			globalvar.nickname = cleaned
+		globalvar.welcome_shown = true
 		globalvar.save_game()
-	)
-	
-	add_child(dialog)
-	dialog.popup_centered()
+		popup.queue_free()
+	start_btn.pressed.connect(commit)
+	line_edit.text_submitted.connect(func(_t): commit.call())
+	var btn_row := HBoxContainer.new()
+	btn_row.alignment = BoxContainer.ALIGNMENT_CENTER
+	btn_row.add_child(start_btn)
+	vbox.add_child(btn_row)
+
 	line_edit.grab_focus()
 
 
 func _show_nickname_edit_popup(nick_label: Label) -> void:
-	var dialog := AcceptDialog.new()
-	dialog.title = "Edit Nickname"
-	dialog.dialog_text = ""  # Clear default text
-	dialog.add_cancel_button("Cancel")
+	## Styled nickname-edit popup (replaces AcceptDialog OS chrome).
+	var popup := _build_styled_popup(Color(0.5, 0.85, 1.0, 0.7))
+	popup.name = "NicknameEditPopup"
+	add_child(popup)
+	popup.set_anchors_preset(Control.PRESET_CENTER)
+	popup.offset_left = -220
+	popup.offset_right = 220
+	popup.offset_top = -130
+	popup.offset_bottom = 130
 
 	var vbox := VBoxContainer.new()
+	vbox.add_theme_constant_override("separation", 12)
+	popup.add_child(vbox)
 
-	var prompt_label := Label.new()  # Add label manually
-	prompt_label.text = "Enter your new nickname:"
-	vbox.add_child(prompt_label)
+	var title := Label.new()
+	title.text = "Edit Nickname"
+	title.add_theme_font_size_override("font_size", 20)
+	title.add_theme_color_override("font_color", Color(0.5, 0.85, 1.0))
+	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	vbox.add_child(title)
 
-	var line_edit := LineEdit.new()
-	line_edit.text = globalvar.nickname
-	line_edit.max_length = 20
-	line_edit.custom_minimum_size = Vector2(300, 32)
+	var line_edit := _build_styled_nickname_line_edit(globalvar.nickname)
 	vbox.add_child(line_edit)
 
-	dialog.add_child(vbox)
-	dialog.move_child(vbox, 1)
+	var btn_row := HBoxContainer.new()
+	btn_row.alignment = BoxContainer.ALIGNMENT_CENTER
+	btn_row.add_theme_constant_override("separation", 8)
+	vbox.add_child(btn_row)
 
-	dialog.confirmed.connect(func():
+	var commit := func():
 		var cleaned := line_edit.text.strip_edges().left(20)
 		if cleaned == "":
 			cleaned = globalvar.generate_random_nickname()
 		globalvar.nickname = cleaned
 		globalvar.save_game()
 		nick_label.text = cleaned
-	)
+		popup.queue_free()
 
-	add_child(dialog)
-	dialog.popup_centered()
+	var save_btn := Button.new()
+	save_btn.text = "Save"
+	save_btn.custom_minimum_size = Vector2(120, 32)
+	BS.apply_space_style(save_btn, Color.GREEN)
+	save_btn.pressed.connect(commit)
+	btn_row.add_child(save_btn)
+
+	var cancel_btn := Button.new()
+	cancel_btn.text = "Cancel"
+	cancel_btn.custom_minimum_size = Vector2(120, 32)
+	BS.apply_space_style(cancel_btn, Color.RED)
+	cancel_btn.pressed.connect(func(): popup.queue_free())
+	btn_row.add_child(cancel_btn)
+
+	line_edit.text_submitted.connect(func(_t): commit.call())
 	line_edit.grab_focus()
 	line_edit.caret_column = line_edit.text.length()
 

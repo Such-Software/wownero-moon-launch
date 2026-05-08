@@ -16,17 +16,23 @@ func _ready():
 
 
 func _show_tutorial() -> void:
+	# Persist the flag the moment the tutorial is *shown* — even if the player lands
+	# in <9s and never sees all 3 prompts, we don't want to nag them again next run.
+	globalvar.tutorial_shown = true
+	globalvar.save_game()
+
 	_tutorial_label = Label.new()
 	_tutorial_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_tutorial_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	_tutorial_label.add_theme_font_size_override("font_size", 22)
+	_tutorial_label.add_theme_font_size_override("font_size", 24)
 	_tutorial_label.add_theme_color_override("font_color", Color(0.4, 1.0, 0.6))
-	_tutorial_label.add_theme_color_override("font_shadow_color", Color(0, 0, 0, 0.8))
+	_tutorial_label.add_theme_color_override("font_shadow_color", Color(0, 0, 0, 0.85))
 	_tutorial_label.add_theme_constant_override("shadow_offset_x", 2)
 	_tutorial_label.add_theme_constant_override("shadow_offset_y", 2)
-	_tutorial_label.anchors_preset = Control.PRESET_CENTER_BOTTOM
-	_tutorial_label.position = Vector2(-200, -80)
-	_tutorial_label.size = Vector2(400, 60)
+	# Anchor to top-center (under the time label) so the rocket and HUD don't cover it.
+	_tutorial_label.set_anchors_preset(Control.PRESET_TOP_WIDE)
+	_tutorial_label.offset_top = 80
+	_tutorial_label.offset_bottom = 120
 	$CanvasLayer.add_child(_tutorial_label)
 	_next_tutorial_step()
 
@@ -38,8 +44,6 @@ func _next_tutorial_step() -> void:
 		"Land gently on the Moon!",
 	]
 	if _tutorial_step >= PROMPTS.size():
-		globalvar.tutorial_shown = true
-		globalvar.save_game()
 		if _tutorial_label:
 			_tutorial_label.queue_free()
 			_tutorial_label = null
