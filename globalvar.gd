@@ -46,7 +46,9 @@ func get_fuel_drain_mult() -> float:
 		Difficulty.HARD: return 1.3
 		_: return 1.0
 
-## Starting fuel bonus/penalty
+## Fuel tank size multiplier by difficulty.
+## Applied to max_fuel so the rocket starts with a full tank — the difficulty
+## advantage shows up as a bigger tank, not as "115% fuel" overfill in the HUD.
 func get_starting_fuel_mult() -> float:
 	match difficulty:
 		Difficulty.EASY: return 1.2
@@ -279,7 +281,7 @@ func get_thrust_force() -> float:
 	return 350.0 + upgrades["thrust"] * 50.0
 
 func get_max_fuel() -> float:
-	return 200.0 + upgrades["fuel_capacity"] * 40.0
+	return (200.0 + upgrades["fuel_capacity"] * 40.0) * get_starting_fuel_mult()
 
 func get_fuel_drain() -> float:
 	return maxf(8.0 - upgrades["fuel_efficiency"] * 1.5, 2.0)
