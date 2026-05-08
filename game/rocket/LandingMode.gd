@@ -265,7 +265,13 @@ func _build_hud() -> void:
 
 
 func _process(_delta: float) -> void:
-	if not _active or not is_instance_valid(_rocket) or not is_instance_valid(_target):
+	if not _active:
+		return
+	# Defense in depth: rocket.gd should normally deactivate us via its own per-frame
+	# checks, but if it doesn't (rocket destroyed, target queue_free'd), self-destruct
+	# instead of silently rendering an orphaned overlay.
+	if not is_instance_valid(_rocket) or not is_instance_valid(_target):
+		deactivate()
 		return
 
 	var dist := _rocket.global_position.distance_to(_target.global_position)

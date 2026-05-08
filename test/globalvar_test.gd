@@ -27,6 +27,7 @@ func before_test() -> void:
 	globalvar.best_stars = {}
 	globalvar.level_crypto_collected = 0
 	globalvar.level_fuel_remaining = 0.0
+	globalvar.level_easy_bounce_used = false
 	globalvar.has_checkpoint = false
 	globalvar.ads_removed = false
 	for key in globalvar.upgrades.keys():
@@ -609,15 +610,30 @@ func test_has_next_level_false_at_max() -> void:
 func test_reset_level_stats() -> void:
 	globalvar.level_crypto_collected = 500
 	globalvar.level_fuel_remaining = 75.0
+	globalvar.level_easy_bounce_used = true
 	globalvar.has_checkpoint = true
 	globalvar.checkpoint_fuel = 100.0
 	globalvar.checkpoint_planet_name = "Mars"
 	globalvar.reset_level_stats()
 	assert_int(globalvar.level_crypto_collected).is_equal(0)
 	assert_float(globalvar.level_fuel_remaining).is_equal(0.0)
+	assert_bool(globalvar.level_easy_bounce_used).is_false()
 	assert_bool(globalvar.has_checkpoint).is_false()
 	assert_float(globalvar.checkpoint_fuel).is_equal(0.0)
 	assert_str(globalvar.checkpoint_planet_name).is_equal("")
+
+
+func test_easy_bounce_default_false() -> void:
+	# Per-run flag should default to false at scene reset (handled in before_test).
+	assert_bool(globalvar.level_easy_bounce_used).is_false()
+
+
+func test_easy_bounce_resets_independently() -> void:
+	# Setting and resetting just the bounce flag, with no other state changes,
+	# should leave the rest of reset_level_stats's domain untouched.
+	globalvar.level_easy_bounce_used = true
+	globalvar.reset_level_stats()
+	assert_bool(globalvar.level_easy_bounce_used).is_false()
 
 
 # ==========================================================================
