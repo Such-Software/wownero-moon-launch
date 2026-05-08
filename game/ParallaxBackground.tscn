@@ -11,12 +11,10 @@ shader_parameter/scroll_offset = Vector2(0, 0)
 
 [node name="ParallaxBackground" type="ParallaxBackground"]
 
-[node name="StarParallax" type="ParallaxLayer" parent="."]
-
-[node name="Starfield" type="ColorRect" parent="StarParallax"]
-anchors_preset = 0
-offset_right = 10000.0
-offset_bottom = 10000.0
+[node name="Starfield" type="ColorRect" parent="."]
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
 material = SubResource("1")
-
-[node name="SunParallax" type="ParallaxLayer" parent="."]
