@@ -176,6 +176,7 @@ func select_skin(skin_id: String) -> void:
 # --- Per-run tracking (reset each level start) ---
 var level_crypto_collected: int = 0   # Moonrocks earned this run
 var level_fuel_remaining: float = 0.0 # percentage at landing
+var level_easy_bounce_used: bool = false  # Easy-mode second-chance bounce — one per level attempt
 
 # --- Waypoint checkpoint (transient, not persisted) ---
 var checkpoint_position: Vector2 = Vector2.ZERO
@@ -445,6 +446,7 @@ func reset_level_stats() -> void:
 	## Call at the start of each level to reset per-run tracking.
 	level_crypto_collected = 0
 	level_fuel_remaining = 0.0
+	level_easy_bounce_used = false
 	checkpoint_position = Vector2.ZERO
 	checkpoint_velocity = Vector2.ZERO
 	checkpoint_fuel = 0.0
