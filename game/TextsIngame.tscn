@@ -1,11 +1,11 @@
-[gd_scene format=3]
+[gd_scene format=3 uid="uid://c4as3ie1syde"]
 
 [ext_resource type="FontFile" uid="uid://iynt8c8y52pl" path="res://fonts/Computer Speak v0.3.ttf" id="1"]
-[ext_resource type="Script" uid="uid://ftr08pqnc6db" path="res://game/gui/hud/timelabel.gd" id="2"]
-[ext_resource type="Script" uid="uid://nxj27dgy2mct" path="res://game/gui/hud/velocitylabel.gd" id="3"]
+[ext_resource type="Script" uid="uid://cxiu4kpx5e8sa" path="res://game/gui/hud/timelabel.gd" id="2"]
+[ext_resource type="Script" uid="uid://bmo585gqf4gw0" path="res://game/gui/hud/velocitylabel.gd" id="3"]
 [ext_resource type="Texture2D" uid="uid://db4o8ad5i0msx" path="res://art/ui/Forward_BTN.png" id="4"]
 [ext_resource type="Texture2D" uid="uid://djsprxwfv1ebf" path="res://art/ui/Upgrade_BTN.png" id="5"]
-[ext_resource type="Script" uid="uid://dhgn8fi785oeq" path="res://game/gui/MobileUI.gd" id="6"]
+[ext_resource type="Script" uid="uid://cpqyfr2eyu8ko" path="res://game/gui/MobileUI.gd" id="6"]
 [ext_resource type="Texture2D" uid="uid://debhxypkbvbp6" path="res://art/ui/Upgrade_BTN (1).png" id="7"]
 [ext_resource type="Texture2D" uid="uid://ff6t7m6v8kf3" path="res://art/ui/Backward_BTN (1).png" id="8"]
 [ext_resource type="Texture2D" uid="uid://sd643wa2bxcp" path="res://art/ui/Forward_BTN (1).png" id="9"]
@@ -15,11 +15,11 @@
 [sub_resource type="FontVariation" id="FontVar_default"]
 base_font = ExtResource("1")
 
-[node name="UIOverLay" type="CanvasLayer"]
+[node name="UIOverLay" type="CanvasLayer" unique_id=976436969]
 script = ExtResource("6")
 
-[node name="TimeLabel" type="Label" parent="."]
-anchors_preset = 0
+[node name="TimeLabel" type="Label" parent="." unique_id=2110514479]
+anchors_preset = 15
 anchor_right = 1.0
 anchor_bottom = 1.0
 offset_left = 782.0
@@ -30,8 +30,8 @@ theme_override_fonts/font = SubResource("FontVar_default")
 theme_override_font_sizes/font_size = 16
 script = ExtResource("2")
 
-[node name="VelocityLabel" type="Label" parent="."]
-anchors_preset = 0
+[node name="VelocityLabel" type="Label" parent="." unique_id=1639532471]
+anchors_preset = 15
 anchor_right = 1.0
 anchor_bottom = 1.0
 offset_left = 782.0
@@ -42,37 +42,37 @@ theme_override_fonts/font = SubResource("FontVar_default")
 theme_override_font_sizes/font_size = 16
 script = ExtResource("3")
 
-[node name="left" type="TouchScreenButton" parent="."]
+[node name="left" type="TouchScreenButton" parent="." unique_id=1375944477]
 position = Vector2(43, 395)
 scale = Vector2(0.6, 0.6)
 texture_normal = ExtResource("10")
 texture_pressed = ExtResource("8")
 
-[node name="right" type="TouchScreenButton" parent="."]
+[node name="right" type="TouchScreenButton" parent="." unique_id=502168233]
 position = Vector2(243, 395)
 scale = Vector2(0.6, 0.6)
 texture_normal = ExtResource("4")
 texture_pressed = ExtResource("9")
 
-[node name="up" type="TouchScreenButton" parent="."]
+[node name="up" type="TouchScreenButton" parent="." unique_id=1425758352]
 position = Vector2(772, 309)
 scale = Vector2(0.6, 0.6)
 texture_normal = ExtResource("5")
 texture_pressed = ExtResource("7")
 
-[node name="down" type="TouchScreenButton" parent="."]
+[node name="down" type="TouchScreenButton" parent="." unique_id=742471123]
 position = Vector2(902, 577)
 rotation = 3.14159
 scale = Vector2(0.6, 0.6)
 texture_normal = ExtResource("5")
 texture_pressed = ExtResource("7")
 
-[node name="menu" type="TouchScreenButton" parent="."]
+[node name="menu" type="TouchScreenButton" parent="." unique_id=1541499565]
 position = Vector2(51, 34)
 scale = Vector2(0.04, 0.04)
 texture_normal = ExtResource("11")
 
-[node name="popupMenu" type="VBoxContainer" parent="."]
+[node name="popupMenu" type="VBoxContainer" parent="." unique_id=1273126770]
 process_mode = 3
 visible = false
 offset_left = 453.0
@@ -81,16 +81,17 @@ offset_right = 541.0
 offset_bottom = 236.0
 theme_override_constants/separation = 20
 
-[node name="Resume" type="Button" parent="popupMenu"]
+[node name="Resume" type="Button" parent="popupMenu" unique_id=437746207]
 custom_minimum_size = Vector2(164, 42)
+layout_mode = 2
 theme_override_fonts/font = SubResource("FontVar_default")
 theme_override_font_sizes/font_size = 20
 text = "Resume"
 flat = true
 
-[node name="backtomenu" type="Button" parent="popupMenu"]
+[node name="backtomenu" type="Button" parent="popupMenu" unique_id=668724102]
 custom_minimum_size = Vector2(164, 42)
-focus_mode = 2
+layout_mode = 2
 theme_override_fonts/font = SubResource("FontVar_default")
 theme_override_font_sizes/font_size = 20
 text = "Back to Menu"

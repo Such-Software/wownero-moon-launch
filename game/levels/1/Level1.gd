@@ -1,9 +1,18 @@
 extends Node2D
 
+# Tutorial pacing (seconds)
+const TUTORIAL_HOLD := 4.0   # full-opacity hold time per message
+const TUTORIAL_FADE := 1.0   # fade-out duration
+const TUTORIAL_GAP := 0.6    # blank time between messages
+
+enum TutState { HOLD, FADE, GAP, DONE }
+
 var _tutorial_label: Label = null
 var _tutorial_step := 0
 var _tutorial_timer := 0.0
-const TUTORIAL_FADE := 3.0  # seconds before each prompt fades
+var _tutorial_state: int = TutState.DONE
+var _tutorial_messages: Array[String] = []
+
 
 func _ready():
 	globalvar.nowlevel = 1
@@ -16,10 +25,11 @@ func _ready():
 
 
 func _show_tutorial() -> void:
-	# Persist the flag the moment the tutorial is *shown* — even if the player lands
-	# in <9s and never sees all 3 prompts, we don't want to nag them again next run.
+	# Persist the flag the moment the tutorial is *shown* — fast clears still count.
 	globalvar.tutorial_shown = true
 	globalvar.save_game()
+
+	_tutorial_messages = _build_tutorial_messages()
 
 	_tutorial_label = Label.new()
 	_tutorial_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
@@ -29,7 +39,6 @@ func _show_tutorial() -> void:
 	_tutorial_label.add_theme_color_override("font_shadow_color", Color(0, 0, 0, 0.85))
 	_tutorial_label.add_theme_constant_override("shadow_offset_x", 2)
 	_tutorial_label.add_theme_constant_override("shadow_offset_y", 2)
-	# Anchor to top-center (under the time label) so the rocket and HUD don't cover it.
 	_tutorial_label.set_anchors_preset(Control.PRESET_TOP_WIDE)
 	_tutorial_label.offset_top = 80
 	_tutorial_label.offset_bottom = 120
@@ -37,27 +46,58 @@ func _show_tutorial() -> void:
 	_next_tutorial_step()
 
 
-func _next_tutorial_step() -> void:
-	const PROMPTS := [
-		"Press UP to thrust!",
+func _build_tutorial_messages() -> Array[String]:
+	## Platform-aware prompts. Mobile uses on-screen control names; desktop uses keys.
+	var is_mobile: bool = OS.has_feature("mobile") or OS.has_feature("android") or OS.has_feature("ios")
+	if is_mobile:
+		return [
+			"Welcome, Pilot!",
+			"Hold THRUST to fly up",
+			"Use the joystick to rotate",
+			"Tap REVERSE to slow your descent",
+			"Watch your FUEL (top-left)",
+			"Land slowly and upright on the Moon!",
+		]
+	return [
+		"Welcome, Pilot!",
+		"Press UP to thrust",
 		"LEFT / RIGHT to rotate",
-		"Land gently on the Moon!",
+		"Press DOWN for reverse thrust",
+		"Watch your FUEL (top-left)",
+		"Land slowly and upright on the Moon!",
 	]
-	if _tutorial_step >= PROMPTS.size():
+
+
+func _next_tutorial_step() -> void:
+	if _tutorial_step >= _tutorial_messages.size():
+		_tutorial_state = TutState.DONE
 		if _tutorial_label:
 			_tutorial_label.queue_free()
 			_tutorial_label = null
 		return
-	_tutorial_label.text = PROMPTS[_tutorial_step]
+	_tutorial_label.text = _tutorial_messages[_tutorial_step]
 	_tutorial_label.modulate = Color(1, 1, 1, 1)
-	_tutorial_timer = TUTORIAL_FADE
+	_tutorial_state = TutState.HOLD
+	_tutorial_timer = TUTORIAL_HOLD
 	_tutorial_step += 1
 
 
 func _process(delta):
-	if _tutorial_label and _tutorial_timer > 0.0:
-		_tutorial_timer -= delta
-		if _tutorial_timer <= 1.0:
-			_tutorial_label.modulate.a = maxf(_tutorial_timer, 0.0)
-		if _tutorial_timer <= 0.0:
+	if not _tutorial_label or _tutorial_state == TutState.DONE:
+		return
+	_tutorial_timer -= delta
+	if _tutorial_timer > 0.0:
+		if _tutorial_state == TutState.FADE:
+			_tutorial_label.modulate.a = clampf(_tutorial_timer / TUTORIAL_FADE, 0.0, 1.0)
+		return
+	# Timer expired — advance state machine
+	match _tutorial_state:
+		TutState.HOLD:
+			_tutorial_state = TutState.FADE
+			_tutorial_timer = TUTORIAL_FADE
+		TutState.FADE:
+			_tutorial_label.modulate.a = 0.0
+			_tutorial_state = TutState.GAP
+			_tutorial_timer = TUTORIAL_GAP
+		TutState.GAP:
 			_next_tutorial_step()
