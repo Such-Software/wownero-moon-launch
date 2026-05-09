@@ -49,7 +49,7 @@ project/assembly_name="Such Moon Launch"
 
 [editor_plugins]
 
-enabled=PackedStringArray("res://addons/admob/plugin.cfg", "res://addons/GodotPlayGameServices/plugin.cfg")
+enabled=PackedStringArray("res://addons/admob/plugin.cfg", "res://addons/GodotPlayGameServices/plugin.cfg", "res://addons/GodotGooglePlayBilling/plugin.cfg")
 
 [input]
 

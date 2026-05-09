@@ -21,7 +21,10 @@ place — most items below are user-side store/console work.
 - [ ] **Firebase**: create new project for "Such Moon Launch". Add Android + iOS apps. Enable Crashlytics + Analytics. Drop `google-services.json` into `android/build/` and `GoogleService-Info.plist` into the iOS export.
 
 ### Plugins to install
-- [ ] **IAP plugin** (poingstudios doesn't have one — recommended: [`godot-sdk-integrations/godot-google-play-billing`](https://github.com/godot-sdk-integrations/godot-google-play-billing) for Android. iOS StoreKit needs a separate plugin or GDExtension wrapper). After install, replace the stubs in `IAPManager._has_plugin()` and `_init_plugin()` with real plugin classes. `IAPManager.PRODUCT_IDS` already defined.
+- [x] **IAP plugins (Android + iOS) installed and wired**:
+  - Android: [`godot-sdk-integrations/godot-google-play-billing`](https://github.com/godot-sdk-integrations/godot-google-play-billing) v3.2.0 → `addons/GodotGooglePlayBilling/` (BillingClient class). Enabled in `project.godot` plugins list.
+  - iOS: [`godot-sdk-integrations/godot-storekit2`](https://github.com/godot-sdk-integrations/godot-storekit2) v0.2 (Godot 4.6.1 build) → `ios/plugins/godot-storekit2*` + GDScript wrapper at `game/net/StoreKit2Wrapper.gd`. **Enable in iOS export preset → Plugins checkbox** when first building.
+  - `IAPManager.gd` rewritten: dispatches to GPB on Android, SK2 on iOS, no-op on web/desktop. Tracks consumable vs non-consumable, auto-acknowledges non-consumables, auto-consumes consumables, applies effects via existing `apply_purchase()`.
 - [ ] **Firebase plugin** for Godot 4. Options: poingstudios doesn't have one; community options are uneven. Pragmatic alternative: [`getsentry/sentry-godot`](https://github.com/getsentry/sentry-godot) for crashes + a tiny REST analytics layer to `api.such.software/v1/moonlaunch/event` (new endpoint). After install, replace the stubs in `Telemetry._has_firebase()` and `_init_firebase()`.
 
 ### Production identifier swap (single coordinated PR)
