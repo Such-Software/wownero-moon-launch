@@ -46,6 +46,9 @@ ADS.md
 # Deploy guide (untracked, contains signing/release instructions)
 DEPLOY.md
 
+# Capture sheet (untracked, contains production IDs / OAuth client IDs)
+CAPTURE.md
+
 # AdMob downloaded native libraries (large binaries, per-machine)
 addons/admob/downloads/
 addons/admob/android/bin/
