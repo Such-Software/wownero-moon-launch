@@ -18,14 +18,14 @@ place — most items below are user-side store/console work.
 - [ ] **Google Play Console**: delete the draft Wownero app. Create new Such Moon Launch app with package `com.suchsoftware.suchmoonlaunch`.
 - [ ] **App Store Connect**: delete the draft. Create new Such Moon Launch app with bundle `com.suchsoftware.suchmoonlaunch`. Recreate 13 Game Center achievements with new bundle prefix (the rename commit already updated the IDs in `GameCenterManager.gd`).
 - [ ] **PGS** (recommended): KEEP the existing PGS project (412379035812). Link the new Play Console app to it. Generate new Android OAuth Client IDs (Debug + Release) with new package + existing keystore SHA-1s. Achievement IDs stay unchanged.
-- [ ] **Firebase**: create new project for "Such Moon Launch". Add Android + iOS apps. Enable Crashlytics + Analytics. Drop `google-services.json` into `android/build/` and `GoogleService-Info.plist` into the iOS export.
+- [ ] **Resend** (analytics digest): create a Resend account, verify the `such.software` sender domain (DNS), and generate an API key. The backend's `deploy/digest_email.py` runs on a daily cron and emails activity for all apps (moonlaunch + bauhaus + suchoice). Replaces Firebase Analytics — events go to our own `/v1/events` endpoint instead. Native crashes come for free from Apple App Store Connect + Google Play Console; no SDK needed.
 
 ### Plugins to install
 - [x] **IAP plugins (Android + iOS) installed and wired**:
   - Android: [`godot-sdk-integrations/godot-google-play-billing`](https://github.com/godot-sdk-integrations/godot-google-play-billing) v3.2.0 → `addons/GodotGooglePlayBilling/` (BillingClient class). Enabled in `project.godot` plugins list.
   - iOS: [`godot-sdk-integrations/godot-storekit2`](https://github.com/godot-sdk-integrations/godot-storekit2) v0.2 (Godot 4.6.1 build) → `ios/plugins/godot-storekit2*` + GDScript wrapper at `game/net/StoreKit2Wrapper.gd`. **Enable in iOS export preset → Plugins checkbox** when first building.
   - `IAPManager.gd` rewritten: dispatches to GPB on Android, SK2 on iOS, no-op on web/desktop. Tracks consumable vs non-consumable, auto-acknowledges non-consumables, auto-consumes consumables, applies effects via existing `apply_purchase()`.
-- [ ] **Firebase plugin** for Godot 4. Options: poingstudios doesn't have one; community options are uneven. Pragmatic alternative: [`getsentry/sentry-godot`](https://github.com/getsentry/sentry-godot) for crashes + a tiny REST analytics layer to `api.such.software/v1/moonlaunch/event` (new endpoint). After install, replace the stubs in `Telemetry._has_firebase()` and `_init_firebase()`.
+- [x] **Telemetry / crash reporting** — went with **own backend, no Firebase** (Godot 4 Firebase landscape too sparse for cross-platform Crashlytics). `Telemetry.gd` now buffers events client-side and POSTs batches to `api.such.software/v1/events` (HMAC-signed, fire-and-forget). Native crashes come from Apple App Store Connect + Google Play Console (free, automatic). Backend has new `events` table + `/v1/events` route + `deploy/digest_email.py` for a daily Resend email summarizing all apps (moonlaunch / bauhaus / suchoice).
 
 ### Production identifier swap (single coordinated PR)
 After recreating apps above, swap the new IDs into:
@@ -44,7 +44,7 @@ After recreating apps above, swap the new IDs into:
 ### Build configuration
 - [ ] **Android** (`export_presets.cfg`): set `gradle_build/export_format=1` (AAB), `gradle_build/min_sdk=24`, `target_sdk=34`. Set launcher icons (`launcher_icons/main_192x192` + adaptive 432×432 from `art/branding/AppIcon_Cartoon-Astronaut.png`). Bump `version/code` and `version/name`.
 - [ ] **iOS** (`export_presets.cfg`): bundle id `com.suchsoftware.suchmoonlaunch`, team id, code-sign identity, provisioning profile, ALL icon sizes (use makeappicon.com from a 1024×1024 source). Enable In-App Purchase capability in the App ID at developer.apple.com.
-- [ ] **Privacy policy**: required by Google Play, App Store, AdMob, and Firebase. Publish a static page (itch.io game page works) and link it in store listings + AdMob app settings.
+- [ ] **Privacy policy**: required by Google Play, App Store, and AdMob. Publish a static page (itch.io game page works) and link it in store listings + AdMob app settings. Should cover: device identifiers (AdMob, IAP), in-game nickname (leaderboard), gameplay events (telemetry → our own backend), no personal info collected.
 - [ ] **Itch.io**: rename project URL slug to `such-moon-launch` (ensure `https://suchsoftware.itch.io/such-moon-launch` resolves).
 
 ### Store assets
@@ -58,7 +58,7 @@ After recreating apps above, swap the new IDs into:
 - [ ] Manual smoke: zero forced interstitials anywhere; banner shows on Menu/UpgradeShop only
 - [ ] Manual smoke: Easy mode bounce + share-score button + rate prompt after 3rd landing
 - [ ] Manual smoke: IAP sandbox purchase end-to-end for all 3 products + Restore Purchases
-- [ ] Manual smoke: Firebase realtime dashboard sees `app_open`, `level_complete`, `iap_initiated` events; Crashlytics smoke crash registers
+- [ ] Manual smoke: telemetry events arrive at backend (`SELECT count(*) FROM events WHERE app='moonlaunch' AND created_at > now() - interval '5 minutes';` should grow as you play); daily digest preview works via `python deploy/digest_email.py --dry-run`
 
 ### Backend (already done — confirmed compatible with rename)
 - [x] **API URLs are name-neutral**: `/v1/moonlaunch/*` paths require no change.
@@ -81,7 +81,7 @@ After recreating apps above, swap the new IDs into:
 - [x] Forced interstitials removed entirely (`AdManager.show_interstitial` is now a no-op stub; DeathScreen and Victory don't call it).
 - [x] Rewarded reward bumped 50 → 150 Moonrocks. Opt-in rewarded button added to Victory screen (alongside DeathScreen + UpgradeShop).
 - [x] `IAPManager` autoload scaffold (3 products defined). Feature-detected; no-op until plugin installed.
-- [x] `Telemetry` autoload scaffold (Firebase/Crashlytics wrapper). Event hooks instrumented at 9 sites: `app_open`, `level_start`, `level_complete`, `level_death`, `iap_initiated`, `iap_completed`, `rewarded_watched` (with surface), `share_pressed`, `rate_prompt_shown`.
+- [x] `Telemetry` autoload (own-backend, no Firebase). Buffers events, POSTs batches to `api.such.software/v1/events` every 30s + on app pause/quit. HMAC-signed via `ScoreClient._get_hmac_secret()`. Event hooks instrumented at 10 sites: `app_open`, `level_start`, `level_complete`, `level_death`, `iap_initiated`, `iap_completed`, `rewarded_watched` (with surface), `share_pressed`, `rate_prompt_shown`, `error`.
 - [x] `ShareService` autoload + "Share Score" button on Victory (web `navigator.share` fallback to clipboard; mobile/desktop clipboard + opens itch URL).
 - [x] Rate prompt: one-time popup after 3rd successful landing. Persisted via `landings_since_install` + `rate_prompt_shown` save fields.
 - [x] UpgradeShop: real-money Remove Ads on mobile (when IAP plugin lands) + Moonrock Store panel (10k/50k Moonrocks tiles) + Restore Purchases link. Web/desktop keep the free 10k-Moonrock-spend Remove Ads.
