@@ -23,6 +23,8 @@ func before_test() -> void:
 	globalvar.endless_wave = 1
 	globalvar.tutorial_shown = false
 	globalvar.welcome_shown = false
+	globalvar.landings_since_install = 0
+	globalvar.rate_prompt_shown = false
 	globalvar.best_times = {}
 	globalvar.best_stars = {}
 	globalvar.level_crypto_collected = 0
@@ -653,6 +655,47 @@ func test_easy_bounce_resets_independently() -> void:
 	assert_bool(globalvar.level_easy_bounce_used).is_false()
 
 
+func test_landings_increment_on_record_level_result() -> void:
+	# Lifetime landings counter must increment exactly once per record_level_result call.
+	# It drives the rate-prompt trigger on Victory.
+	assert_int(globalvar.landings_since_install).is_equal(0)
+	globalvar.record_level_result(1, 25.0, 80.0, 50)
+	assert_int(globalvar.landings_since_install).is_equal(1)
+	globalvar.record_level_result(2, 30.0, 70.0, 40)
+	globalvar.record_level_result(3, 32.0, 60.0, 30)
+	assert_int(globalvar.landings_since_install).is_equal(3)
+
+
+func test_landings_and_rate_prompt_round_trip_through_save() -> void:
+	globalvar.landings_since_install = 5
+	globalvar.rate_prompt_shown = true
+	var data := globalvar.get_save_data()
+	assert_int(int(data["landings_since_install"])).is_equal(5)
+	assert_bool(bool(data["rate_prompt_shown"])).is_true()
+	# Wipe and apply: should restore.
+	globalvar.landings_since_install = 0
+	globalvar.rate_prompt_shown = false
+	globalvar._apply_save_data(data)
+	assert_int(globalvar.landings_since_install).is_equal(5)
+	assert_bool(globalvar.rate_prompt_shown).is_true()
+
+
+func test_legacy_save_defaults_to_zero_landings_and_no_prompt() -> void:
+	# Saves predating these fields should default cleanly via .get(...) in _apply_save_data.
+	var legacy := {"level": 3, "wallet": 100}
+	globalvar._apply_save_data(legacy)
+	assert_int(globalvar.landings_since_install).is_equal(0)
+	assert_bool(globalvar.rate_prompt_shown).is_false()
+
+
+func test_reset_progress_clears_landings_and_rate_prompt() -> void:
+	globalvar.landings_since_install = 7
+	globalvar.rate_prompt_shown = true
+	globalvar.reset_progress()
+	assert_int(globalvar.landings_since_install).is_equal(0)
+	assert_bool(globalvar.rate_prompt_shown).is_false()
+
+
 # ==========================================================================
 #  CHECKPOINT
 # ==========================================================================
@@ -675,7 +718,9 @@ func test_get_save_data_contains_all_keys() -> void:
 		"best_times", "best_stars", "device_uuid", "nickname", "tutorial_shown",
 		"welcome_shown",
 		"difficulty", "selected_skin", "owned_skins", "endless_best_wave",
-		"levels_unlocked", "total_crypto_earned", "total_deaths", "ads_removed",
+		"levels_unlocked", "total_crypto_earned", "total_deaths",
+		"landings_since_install", "rate_prompt_shown",
+		"ads_removed",
 	]
 	for key in required_keys:
 		assert_bool(data.has(key)).is_true()

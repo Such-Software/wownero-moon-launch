@@ -4,16 +4,12 @@ extends CanvasLayer
 ##
 ## Options shown:
 ##   - "Retry Level" (always free)
-##   - "Watch Ad for 50 Moonrocks" (only if ads supported and not ad-free)
+##   - "Watch Ad for N Moonrocks" (opt-in, only if ads supported and not ad-free)
 ##   - "Quit to Menu"
 ##
 ## Instantiated by Rocket.gd after death animation completes.
 
 const BS = preload("res://game/gui/ButtonStyles.gd")
-
-## Show an interstitial every N retries (not every time — that's annoying)
-const INTERSTITIAL_EVERY := 3
-static var _retry_count: int = 0
 
 var _panel: PanelContainer
 var _ad_button: Button
@@ -146,16 +142,7 @@ func _build_ui() -> void:
 
 
 func _on_retry() -> void:
-	_retry_count += 1
-	if _retry_count % INTERSTITIAL_EVERY == 0:
-		# Show interstitial before retrying; retry happens after it closes
-		AdManager.interstitial_closed.connect(_do_retry, CONNECT_ONE_SHOT)
-		AdManager.show_interstitial()
-	else:
-		_do_retry()
-
-
-func _do_retry() -> void:
+	# No forced ads here — players retry instantly. Rewarded ad button is opt-in.
 	Engine.time_scale = 1.0
 	var scene_path: String = globalvar.get_level_scene(globalvar.nowlevel)
 	get_tree().change_scene_to_file(scene_path)
@@ -177,6 +164,7 @@ func _on_watch_ad() -> void:
 
 func _on_rewarded_result(success: bool) -> void:
 	if success:
+		Telemetry.log_event(Telemetry.EVENT_REWARDED_WATCHED, {"surface": "death"})
 		globalvar.add_crypto(AdManager.REWARDED_AD_MOONROCKS)
 		if _ad_button:
 			_ad_button.text = "+%d Moonrocks!" % AdManager.REWARDED_AD_MOONROCKS
