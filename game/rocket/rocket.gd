@@ -108,6 +108,10 @@ func _ready():
 	AdManager.hide_banner()
 	# Reset per-level stats
 	globalvar.reset_level_stats()
+	Telemetry.log_event(Telemetry.EVENT_LEVEL_START, {
+		"level": globalvar.nowlevel,
+		"difficulty": globalvar.difficulty,
+	})
 	# Apply upgrades from globalvar
 	thrust = Vector2(0, globalvar.get_thrust_force())
 	reverse_thrust = Vector2(0, globalvar.get_reverse_thrust_force())
@@ -382,6 +386,10 @@ func death(crash_body: Node2D = null):
 		globalvar.level_easy_bounce_used = true
 		_do_bounce(crash_body)
 		return
+	Telemetry.log_event(Telemetry.EVENT_LEVEL_DEATH, {
+		"level": globalvar.nowlevel,
+		"cause": crash_body.get_name() if (crash_body and is_instance_valid(crash_body)) else "hazard",
+	})
 	# Restore normal time if in slow-mo
 	if _in_slowmo:
 		_in_slowmo = false

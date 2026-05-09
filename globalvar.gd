@@ -78,6 +78,8 @@ const LEVEL_PACK_GRIND_COST := 2000  # Moonrocks earned (lifetime) to unlock for
 var levels_unlocked: bool = false  # true = all levels accessible
 var total_crypto_earned: int = 0   # lifetime Moonrocks earned (never decreases)
 var total_deaths: int = 0          # lifetime death count (for achievement skin)
+var landings_since_install: int = 0  # successful landings ever — drives rate prompt
+var rate_prompt_shown: bool = false  # one-time rate-this-game popup flag
 
 func is_level_unlocked(level: int) -> bool:
 	if level <= FREE_LEVELS:
@@ -438,6 +440,8 @@ func record_level_result(level: int, time_s: float, fuel_pct: float, crypto: int
 	var prev_stars: int = int(best_stars.get(key, 0))
 	if stars > prev_stars:
 		best_stars[key] = stars
+	# Lifetime successful-landings counter — drives the rate-prompt trigger on Victory.
+	landings_since_install += 1
 	check_achievement_skins()
 	# Notify achievement services
 	PlayGamesManager.on_level_completed(level, maxi(stars, int(best_stars.get(key, 0))))
@@ -477,6 +481,9 @@ func get_platform_string() -> String:
 
 # --- Save / Load ---
 func _ready():
+	# One-shot migration from the old "Wownero Moon Launch" save dir (if any)
+	# must run before load_game so the legacy file is in place to be read.
+	_migrate_legacy_save()
 	load_game()
 	# Ensure device has a UUID (generated once, persisted forever)
 	if device_uuid == "":
@@ -485,6 +492,32 @@ func _ready():
 	if nickname == "" or nickname == "Cosmonaut":
 		nickname = generate_random_nickname()
 	save_game()
+
+
+func _migrate_legacy_save() -> void:
+	## One-shot save migration after the rename to Such Moon Launch.
+	## Godot's user:// is derived from config/name, so renaming the app moves the
+	## save dir. If the new dir has no save yet but the old dir does, copy it over.
+	## Safe to run on every launch — no-op once the new save exists.
+	## On Android/iOS the legacy folder won't be visible (sandboxed per package);
+	## those players use the existing Restore-from-Cloud button instead.
+	var new_path := "user://savegame.json"
+	if FileAccess.file_exists(new_path):
+		return
+	var user_dir := OS.get_user_data_dir()  # .../app_userdata/Such Moon Launch
+	var legacy_dir := user_dir.get_base_dir().path_join("Wownero Moon Launch")
+	var legacy_save := legacy_dir.path_join("savegame.json")
+	if not FileAccess.file_exists(legacy_save):
+		return
+	var src := FileAccess.open(legacy_save, FileAccess.READ)
+	if src == null:
+		return
+	var data := src.get_as_text()
+	src.close()
+	var dst := FileAccess.open(new_path, FileAccess.WRITE)
+	if dst:
+		dst.store_string(data)
+		dst.close()
 
 func _generate_uuid() -> String:
 	## Generate a v4-style UUID from random bytes.
@@ -520,6 +553,8 @@ func get_save_data() -> Dictionary:
 		"levels_unlocked": levels_unlocked,
 		"total_crypto_earned": total_crypto_earned,
 		"total_deaths": total_deaths,
+		"landings_since_install": landings_since_install,
+		"rate_prompt_shown": rate_prompt_shown,
 		"ads_removed": ads_removed,
 	}
 
@@ -587,6 +622,8 @@ func _apply_save_data(data: Dictionary) -> void:
 	levels_unlocked = bool(data.get("levels_unlocked", false))
 	total_crypto_earned = int(data.get("total_crypto_earned", 0))
 	total_deaths = int(data.get("total_deaths", 0))
+	landings_since_install = int(data.get("landings_since_install", 0))
+	rate_prompt_shown = bool(data.get("rate_prompt_shown", false))
 	ads_removed = bool(data.get("ads_removed", false))
 
 func load_game() -> void:
@@ -632,6 +669,8 @@ func reset_progress() -> void:
 
 	total_crypto_earned = 0
 	total_deaths = 0
+	landings_since_install = 0
+	rate_prompt_shown = false
 	levels_unlocked = false
 	ads_removed = false
 

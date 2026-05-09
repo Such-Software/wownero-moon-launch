@@ -26,6 +26,9 @@ var _time_label: Label = null
 var _fuel_label: Label = null
 var _crypto_label: Label = null
 var _best_label: Label = null
+var _rewarded_btn: Button = null
+var _share_btn: Button = null
+var _rate_prompt_panel: PanelContainer = null
 
 
 func _ready():
@@ -45,6 +48,12 @@ func _ready():
 	stars = globalvar.record_level_result(nowlevel, finaltime, _fuel_pct, _crypto_collected)
 	var prev_best: float = globalvar.get_best_time(nowlevel)
 	is_new_best = (finaltime <= prev_best) or prev_best < 0
+	Telemetry.log_event(Telemetry.EVENT_LEVEL_COMPLETE, {
+		"level": nowlevel,
+		"time_s": finaltime,
+		"stars": stars,
+		"moonrocks": _crypto_collected,
+	})
 
 	# Build the level complete header
 	var level_name: String = globalvar.LEVEL_NAMES.get(nowlevel, str(nowlevel))
@@ -163,8 +172,16 @@ func presskey():
 		$ButtonNode/Label_NextLevel.text = "Upgrades & Menu"
 	BS.apply_space_style($ButtonNode/Label_NextLevel, Color.GREEN)
 
+	# Insert opt-in rewarded + share buttons into ButtonNode (siblings of NextLevel/Quit).
+	# Hidden from desktop builds (no ad SDK + no real ads to watch) by AdManager.is_ad_supported.
+	_build_optional_buttons()
+
 	# Slide buttons in from below with stagger
-	var buttons: Array[Node] = [$ButtonNode/Label_NextLevel, $ButtonNode/Label_Quit]
+	var buttons: Array[Node] = []
+	buttons.append($ButtonNode/Label_NextLevel)
+	if _rewarded_btn: buttons.append(_rewarded_btn)
+	if _share_btn: buttons.append(_share_btn)
+	buttons.append($ButtonNode/Label_Quit)
 	for i in buttons.size():
 		var btn: Control = buttons[i]
 		var final_pos := btn.position
@@ -179,7 +196,74 @@ func presskey():
 		tw.tween_property(btn, "position", final_pos, 0.25).set_delay(delay)
 		tw.tween_property(btn, "modulate", Color.WHITE, 0.2).set_delay(delay)
 
+	# Rate prompt fires once after the 3rd successful landing in the player's history
+	# (and only once per save). Trigger after the button stagger completes.
+	if globalvar.landings_since_install >= 3 and not globalvar.rate_prompt_shown:
+		var rt_timer := get_tree().create_timer(1.2)
+		rt_timer.timeout.connect(_show_rate_prompt)
+
 	done = true
+
+
+func _build_optional_buttons() -> void:
+	var bn: Node = get_node("ButtonNode")
+	if bn == null:
+		return
+	# Position helper: stack new buttons just above the Quit button.
+	var anchor: Control = $ButtonNode/Label_Quit
+	var btn_size: Vector2 = anchor.size if anchor.size != Vector2.ZERO else Vector2(220, 48)
+	var spacing := 6.0
+	var anchor_y := anchor.position.y
+
+	# Rewarded "+N Moonrocks (Watch Ad)" — only if ad system can serve a rewarded.
+	if AdManager.is_rewarded_available() and not AdManager.is_ad_free():
+		_rewarded_btn = Button.new()
+		_rewarded_btn.text = "+%d Moonrocks (Watch Ad)" % AdManager.REWARDED_AD_MOONROCKS
+		_rewarded_btn.custom_minimum_size = btn_size
+		_rewarded_btn.position = Vector2(anchor.position.x, anchor_y - btn_size.y - spacing)
+		_rewarded_btn.add_theme_font_size_override("font_size", 16)
+		BS.apply_space_style(_rewarded_btn, Color(1.0, 0.85, 0.2))
+		_rewarded_btn.pressed.connect(_on_rewarded_pressed)
+		bn.add_child(_rewarded_btn)
+		anchor_y = _rewarded_btn.position.y
+
+	# Share button — always available
+	_share_btn = Button.new()
+	_share_btn.text = "📤 Share Score"
+	_share_btn.custom_minimum_size = btn_size
+	_share_btn.position = Vector2(anchor.position.x, anchor_y - btn_size.y - spacing)
+	_share_btn.add_theme_font_size_override("font_size", 16)
+	BS.apply_space_style(_share_btn, Color(0.5, 0.85, 1.0))
+	_share_btn.pressed.connect(_on_share_pressed)
+	bn.add_child(_share_btn)
+
+
+func _on_rewarded_pressed() -> void:
+	if _rewarded_btn == null: return
+	_rewarded_btn.disabled = true
+	_rewarded_btn.text = "Loading ad..."
+	AdManager.show_rewarded(_on_rewarded_complete)
+
+
+func _on_rewarded_complete(success: bool) -> void:
+	if _rewarded_btn == null: return
+	if success:
+		Telemetry.log_event(Telemetry.EVENT_REWARDED_WATCHED, {"surface": "victory"})
+		globalvar.add_crypto(AdManager.REWARDED_AD_MOONROCKS)
+		_rewarded_btn.text = "+%d Moonrocks!" % AdManager.REWARDED_AD_MOONROCKS
+		# Hide after a beat — single-use per Victory screen.
+		var t := get_tree().create_timer(1.2)
+		t.timeout.connect(func(): if _rewarded_btn: _rewarded_btn.visible = false)
+	else:
+		_rewarded_btn.disabled = false
+		_rewarded_btn.text = "+%d Moonrocks (Watch Ad)" % AdManager.REWARDED_AD_MOONROCKS
+
+
+func _on_share_pressed() -> void:
+	if not Engine.has_singleton("ShareService") and not has_node("/root/ShareService"):
+		return  # Autoload not present; defensive
+	var level_name: String = globalvar.LEVEL_NAMES.get(nowlevel, str(nowlevel))
+	ShareService.share_score(level_name, stars, finaltime)
 
 
 func _on_score_submitted(success: bool, rank: int) -> void:
@@ -262,10 +346,99 @@ func _on_Label_Quit_pressed():
 	get_tree().change_scene_to_file("res://game/gui/menu/Menu.tscn")
 
 func _on_Label_NextLevel_pressed():
-	# Show interstitial ad before going to shop (no-op if ad-free)
-	AdManager.interstitial_closed.connect(_go_to_shop, CONNECT_ONE_SHOT)
-	AdManager.show_interstitial()
-
-
-func _go_to_shop() -> void:
+	# Direct navigation — no forced ads in this game.
 	get_tree().change_scene_to_file("res://game/gui/shop/UpgradeShop.tscn")
+
+
+func _show_rate_prompt() -> void:
+	## One-time "rate this game" popup after the 3rd successful landing.
+	if globalvar.rate_prompt_shown:
+		return
+	globalvar.rate_prompt_shown = true
+	globalvar.save_game()
+	Telemetry.log_event(Telemetry.EVENT_RATE_PROMPT_SHOWN, {})
+
+	var panel := PanelContainer.new()
+	var style := StyleBoxFlat.new()
+	style.bg_color = Color(0.03, 0.03, 0.1, 0.97)
+	style.border_color = Color(1.0, 0.85, 0.2, 0.7)
+	style.set_border_width_all(2)
+	style.set_corner_radius_all(12)
+	style.content_margin_left = 22
+	style.content_margin_right = 22
+	style.content_margin_top = 18
+	style.content_margin_bottom = 18
+	style.shadow_color = Color(1.0, 0.85, 0.2, 0.25)
+	style.shadow_size = 12
+	panel.add_theme_stylebox_override("panel", style)
+	panel.z_index = 25
+	# Anchor in CanvasLayer-style center (Victory is a Node2D so we add a CanvasLayer).
+	var cl := CanvasLayer.new()
+	cl.layer = 12
+	add_child(cl)
+	cl.add_child(panel)
+	panel.set_anchors_preset(Control.PRESET_CENTER)
+	panel.offset_left = -220
+	panel.offset_right = 220
+	panel.offset_top = -130
+	panel.offset_bottom = 130
+	_rate_prompt_panel = panel
+
+	var vbox := VBoxContainer.new()
+	vbox.add_theme_constant_override("separation", 12)
+	panel.add_child(vbox)
+
+	var title := Label.new()
+	title.text = "🚀  Enjoying Such Moon Launch?"
+	title.add_theme_font_size_override("font_size", 20)
+	title.add_theme_color_override("font_color", Color(1.0, 0.85, 0.2))
+	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	vbox.add_child(title)
+
+	var body := Label.new()
+	body.text = "A quick rating helps us reach more pilots. It takes 10 seconds and means a lot."
+	body.add_theme_font_size_override("font_size", 14)
+	body.add_theme_color_override("font_color", Color(0.85, 0.88, 0.95))
+	body.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	body.autowrap_mode = TextServer.AUTOWRAP_WORD
+	body.custom_minimum_size = Vector2(380, 0)
+	vbox.add_child(body)
+
+	var btn_row := HBoxContainer.new()
+	btn_row.alignment = BoxContainer.ALIGNMENT_CENTER
+	btn_row.add_theme_constant_override("separation", 12)
+	vbox.add_child(btn_row)
+
+	var rate_btn := Button.new()
+	rate_btn.text = "Rate Now"
+	rate_btn.custom_minimum_size = Vector2(150, 36)
+	BS.apply_space_style(rate_btn, Color.GREEN)
+	rate_btn.pressed.connect(func():
+		OS.shell_open(_get_store_url())
+		_close_rate_prompt()
+	)
+	btn_row.add_child(rate_btn)
+
+	var later_btn := Button.new()
+	later_btn.text = "Maybe Later"
+	later_btn.custom_minimum_size = Vector2(150, 36)
+	BS.apply_space_style(later_btn, Color(0.5, 0.6, 0.7))
+	later_btn.pressed.connect(_close_rate_prompt)
+	btn_row.add_child(later_btn)
+
+
+func _close_rate_prompt() -> void:
+	if _rate_prompt_panel == null:
+		return
+	# Free the parent CanvasLayer too so we don't leak.
+	var cl := _rate_prompt_panel.get_parent()
+	_rate_prompt_panel = null
+	if cl and is_instance_valid(cl):
+		cl.queue_free()
+
+
+func _get_store_url() -> String:
+	match OS.get_name():
+		"Android": return "https://play.google.com/store/apps/details?id=com.suchsoftware.suchmoonlaunch"
+		"iOS": return "https://apps.apple.com/app/such-moon-launch"
+		_: return "https://suchsoftware.itch.io/such-moon-launch"
