@@ -206,36 +206,54 @@ func presskey():
 
 
 func _build_optional_buttons() -> void:
+	## Lay out all four buttons (NextLevel, Rewarded, Share, Quit) as a clean
+	## vertical stack. Overrides the .tscn-baked positions for NextLevel and
+	## Quit because they were too close together (40px apart) for inserted
+	## buttons to fit without overlap.
 	var bn: Node = get_node("ButtonNode")
 	if bn == null:
 		return
-	# Position helper: stack new buttons just above the Quit button.
-	var anchor: Control = $ButtonNode/Label_Quit
-	var btn_size: Vector2 = anchor.size if anchor.size != Vector2.ZERO else Vector2(220, 48)
-	var spacing := 6.0
-	var anchor_y := anchor.position.y
+	var next_btn: Control = $ButtonNode/Label_NextLevel
+	var quit_btn: Control = $ButtonNode/Label_Quit
 
-	# Rewarded "+N Moonrocks (Watch Ad)" — only if ad system can serve a rewarded.
+	# Keep horizontal position from the .tscn (200 left of viewport center).
+	var x: float = next_btn.position.x
+	var w: float = 420.0  # matches .tscn offset_right - offset_left
+	var h: float = 44.0
+	var spacing: float = 10.0
+	var y: float = 410.0  # top of the button column
+
+	# NextLevel (green, primary CTA)
+	next_btn.position = Vector2(x, y)
+	next_btn.size = Vector2(w, h)
+	y += h + spacing
+
+	# Rewarded "+N Moonrocks (Watch Ad)" — only if ad system can serve rewarded.
 	if AdManager.is_rewarded_available() and not AdManager.is_ad_free():
 		_rewarded_btn = Button.new()
 		_rewarded_btn.text = "+%d Moonrocks (Watch Ad)" % AdManager.REWARDED_AD_MOONROCKS
-		_rewarded_btn.custom_minimum_size = btn_size
-		_rewarded_btn.position = Vector2(anchor.position.x, anchor_y - btn_size.y - spacing)
+		_rewarded_btn.custom_minimum_size = Vector2(w, h)
+		_rewarded_btn.position = Vector2(x, y)
 		_rewarded_btn.add_theme_font_size_override("font_size", 16)
 		BS.apply_space_style(_rewarded_btn, Color(1.0, 0.85, 0.2))
 		_rewarded_btn.pressed.connect(_on_rewarded_pressed)
 		bn.add_child(_rewarded_btn)
-		anchor_y = _rewarded_btn.position.y
+		y += h + spacing
 
 	# Share button — always available
 	_share_btn = Button.new()
-	_share_btn.text = "📤 Share Score"
-	_share_btn.custom_minimum_size = btn_size
-	_share_btn.position = Vector2(anchor.position.x, anchor_y - btn_size.y - spacing)
+	_share_btn.text = "Share Score"
+	_share_btn.custom_minimum_size = Vector2(w, h)
+	_share_btn.position = Vector2(x, y)
 	_share_btn.add_theme_font_size_override("font_size", 16)
 	BS.apply_space_style(_share_btn, Color(0.5, 0.85, 1.0))
 	_share_btn.pressed.connect(_on_share_pressed)
 	bn.add_child(_share_btn)
+	y += h + spacing
+
+	# Quit at bottom
+	quit_btn.position = Vector2(x, y)
+	quit_btn.size = Vector2(w, h)
 
 
 func _on_rewarded_pressed() -> void:
@@ -268,13 +286,17 @@ func _on_share_pressed() -> void:
 
 func _on_score_submitted(success: bool, rank: int) -> void:
 	if success and rank > 0:
-		# Briefly show rank after confetti settles
+		# Show rank in the gap between the stats row and the button column.
+		# (Was previously at y=395 which overlapped the new dynamic Share
+		# button on mobile.)
 		var rank_label := Label.new()
 		rank_label.text = "Leaderboard Rank: #%d" % rank
 		rank_label.add_theme_color_override("font_color", Color(1, 0.85, 0.2))
+		rank_label.add_theme_font_size_override("font_size", 18)
 		rank_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-		rank_label.set_anchors_preset(Control.PRESET_CENTER_BOTTOM)
-		rank_label.position = Vector2(350, 395)
+		rank_label.set_anchors_preset(Control.PRESET_TOP_WIDE)
+		rank_label.offset_top = 380
+		rank_label.offset_bottom = 405
 		add_child(rank_label)
 
 func _process(delta):

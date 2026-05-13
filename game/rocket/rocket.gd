@@ -101,6 +101,20 @@ const EMPPulseScript = preload("res://game/rocket/EMPPulse.gd")
 # not at the moment we approach a planet (was a noticeable freeze).
 const LANDING_MODE_SCRIPT = preload("res://game/rocket/LandingMode.gd")
 
+# Tilt-mode calibration: the gravity vector captured shortly after level start.
+# All tilt input is measured as a DELTA from this baseline so the player's
+# natural hold position registers as zero (no drift).
+var _tilt_baseline: Vector3 = Vector3.ZERO
+# Low-pass-filtered raw gravity. Kills sensor jitter without eating slow
+# intentional tilts (canonical mobile pattern — beats baseline drift).
+var _tilt_filtered: Vector3 = Vector3.ZERO
+var _tilt_calibrated: bool = false
+# Self-destruct button — shown on the HUD when fuel is dangerously low so
+# the player can bail out of an unrecoverable drift.
+var _self_destruct_btn: Button = null
+const SELF_DESTRUCT_FUEL_THRESHOLD := 0.05  # show when fuel ≤ 5% of max
+
+
 func _ready():
 	# Add to group so HUD widgets (FuelBar etc.) can find us
 	add_to_group("rocket")
@@ -198,6 +212,54 @@ func _ready():
 		# Defer position/velocity restore to after physics init
 		call_deferred("_apply_checkpoint")
 
+	# Tilt calibration: capture player's natural hold as the "zero" baseline.
+	# Wait a short moment for sensors to stabilize before sampling.
+	if _is_tilt_mode():
+		get_tree().create_timer(0.4).timeout.connect(_calibrate_tilt)
+
+
+func _update_self_destruct_button() -> void:
+	## Show a "Self Destruct" button on the HUD when fuel is critically low,
+	## so the player can manually trigger death (and respawn) if drifting.
+	var low_fuel: bool = (fuel / max_fuel) <= SELF_DESTRUCT_FUEL_THRESHOLD and not flagplaced
+	if low_fuel and _self_destruct_btn == null:
+		var hud := get_node_or_null("../CanvasLayer")
+		if hud == null: return
+		_self_destruct_btn = Button.new()
+		_self_destruct_btn.text = "💥 Self Destruct"
+		_self_destruct_btn.custom_minimum_size = Vector2(180, 44)
+		_self_destruct_btn.add_theme_font_size_override("font_size", 16)
+		_self_destruct_btn.add_theme_color_override("font_color", Color(1.0, 0.4, 0.3))
+		_self_destruct_btn.set_anchors_preset(Control.PRESET_TOP_RIGHT)
+		_self_destruct_btn.offset_left = -200
+		_self_destruct_btn.offset_right = -20
+		_self_destruct_btn.offset_top = 60
+		_self_destruct_btn.offset_bottom = 104
+		_self_destruct_btn.pressed.connect(func(): death(null))
+		hud.add_child(_self_destruct_btn)
+	elif (not low_fuel) and _self_destruct_btn:
+		_self_destruct_btn.queue_free()
+		_self_destruct_btn = null
+
+
+func _is_tilt_mode() -> bool:
+	if globalvar.control_scheme != globalvar.ControlScheme.TILT:
+		return false
+	var os := OS.get_name()
+	return os == "Android" or os == "iOS"
+
+
+func _calibrate_tilt() -> void:
+	## Sample current gravity vector as the player's neutral hold position.
+	## All tilt input is computed as a delta from this baseline.
+	## Seed the low-pass filter with the baseline so the first frame doesn't
+	## produce a spurious delta while the filter is converging.
+	var raw := Input.get_gravity()
+	_tilt_baseline = raw
+	_tilt_filtered = raw
+	_tilt_calibrated = true
+
+
 func _integrate_forces(state):
 	var dt = state.step
 	var has_fuel = fuel > 0.0
@@ -224,8 +286,44 @@ func _integrate_forces(state):
 
 	fuel = maxf(fuel, 0.0)
 
-	var t = int(Input.is_action_pressed("ui_right")) - int(Input.is_action_pressed("ui_left"))
-	constant_torque = torque * t
+	# Self-destruct: emergency escape when stuck (e.g. drifting out of fuel
+	# with no way to recover). Keyboard binding 'X' / on-screen button when
+	# fuel is low. Triggers normal death flow → DeathScreen offers retry.
+	if Input.is_action_just_pressed("self_destruct"):
+		death(null)
+	_update_self_destruct_button()
+
+	# Steering input — branches by control scheme.
+	if _is_tilt_mode() and _tilt_calibrated:
+		# Canonical mobile tilt-to-steer pipeline:
+		#   raw gravity → low-pass filter → delta from baseline → screen-X
+		#   axis with correct sign → deadzone → sensitivity → clamp → output
+		# No baseline drift: it eats slow input. Filter handles jitter.
+		# Orientation is locked to LANDSCAPE in project.godot, so the
+		# device-natural Y axis (top of device in portrait) reliably points
+		# LEFT in screen space — therefore screen-right = -device.y.
+		var raw := Input.get_gravity()
+		_tilt_filtered = _tilt_filtered.lerp(raw, globalvar.TILT_FILTER_ALPHA)
+		var delta := _tilt_filtered - _tilt_baseline
+		# In landscape, the phone's long axis is horizontal (device-Y in
+		# natural portrait frame). Rolling left/right is rotation AROUND
+		# device-Y, which changes device-X (and device-Z) but leaves
+		# device-Y essentially unchanged. So we read delta.x for screen-
+		# horizontal tilt input. Sign: +delta.x means right edge dipping
+		# down → CW ship rotation.
+		var tilt: float = delta.x / 9.81
+		if absf(tilt) < globalvar.TILT_DEADZONE:
+			tilt = 0.0
+		var ctrl := clampf(tilt * globalvar.TILT_SENSITIVITY, -1.0, 1.0)
+		if globalvar.TILT_USE_TORQUE:
+			constant_torque = torque * ctrl
+		else:
+			state.angular_velocity = ctrl * globalvar.TILT_MAX_ANGULAR_VELOCITY
+			constant_torque = 0
+	else:
+		# Keyboard / joystick — torque-based (original behavior).
+		var t: float = float(int(Input.is_action_pressed("ui_right")) - int(Input.is_action_pressed("ui_left")))
+		constant_torque = torque * t
 
 func _process(_delta):
 	if target:

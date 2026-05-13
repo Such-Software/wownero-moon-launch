@@ -60,15 +60,34 @@ var _ios_storekit  # GDScriptStoreKit2 wrapper (iOS only)
 
 var _initialized: bool = false
 
+## Force IAP UI to render on desktop with fallback prices — ONLY for
+## capturing App Store / Play Store screenshots from the Godot editor.
+## Always commit as `false`. With this on, clicking a buy button just
+## emits purchase_completed(id, false) — no real purchase fires.
+const DEBUG_FAKE_IAP_FOR_SCREENSHOTS := false
+
 
 func _ready() -> void:
 	match OS.get_name():
 		"Android":
 			_init_android()
+			# If GPB plugin isn't present (or products aren't registered yet
+			# in Play Console), fall back to fake-available for screenshots.
+			if not _initialized and DEBUG_FAKE_IAP_FOR_SCREENSHOTS and OS.is_debug_build():
+				_initialized = true
 		"iOS":
 			_init_ios()
+			# If the StoreKit2 plugin didn't load (e.g. running in iOS
+			# Simulator — the v0.2 release ships device-only xcframework),
+			# optionally fake "available" so the shop UI still renders for
+			# screenshot capture on the simulator.
+			if not _initialized and DEBUG_FAKE_IAP_FOR_SCREENSHOTS and OS.is_debug_build():
+				_initialized = true
 		_:
-			pass  # web/desktop — no IAP
+			# Desktop / web — no IAP backend. Optionally fake "available"
+			# so the shop UI renders for screenshot capture.
+			if DEBUG_FAKE_IAP_FOR_SCREENSHOTS and OS.is_debug_build():
+				_initialized = true
 
 
 ## Returns true if the platform can perform real-money purchases.

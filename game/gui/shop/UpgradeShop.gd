@@ -111,11 +111,11 @@ func _ready() -> void:
 		if not globalvar.is_ads_removed():
 			_remove_ads_btn = Button.new()
 			if IAPManager.is_available():
-				_remove_ads_btn.text = "🚫  Remove Ads — %s" % IAPManager.get_price(IAPManager.PRODUCT_REMOVE_ADS)
+				_remove_ads_btn.text = "Remove Ads — %s" % IAPManager.get_price(IAPManager.PRODUCT_REMOVE_ADS)
 				BS.apply_space_style(_remove_ads_btn, Color(0.9, 0.3, 0.9))
 				_remove_ads_btn.pressed.connect(_on_remove_ads_iap)
 			else:
-				_remove_ads_btn.text = "🚫  Remove Ads — %d 🪨" % globalvar.AD_REMOVAL_COST
+				_remove_ads_btn.text = "Remove Ads — %d Moonrocks" % globalvar.AD_REMOVAL_COST
 				if globalvar.wallet >= globalvar.AD_REMOVAL_COST:
 					BS.apply_space_style(_remove_ads_btn, Color(0.9, 0.3, 0.9))
 				else:
@@ -267,9 +267,9 @@ func _ready() -> void:
 
 
 func _build_moonrock_store(parent: VBoxContainer) -> void:
-	## "💎 Moonrock Store" panel — real-money Moonrock packs.
+	## "Moonrock Store" panel — real-money Moonrock packs.
 	var header := Label.new()
-	header.text = "💎  MOONROCK STORE"
+	header.text = "MOONROCK STORE"
 	header.add_theme_font_size_override("font_size", 18)
 	header.add_theme_color_override("font_color", Color(0.5, 0.85, 1.0))
 	header.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER

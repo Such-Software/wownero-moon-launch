@@ -25,6 +25,34 @@ var difficulty: int = Difficulty.NORMAL
 
 const DIFFICULTY_NAMES := { 0: "Easy", 1: "Normal", 2: "Hard" }
 
+# --- Mobile control scheme ---
+# Desktop uses keyboard (this setting is ignored). On mobile, the player can
+# choose how to rotate the rocket. Thrust + reverse remain on-screen buttons
+# in all modes.
+enum ControlScheme { TILT, JOYSTICK }
+var control_scheme: int = ControlScheme.TILT
+const CONTROL_SCHEME_NAMES := { 0: "Tilt", 1: "Joystick" }
+
+## Tilt sensitivity — multiplier on normalized tilt [-1..1] from calibrated
+## baseline. Lower = needs more tilt for max steering. Tuned for ~30° = full.
+const TILT_SENSITIVITY := 2.0
+## Deadzone — tilt amounts smaller than this register as zero. The low-pass
+## filter handles sensor jitter, so this can be tight: 0.02 ≈ 1.1°.
+const TILT_DEADZONE := 0.02
+## Max angular velocity in tilt mode (rad/s). At full tilt the rocket spins
+## at this rate. Set high enough for snappy turns but low enough that you
+## can't whip into a 720° spin from a single twitch.
+const TILT_MAX_ANGULAR_VELOCITY := 4.5
+## If true, tilt applies TORQUE (force-based, momentum builds) instead of
+## setting angular_velocity directly (proportional, instant stop on release).
+## Torque feels more "spacecraft-like" but harder to control via tilt.
+const TILT_USE_TORQUE := false
+## Low-pass filter alpha for the raw gravity vector. Higher = more responsive
+## but more jitter; lower = smoother but more lag. 0.35 ≈ 3-frame time
+## constant (~50ms) — snappy without obvious lag.
+## This is what lets us avoid drift logic without losing input to jitter.
+const TILT_FILTER_ALPHA := 0.35
+
 ## Spawn interval multiplier (higher = slower spawns = easier)
 func get_spawn_interval_mult() -> float:
 	match difficulty:
@@ -547,6 +575,7 @@ func get_save_data() -> Dictionary:
 		"tutorial_shown": tutorial_shown,
 		"welcome_shown": welcome_shown,
 		"difficulty": difficulty,
+		"control_scheme": control_scheme,
 		"selected_skin": selected_skin,
 		"owned_skins": owned_skins.duplicate(),
 		"endless_best_wave": endless_best_wave,
@@ -612,6 +641,7 @@ func _apply_save_data(data: Dictionary) -> void:
 	else:
 		welcome_shown = int(data.get("highest_completed", 0)) > 0 or str(data.get("nickname", "")) != ""
 	difficulty = int(data.get("difficulty", Difficulty.NORMAL))
+	control_scheme = int(data.get("control_scheme", ControlScheme.TILT))
 	selected_skin = str(data.get("selected_skin", "default"))
 	var saved_skins = data.get("owned_skins", ["default"])
 	if saved_skins is Array:
@@ -656,6 +686,7 @@ func reset_progress() -> void:
 	endless_best_wave = 0
 
 	difficulty = Difficulty.NORMAL
+	control_scheme = ControlScheme.TILT
 
 	wallet = 0
 	for key in upgrades.keys():
