@@ -50,12 +50,15 @@ func _build_tutorial_messages() -> Array[String]:
 	## Platform-aware prompts. Mobile uses on-screen control names; desktop uses keys.
 	var is_mobile: bool = OS.has_feature("mobile") or OS.has_feature("android") or OS.has_feature("ios")
 	if is_mobile:
+		var rotate_hint := "Tilt phone LEFT / RIGHT to turn"
+		if globalvar.control_scheme == globalvar.ControlScheme.JOYSTICK:
+			rotate_hint = "Use the joystick to rotate"
 		return [
 			"Welcome, Pilot!",
 			"Hold THRUST to fly up",
-			"Use the joystick to rotate",
+			rotate_hint,
 			"Tap REVERSE to slow your descent",
-			"Watch your FUEL (top-left)",
+			"Switch controls anytime in Options",
 			"Land slowly and upright on the Moon!",
 		]
 	return [

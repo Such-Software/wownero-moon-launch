@@ -51,11 +51,19 @@ const DIFF_COLORS := {
 }
 
 func _ready():
-	$RocketSprite/AnimationPlayer.play("move")
 	globalvar.load_game()
 
 	# Adapt layout to actual viewport size (handles ultrawide displays)
 	var vp := get_viewport_rect().size
+
+	# Rebake the title-screen rocket flyover animation so it actually flies
+	# OFF the right edge on wide viewports. The .tscn animation tweens to
+	# x=1300 (just past 1024-wide design viewport), but on a 2400-wide phone
+	# x=1300 is middle-right of the screen — the rocket sat there visibly for
+	# 3 seconds (the gap between the last keyframe at t=11 and the loop at t=14)
+	# before snapping back to the left.
+	_adapt_rocket_animation(vp)
+	$RocketSprite/AnimationPlayer.play("move")
 	# Center and scale background starfield to cover viewport
 	if $SpaceBG.texture:
 		$SpaceBG.position = Vector2(vp.x / 2.0, vp.y / 2.0)
@@ -69,8 +77,13 @@ func _ready():
 	$VButtonArray.offset_right = 240
 	$Label.anchor_left = 0.5
 	$Label.anchor_right = 0.5
-	$Label.offset_left = -237
-	$Label.offset_right = 237
+	$Label.offset_left = -260
+	$Label.offset_right = 260
+	# Subtle pulsing glow on the title — alternates the shadow outline size.
+	# (Reads "shadow_outline_size" from the .tscn theme override and modulates it.)
+	var glow_tween := create_tween().set_loops()
+	glow_tween.tween_method(_set_title_glow, 6, 14, 1.6).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
+	glow_tween.tween_method(_set_title_glow, 14, 6, 1.6).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
 	# Moon tracks right edge
 	$Moon.position.x = vp.x - 76
 
@@ -103,6 +116,37 @@ func _ready():
 	
 	_bg_action_delay = randf_range(5.0, 7.0)
 	AdManager.show_banner()
+
+
+func _set_title_glow(size: int) -> void:
+	if has_node("Label"):
+		$Label.add_theme_constant_override("shadow_outline_size", size)
+
+
+func _adapt_rocket_animation(vp: Vector2) -> void:
+	## Patch the .tscn-baked "move" animation so the title rocket actually
+	## flies off the right edge on phones (wide viewports). Updates both
+	## the entry position (just off left edge) and the exit position (just
+	## off right edge) to viewport-relative pixels.
+	var ap: AnimationPlayer = $RocketSprite/AnimationPlayer
+	var lib_names := ap.get_animation_library_list()
+	if lib_names.is_empty():
+		return
+	var lib := ap.get_animation_library(lib_names[0])
+	if not lib or not lib.has_animation("move"):
+		return
+	var anim: Animation = lib.get_animation("move")
+	# Find the position track (path ".:position")
+	for i in anim.get_track_count():
+		if anim.track_get_path(i) != NodePath(".:position"):
+			continue
+		if anim.track_get_key_count(i) < 2:
+			continue
+		var y_pos: float = (anim.track_get_key_value(i, 0) as Vector2).y
+		# Off-screen left at start, off-screen right at the end keyframe.
+		anim.track_set_key_value(i, 0, Vector2(-200.0, y_pos))
+		anim.track_set_key_value(i, 1, Vector2(vp.x + 200.0, y_pos))
+		break
 
 
 # --- Background Animation ---
@@ -220,7 +264,7 @@ func _spawn_bg_ship() -> void:
 
 	spr.position = pos
 	spr.rotation = angle + PI / 2.0  # nose points in travel direction
-	var speed := randf_range(20, 50)
+	var speed := randf_range(45, 80)
 	var vel := Vector2(cos(angle), sin(angle)) * speed
 
 	_bg_ships.append({
@@ -272,7 +316,6 @@ func _process(delta: float) -> void:
 		_ship_spawn_timer = randf_range(2.5, 5.0)
 
 	# Update ships + check collisions with planets
-	var margin := 60.0
 	var ships_to_remove: Array[int] = []
 	for i in _bg_ships.size():
 		var ship: Dictionary = _bg_ships[i]
@@ -286,7 +329,14 @@ func _process(delta: float) -> void:
 			continue
 		spr.position += ship["velocity"] * delta
 
-		# Off-screen cleanup
+		# Off-screen cleanup. Margin scales with ship size so larger / faster
+		# ships don't appear to "stick" at the edge before disappearing.
+		# (Original 60px margin was too tight for wider-than-design viewports
+		# on phones — ships looked stuck at the edge for several seconds.)
+		var ship_w: float = 0.0
+		if spr.texture:
+			ship_w = spr.texture.get_width() * spr.scale.x
+		var margin: float = maxf(400.0, ship_w * 2.0)
 		if spr.position.x < -margin or spr.position.x > vp.x + margin \
 			or spr.position.y < -margin or spr.position.y > vp.y + margin:
 			spr.queue_free()
@@ -294,32 +344,12 @@ func _process(delta: float) -> void:
 			ships_to_remove.append(i)
 			continue
 
-		# Check collision with background planets
-		for p in _bg_planets:
-			var planet_spr: Sprite2D = p["sprite"]
-			if not is_instance_valid(planet_spr):
-				continue
-			var dist := spr.position.distance_to(planet_spr.position)
-			var hit_radius: float = p["visual_radius"] + 4.0
-			if dist < hit_radius:
-				_explode_ship(spr.position, spr.scale.x)
-				spr.queue_free()
-				ship["alive"] = false
-				ships_to_remove.append(i)
-				break
-
-		# Also check collision with scene Earth and Moon
-		if ship["alive"] and is_instance_valid(spr):
-			for body_name in ["Earth", "Moon"]:
-				if not has_node(body_name):
-					continue
-				var body: Sprite2D = get_node(body_name)
-				var body_radius: float = body.texture.get_width() * body.scale.x * 0.4
-				if spr.position.distance_to(body.position) < body_radius:
-					_explode_ship(spr.position, spr.scale.x)
-					spr.queue_free()
-					ship["alive"] = false
-					break
+		# Note: previously we'd explode the ship if it collided with a
+		# bg planet or Earth/Moon. Removed — the explosion particles
+		# linger ~1s after the kill, which on a busy menu looks like the
+		# ship is "stuck" at the edge before disappearing. Letting ships
+		# pass through planets reads as if they're flying behind them and
+		# is visually cleaner.
 
 	# Remove dead ships (reverse order)
 	ships_to_remove.sort()
@@ -376,38 +406,61 @@ func _explode_ship(pos: Vector2, ship_scale: float) -> void:
 
 
 func _build_help_options_buttons() -> void:
-	## Replace Help button with side-by-side Help and Options buttons
+	## Replace Help button with side-by-side Help / Options / Store buttons
 	# Remove the original HelpButton
 	var help_btn_original = $VButtonArray.find_child("HelpButton", true, false)
 	if help_btn_original:
 		help_btn_original.queue_free()
 
-	# Create container for Help and Options buttons side-by-side
+	# Create container for Help, Options, and Store buttons side-by-side
 	var button_row := HBoxContainer.new()
 	button_row.name = "HelpOptionsRow"
 	button_row.add_theme_constant_override("separation", 8)
 	button_row.alignment = BoxContainer.ALIGNMENT_CENTER
 	$VButtonArray.add_child(button_row)
 
-	# Help button (half-width)
+	var btn_size := Vector2(74, 36)
+
+	# Help button
 	var help_btn := Button.new()
 	help_btn.name = "HelpButton"
 	help_btn.text = "Help"
-	help_btn.custom_minimum_size = Vector2(110, 36)
+	help_btn.custom_minimum_size = btn_size
 	help_btn.add_theme_font_size_override("font_size", 14)
 	BS.apply_space_style(help_btn, Color.CYAN)
 	help_btn.pressed.connect(_on_HelpButton_pressed)
 	button_row.add_child(help_btn)
 
-	# Options button (half-width)
+	# Options button
 	var options_btn := Button.new()
 	options_btn.name = "OptionsButton"
 	options_btn.text = "Options"
-	options_btn.custom_minimum_size = Vector2(110, 36)
+	options_btn.custom_minimum_size = btn_size
 	options_btn.add_theme_font_size_override("font_size", 14)
 	BS.apply_space_style(options_btn, Color(0.5, 0.8, 1.0))
 	options_btn.pressed.connect(_show_options_popup)
 	button_row.add_child(options_btn)
+
+	# Store button — opens IAP popup. Hidden on desktop where there's no
+	# IAP layer AND the game is already ad-free (nothing to sell).
+	if _store_should_show():
+		var store_btn := Button.new()
+		store_btn.name = "StoreButton"
+		store_btn.text = "Store"
+		store_btn.custom_minimum_size = btn_size
+		store_btn.add_theme_font_size_override("font_size", 14)
+		BS.apply_space_style(store_btn, Color(1.0, 0.85, 0.2))
+		store_btn.pressed.connect(_show_store_popup)
+		button_row.add_child(store_btn)
+
+
+func _store_should_show() -> bool:
+	## Show the Store on mobile + web. Hide on desktop (ad-free, no IAP).
+	## Always show in screenshot-debug mode so we can capture the popup.
+	if IAPManager.DEBUG_FAKE_IAP_FOR_SCREENSHOTS and OS.is_debug_build():
+		return true
+	var name := OS.get_name()
+	return name == "Android" or name == "iOS" or name == "Web"
 
 
 func _show_options_popup() -> void:
@@ -483,6 +536,44 @@ func _show_options_popup() -> void:
 	diff_hbox.add_child(diff_change_btn)
 	vbox.add_child(diff_hbox)
 
+	# --- Control scheme (mobile only) ---
+	if OS.get_name() == "Android" or OS.get_name() == "iOS":
+		var ctrl_label := Label.new()
+		ctrl_label.text = "Controls"
+		ctrl_label.add_theme_font_size_override("font_size", 14)
+		ctrl_label.add_theme_color_override("font_color", Color.ORANGE)
+		vbox.add_child(ctrl_label)
+
+		var ctrl_hbox := HBoxContainer.new()
+		ctrl_hbox.add_theme_constant_override("separation", 8)
+		var ctrl_value := Label.new()
+		ctrl_value.text = globalvar.CONTROL_SCHEME_NAMES.get(globalvar.control_scheme, "Tilt")
+		ctrl_value.add_theme_font_size_override("font_size", 13)
+		ctrl_value.add_theme_color_override("font_color", Color(0.6, 0.9, 1.0))
+		ctrl_value.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		ctrl_hbox.add_child(ctrl_value)
+
+		var ctrl_btn := Button.new()
+		ctrl_btn.text = "Change"
+		ctrl_btn.custom_minimum_size = Vector2(90, 28)
+		BS.apply_space_style(ctrl_btn, Color(0.5, 0.8, 1.0))
+		ctrl_btn.add_theme_font_size_override("font_size", 12)
+		ctrl_btn.pressed.connect(func():
+			globalvar.control_scheme = (globalvar.control_scheme + 1) % 2
+			globalvar.save_game()
+			ctrl_value.text = globalvar.CONTROL_SCHEME_NAMES.get(globalvar.control_scheme, "Tilt")
+		)
+		ctrl_hbox.add_child(ctrl_btn)
+		vbox.add_child(ctrl_hbox)
+
+		var ctrl_hint := Label.new()
+		ctrl_hint.text = "Tilt: rotate phone left/right to turn.  Joystick: use bottom-left stick."
+		ctrl_hint.add_theme_font_size_override("font_size", 11)
+		ctrl_hint.add_theme_color_override("font_color", Color(0.55, 0.65, 0.78))
+		ctrl_hint.autowrap_mode = TextServer.AUTOWRAP_WORD
+		ctrl_hint.custom_minimum_size = Vector2(380, 0)
+		vbox.add_child(ctrl_hint)
+
 	# --- Nickname Section ---
 	var nick_label := Label.new()
 	nick_label.text = "Nickname"
@@ -539,6 +630,133 @@ func _show_options_popup() -> void:
 	BS.apply_space_style(close, Color.RED)
 	close.pressed.connect(func(): _options_popup.queue_free())
 	vbox.add_child(close)
+
+
+# --- Store popup (IAP shortcut from main menu) ---
+
+var _store_popup: PanelContainer = null
+
+func _show_store_popup() -> void:
+	if _store_popup and is_instance_valid(_store_popup):
+		_store_popup.queue_free()
+
+	var panel := PanelContainer.new()
+	panel.name = "StorePopup"
+	var style := StyleBoxFlat.new()
+	style.bg_color = Color(0.03, 0.03, 0.1, 0.97)
+	style.border_color = Color(1.0, 0.85, 0.2, 0.7)
+	style.set_border_width_all(2)
+	style.set_corner_radius_all(12)
+	style.content_margin_left = 22
+	style.content_margin_right = 22
+	style.content_margin_top = 18
+	style.content_margin_bottom = 18
+	style.shadow_color = Color(1.0, 0.85, 0.2, 0.25)
+	style.shadow_size = 12
+	panel.add_theme_stylebox_override("panel", style)
+	panel.z_index = 15
+	add_child(panel)
+	panel.set_anchors_preset(Control.PRESET_CENTER)
+	panel.offset_left = -260
+	panel.offset_right = 260
+	panel.offset_top = -240
+	panel.offset_bottom = 240
+	_store_popup = panel
+
+	var vbox := VBoxContainer.new()
+	vbox.add_theme_constant_override("separation", 12)
+	panel.add_child(vbox)
+
+	var title := Label.new()
+	title.text = "Store"
+	title.add_theme_font_size_override("font_size", 24)
+	title.add_theme_color_override("font_color", Color(1.0, 0.85, 0.2))
+	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	vbox.add_child(title)
+
+	var sub := Label.new()
+	sub.text = "Wallet:  %d Moonrocks" % globalvar.wallet
+	sub.add_theme_font_size_override("font_size", 14)
+	sub.add_theme_color_override("font_color", Color(0.7, 0.85, 1.0))
+	sub.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	vbox.add_child(sub)
+
+	vbox.add_child(HSeparator.new())
+
+	# --- Remove Ads ---
+	if not globalvar.is_ads_removed():
+		var ra_btn := Button.new()
+		ra_btn.custom_minimum_size = Vector2(420, 44)
+		ra_btn.add_theme_font_size_override("font_size", 16)
+		BS.apply_space_style(ra_btn, Color(0.9, 0.3, 0.9))
+		if IAPManager.is_available():
+			ra_btn.text = "Remove Ads — %s" % IAPManager.get_price(IAPManager.PRODUCT_REMOVE_ADS)
+			ra_btn.pressed.connect(func(): IAPManager.purchase(IAPManager.PRODUCT_REMOVE_ADS))
+		else:
+			# Web/desktop fallback: spend 10k Moonrocks
+			ra_btn.text = "Remove Ads — %d Moonrocks" % globalvar.AD_REMOVAL_COST
+			ra_btn.disabled = globalvar.wallet < globalvar.AD_REMOVAL_COST
+			ra_btn.pressed.connect(func():
+				if AdManager.remove_ads():
+					_close_store_popup()
+			)
+		vbox.add_child(ra_btn)
+	else:
+		var ad_free := Label.new()
+		ad_free.text = "✅ Ad-free unlocked — thank you!"
+		ad_free.add_theme_font_size_override("font_size", 14)
+		ad_free.add_theme_color_override("font_color", Color(0.4, 1.0, 0.6))
+		ad_free.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		vbox.add_child(ad_free)
+
+	# --- Moonrock packs (real IAP only) ---
+	if IAPManager.is_available():
+		vbox.add_child(HSeparator.new())
+		var pack_header := Label.new()
+		pack_header.text = "Moonrock Packs"
+		pack_header.add_theme_font_size_override("font_size", 16)
+		pack_header.add_theme_color_override("font_color", Color(0.5, 0.85, 1.0))
+		pack_header.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		vbox.add_child(pack_header)
+
+		for pid in [IAPManager.PRODUCT_MOONROCKS_10K, IAPManager.PRODUCT_MOONROCKS_50K]:
+			var btn := Button.new()
+			var label: String = IAPManager.PRODUCT_LABELS.get(pid, pid)
+			var price: String = IAPManager.get_price(pid)
+			btn.text = "%s   —   %s" % [label, price]
+			btn.custom_minimum_size = Vector2(420, 44)
+			btn.add_theme_font_size_override("font_size", 16)
+			BS.apply_space_style(btn, Color(0.5, 0.85, 1.0))
+			var product_id: String = pid
+			btn.pressed.connect(func(): IAPManager.purchase(product_id))
+			vbox.add_child(btn)
+
+		var restore_btn := Button.new()
+		restore_btn.text = "Restore Purchases"
+		restore_btn.flat = true
+		restore_btn.custom_minimum_size = Vector2(420, 28)
+		restore_btn.add_theme_color_override("font_color", Color(0.55, 0.7, 0.85))
+		restore_btn.add_theme_font_size_override("font_size", 12)
+		restore_btn.pressed.connect(func(): IAPManager.restore_purchases())
+		vbox.add_child(restore_btn)
+
+	vbox.add_child(HSeparator.new())
+
+	var close := Button.new()
+	close.text = "Close"
+	close.custom_minimum_size = Vector2(140, 36)
+	BS.apply_space_style(close, Color.RED)
+	close.pressed.connect(_close_store_popup)
+	var close_row := HBoxContainer.new()
+	close_row.alignment = BoxContainer.ALIGNMENT_CENTER
+	close_row.add_child(close)
+	vbox.add_child(close_row)
+
+
+func _close_store_popup() -> void:
+	if _store_popup and is_instance_valid(_store_popup):
+		_store_popup.queue_free()
+	_store_popup = null
 
 
 func _show_reset_confirmation() -> void:
@@ -761,7 +979,9 @@ func _show_first_time_nickname_prompt() -> void:
 	btn_row.add_child(start_btn)
 	vbox.add_child(btn_row)
 
-	line_edit.grab_focus()
+	# Intentionally NOT auto-focusing the line edit: on mobile that pops the
+	# on-screen keyboard immediately and obscures half the popup. Player can
+	# tap the field if they want to type a custom nickname.
 
 
 func _show_nickname_edit_popup(nick_label: Label) -> void:

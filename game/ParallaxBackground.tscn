@@ -1,6 +1,6 @@
-[gd_scene load_steps=3 format=3]
+[gd_scene format=3 uid="uid://3rc0omn3ge5o"]
 
-[ext_resource type="Shader" path="res://game/starfield.gdshader" id="1"]
+[ext_resource type="Shader" uid="uid://dssia7wcexeve" path="res://game/starfield.gdshader" id="1"]
 
 [sub_resource type="ShaderMaterial" id="1"]
 shader = ExtResource("1")
@@ -9,12 +9,12 @@ shader_parameter/twinkle_speed = 1.5
 shader_parameter/brightness = 1.4
 shader_parameter/scroll_offset = Vector2(0, 0)
 
-[node name="ParallaxBackground" type="ParallaxBackground"]
+[node name="ParallaxBackground" type="ParallaxBackground" unique_id=451481121]
 
-[node name="Starfield" type="ColorRect" parent="."]
+[node name="Starfield" type="ColorRect" parent="." unique_id=13292578]
+material = SubResource("1")
 anchors_preset = 15
 anchor_right = 1.0
 anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
-material = SubResource("1")
