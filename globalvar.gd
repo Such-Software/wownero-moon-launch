@@ -25,6 +25,34 @@ var difficulty: int = Difficulty.NORMAL
 
 const DIFFICULTY_NAMES := { 0: "Easy", 1: "Normal", 2: "Hard" }
 
+# --- Mobile control scheme ---
+# Desktop uses keyboard (this setting is ignored). On mobile, the player can
+# choose how to rotate the rocket. Thrust + reverse remain on-screen buttons
+# in all modes.
+enum ControlScheme { TILT, JOYSTICK }
+var control_scheme: int = ControlScheme.TILT
+const CONTROL_SCHEME_NAMES := { 0: "Tilt", 1: "Joystick" }
+
+## Tilt sensitivity — multiplier on normalized tilt [-1..1] from calibrated
+## baseline. Lower = needs more tilt for max steering. Tuned for ~30° = full.
+const TILT_SENSITIVITY := 2.0
+## Deadzone — tilt amounts smaller than this register as zero. The low-pass
+## filter handles sensor jitter, so this can be tight: 0.02 ≈ 1.1°.
+const TILT_DEADZONE := 0.02
+## Max angular velocity in tilt mode (rad/s). At full tilt the rocket spins
+## at this rate. Set high enough for snappy turns but low enough that you
+## can't whip into a 720° spin from a single twitch.
+const TILT_MAX_ANGULAR_VELOCITY := 4.5
+## If true, tilt applies TORQUE (force-based, momentum builds) instead of
+## setting angular_velocity directly (proportional, instant stop on release).
+## Torque feels more "spacecraft-like" but harder to control via tilt.
+const TILT_USE_TORQUE := false
+## Low-pass filter alpha for the raw gravity vector. Higher = more responsive
+## but more jitter; lower = smoother but more lag. 0.35 ≈ 3-frame time
+## constant (~50ms) — snappy without obvious lag.
+## This is what lets us avoid drift logic without losing input to jitter.
+const TILT_FILTER_ALPHA := 0.35
+
 ## Spawn interval multiplier (higher = slower spawns = easier)
 func get_spawn_interval_mult() -> float:
 	match difficulty:
@@ -46,7 +74,9 @@ func get_fuel_drain_mult() -> float:
 		Difficulty.HARD: return 1.3
 		_: return 1.0
 
-## Starting fuel bonus/penalty
+## Fuel tank size multiplier by difficulty.
+## Applied to max_fuel so the rocket starts with a full tank — the difficulty
+## advantage shows up as a bigger tank, not as "115% fuel" overfill in the HUD.
 func get_starting_fuel_mult() -> float:
 	match difficulty:
 		Difficulty.EASY: return 1.2
@@ -76,6 +106,8 @@ const LEVEL_PACK_GRIND_COST := 2000  # Moonrocks earned (lifetime) to unlock for
 var levels_unlocked: bool = false  # true = all levels accessible
 var total_crypto_earned: int = 0   # lifetime Moonrocks earned (never decreases)
 var total_deaths: int = 0          # lifetime death count (for achievement skin)
+var landings_since_install: int = 0  # successful landings ever — drives rate prompt
+var rate_prompt_shown: bool = false  # one-time rate-this-game popup flag
 
 func is_level_unlocked(level: int) -> bool:
 	if level <= FREE_LEVELS:
@@ -176,6 +208,7 @@ func select_skin(skin_id: String) -> void:
 # --- Per-run tracking (reset each level start) ---
 var level_crypto_collected: int = 0   # Moonrocks earned this run
 var level_fuel_remaining: float = 0.0 # percentage at landing
+var level_easy_bounce_used: bool = false  # Easy-mode second-chance bounce — one per level attempt
 
 # --- Waypoint checkpoint (transient, not persisted) ---
 var checkpoint_position: Vector2 = Vector2.ZERO
@@ -278,7 +311,7 @@ func get_thrust_force() -> float:
 	return 350.0 + upgrades["thrust"] * 50.0
 
 func get_max_fuel() -> float:
-	return 200.0 + upgrades["fuel_capacity"] * 40.0
+	return (200.0 + upgrades["fuel_capacity"] * 40.0) * get_starting_fuel_mult()
 
 func get_fuel_drain() -> float:
 	return maxf(8.0 - upgrades["fuel_efficiency"] * 1.5, 2.0)
@@ -435,6 +468,8 @@ func record_level_result(level: int, time_s: float, fuel_pct: float, crypto: int
 	var prev_stars: int = int(best_stars.get(key, 0))
 	if stars > prev_stars:
 		best_stars[key] = stars
+	# Lifetime successful-landings counter — drives the rate-prompt trigger on Victory.
+	landings_since_install += 1
 	check_achievement_skins()
 	# Notify achievement services
 	PlayGamesManager.on_level_completed(level, maxi(stars, int(best_stars.get(key, 0))))
@@ -445,6 +480,7 @@ func reset_level_stats() -> void:
 	## Call at the start of each level to reset per-run tracking.
 	level_crypto_collected = 0
 	level_fuel_remaining = 0.0
+	level_easy_bounce_used = false
 	checkpoint_position = Vector2.ZERO
 	checkpoint_velocity = Vector2.ZERO
 	checkpoint_fuel = 0.0
@@ -473,6 +509,9 @@ func get_platform_string() -> String:
 
 # --- Save / Load ---
 func _ready():
+	# One-shot migration from the old "Wownero Moon Launch" save dir (if any)
+	# must run before load_game so the legacy file is in place to be read.
+	_migrate_legacy_save()
 	load_game()
 	# Ensure device has a UUID (generated once, persisted forever)
 	if device_uuid == "":
@@ -481,6 +520,32 @@ func _ready():
 	if nickname == "" or nickname == "Cosmonaut":
 		nickname = generate_random_nickname()
 	save_game()
+
+
+func _migrate_legacy_save() -> void:
+	## One-shot save migration after the rename to Such Moon Launch.
+	## Godot's user:// is derived from config/name, so renaming the app moves the
+	## save dir. If the new dir has no save yet but the old dir does, copy it over.
+	## Safe to run on every launch — no-op once the new save exists.
+	## On Android/iOS the legacy folder won't be visible (sandboxed per package);
+	## those players use the existing Restore-from-Cloud button instead.
+	var new_path := "user://savegame.json"
+	if FileAccess.file_exists(new_path):
+		return
+	var user_dir := OS.get_user_data_dir()  # .../app_userdata/Such Moon Launch
+	var legacy_dir := user_dir.get_base_dir().path_join("Wownero Moon Launch")
+	var legacy_save := legacy_dir.path_join("savegame.json")
+	if not FileAccess.file_exists(legacy_save):
+		return
+	var src := FileAccess.open(legacy_save, FileAccess.READ)
+	if src == null:
+		return
+	var data := src.get_as_text()
+	src.close()
+	var dst := FileAccess.open(new_path, FileAccess.WRITE)
+	if dst:
+		dst.store_string(data)
+		dst.close()
 
 func _generate_uuid() -> String:
 	## Generate a v4-style UUID from random bytes.
@@ -510,12 +575,15 @@ func get_save_data() -> Dictionary:
 		"tutorial_shown": tutorial_shown,
 		"welcome_shown": welcome_shown,
 		"difficulty": difficulty,
+		"control_scheme": control_scheme,
 		"selected_skin": selected_skin,
 		"owned_skins": owned_skins.duplicate(),
 		"endless_best_wave": endless_best_wave,
 		"levels_unlocked": levels_unlocked,
 		"total_crypto_earned": total_crypto_earned,
 		"total_deaths": total_deaths,
+		"landings_since_install": landings_since_install,
+		"rate_prompt_shown": rate_prompt_shown,
 		"ads_removed": ads_removed,
 	}
 
@@ -573,6 +641,7 @@ func _apply_save_data(data: Dictionary) -> void:
 	else:
 		welcome_shown = int(data.get("highest_completed", 0)) > 0 or str(data.get("nickname", "")) != ""
 	difficulty = int(data.get("difficulty", Difficulty.NORMAL))
+	control_scheme = int(data.get("control_scheme", ControlScheme.TILT))
 	selected_skin = str(data.get("selected_skin", "default"))
 	var saved_skins = data.get("owned_skins", ["default"])
 	if saved_skins is Array:
@@ -583,6 +652,8 @@ func _apply_save_data(data: Dictionary) -> void:
 	levels_unlocked = bool(data.get("levels_unlocked", false))
 	total_crypto_earned = int(data.get("total_crypto_earned", 0))
 	total_deaths = int(data.get("total_deaths", 0))
+	landings_since_install = int(data.get("landings_since_install", 0))
+	rate_prompt_shown = bool(data.get("rate_prompt_shown", false))
 	ads_removed = bool(data.get("ads_removed", false))
 
 func load_game() -> void:
@@ -615,6 +686,7 @@ func reset_progress() -> void:
 	endless_best_wave = 0
 
 	difficulty = Difficulty.NORMAL
+	control_scheme = ControlScheme.TILT
 
 	wallet = 0
 	for key in upgrades.keys():
@@ -628,6 +700,8 @@ func reset_progress() -> void:
 
 	total_crypto_earned = 0
 	total_deaths = 0
+	landings_since_install = 0
+	rate_prompt_shown = false
 	levels_unlocked = false
 	ads_removed = false
 

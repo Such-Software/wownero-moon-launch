@@ -48,12 +48,19 @@ func _ready() -> void:
 
 	var cockpit_tex = load("res://art/ship/cockpit.png")
 	if cockpit_tex:
-		# Cockpit image — full screen width, bottom-aligned, pushed slightly below screen
+		# Cockpit image — full screen width, bottom-aligned, pushed slightly below screen.
+		# Sized to match the image's natural aspect at the runtime viewport width
+		# (was hardcoded to the design viewport 1024x600 — overflowed on wider phones).
+		var vp_w: float = float(get_viewport().get_visible_rect().size.x)
+		var vp_h: float = float(get_viewport().get_visible_rect().size.y)
+		var img_aspect: float = float(cockpit_tex.get_width()) / float(cockpit_tex.get_height())
+		var rect_height: float = vp_w / img_aspect
 		var cockpit_sprite := TextureRect.new()
 		cockpit_sprite.texture = cockpit_tex
 		cockpit_sprite.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-		cockpit_sprite.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
+		cockpit_sprite.stretch_mode = TextureRect.STRETCH_SCALE
 		cockpit_sprite.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		cockpit_sprite.clip_contents = true
 		cockpit_sprite.anchor_left = 0.0
 		cockpit_sprite.anchor_right = 1.0
 		cockpit_sprite.anchor_bottom = 1.0
@@ -61,10 +68,8 @@ func _ready() -> void:
 		cockpit_sprite.offset_left = 0
 		cockpit_sprite.offset_right = 0
 		# Push bottom edge 10% of screen height below screen bottom
-		cockpit_sprite.offset_bottom = 600.0 * 0.10
-		# Height from aspect ratio: full viewport width / image aspect
-		var img_aspect := float(cockpit_tex.get_width()) / float(cockpit_tex.get_height())
-		cockpit_sprite.offset_top = cockpit_sprite.offset_bottom - (1024.0 / img_aspect)
+		cockpit_sprite.offset_bottom = vp_h * 0.10
+		cockpit_sprite.offset_top = cockpit_sprite.offset_bottom - rect_height
 		_cockpit_layer.add_child(cockpit_sprite)
 
 	# Speed lines overlay (drawn procedurally)

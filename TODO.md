@@ -1,6 +1,90 @@
-# Wownero Moon Launch — TODO
+# Such Moon Launch — TODO
 
-> Crypto-themed space landing game. Land your rocket on celestial bodies, dodge hazards, collect crypto, upgrade your ship.
+> Crypto-themed space landing game (renamed from "Wownero Moon Launch" pre-launch
+> — Wownero ship skin, WOW/XMR/BTC/DOGE pickups, and crypto theming kept as
+> flavor). Land your rocket on celestial bodies, dodge hazards, collect crypto,
+> upgrade your ship.
+
+---
+
+## 🚀 Launch v1 — TO SHIP
+
+Top-of-line items remaining before public release on Web (itch.io) + Android (Play
+Store) + iOS (App Store). Code scaffolding for ads/IAP/share/rate is already in
+place — most items below are user-side store/console work.
+
+### Apps to delete and recreate (rename hygiene)
+- [ ] **AdMob**: delete the existing "Wownero Moon Launch" Android + iOS apps. Create new "Such Moon Launch" Android + iOS apps. Recreate 6 ad units (banner/interstitial/rewarded × 2 platforms — keep interstitial units even though we don't fire them, leaves a path to re-enable). Capture: 2 new App IDs (`~`-format) + 6 new ad unit IDs (`/`-format).
+- [ ] **Google Play Console**: delete the draft Wownero app. Create new Such Moon Launch app with package `com.suchsoftware.suchmoonlaunch`.
+- [ ] **App Store Connect**: delete the draft. Create new Such Moon Launch app with bundle `com.suchsoftware.suchmoonlaunch`. Recreate 13 Game Center achievements with new bundle prefix (the rename commit already updated the IDs in `GameCenterManager.gd`).
+- [ ] **PGS** (recommended): KEEP the existing PGS project (412379035812). Link the new Play Console app to it. Generate new Android OAuth Client IDs (Debug + Release) with new package + existing keystore SHA-1s. Achievement IDs stay unchanged.
+- [ ] **Resend** (analytics digest): create a Resend account, verify the `such.software` sender domain (DNS), and generate an API key. The backend's `deploy/digest_email.py` runs on a daily cron and emails activity for all apps (moonlaunch + bauhaus + suchoice). Replaces Firebase Analytics — events go to our own `/v1/events` endpoint instead. Native crashes come for free from Apple App Store Connect + Google Play Console; no SDK needed.
+
+### Plugins to install
+- [x] **IAP plugins (Android + iOS) installed and wired**:
+  - Android: [`godot-sdk-integrations/godot-google-play-billing`](https://github.com/godot-sdk-integrations/godot-google-play-billing) v3.2.0 → `addons/GodotGooglePlayBilling/` (BillingClient class). Enabled in `project.godot` plugins list.
+  - iOS: [`godot-sdk-integrations/godot-storekit2`](https://github.com/godot-sdk-integrations/godot-storekit2) v0.2 (Godot 4.6.1 build) → `ios/plugins/godot-storekit2*` + GDScript wrapper at `game/net/StoreKit2Wrapper.gd`. **Enable in iOS export preset → Plugins checkbox** when first building.
+  - `IAPManager.gd` rewritten: dispatches to GPB on Android, SK2 on iOS, no-op on web/desktop. Tracks consumable vs non-consumable, auto-acknowledges non-consumables, auto-consumes consumables, applies effects via existing `apply_purchase()`.
+- [x] **Telemetry / crash reporting** — went with **own backend, no Firebase** (Godot 4 Firebase landscape too sparse for cross-platform Crashlytics). `Telemetry.gd` now buffers events client-side and POSTs batches to `api.such.software/v1/events` (HMAC-signed, fire-and-forget). Native crashes come from Apple App Store Connect + Google Play Console (free, automatic). Backend has new `events` table + `/v1/events` route + `deploy/digest_email.py` for a daily Resend email summarizing all apps (moonlaunch / bauhaus / suchoice).
+
+### Production identifier swap (single coordinated PR)
+After recreating apps above, swap the new IDs into:
+- [ ] `game/net/AdManager.gd` `ADMOB_IDS` dict (6 IDs)
+- [ ] `addons/admob/android/config.gd` `APPLICATION_ID` (Android App ID, `~`-format)
+- [ ] `ios/plugins/poing-godot-admob-ads.gdip` `GADApplicationIdentifier` (iOS App ID)
+- [ ] Google Cloud Console: new Android OAuth Client IDs (Debug + Release SHA-1 against new package)
+- [ ] `web/custom_shell.html`: AdSense Publisher ID + slot IDs (or skip web ads for v1 — AdSense approval takes 1-14 days)
+- [ ] Test path: add dev phone's AdMob device ID to `RequestConfiguration.test_device_ids` while validating new prod ad units. Strip before tagging release.
+
+### IAP products to register (after plugin install)
+- [ ] **Google Play Console** → Monetize → In-app products: register the 3 product IDs from `IAPManager.PRODUCT_IDS`. Set Remove Ads = Non-consumable, both Moonrock packs = Consumable. Activate.
+- [ ] **App Store Connect** → In-App Purchases: register the same 3 product IDs (Apple uses the full reverse-DNS string). Type matches Google. Submit each with a review screenshot.
+- [ ] Add dev Google account as License Tester (Play Console → License testing) and Sandbox Tester (App Store Connect → Sandbox testers).
+
+### Build configuration
+- [ ] **Android** (`export_presets.cfg`): set `gradle_build/export_format=1` (AAB), `gradle_build/min_sdk=24`, `target_sdk=34`. Set launcher icons (`launcher_icons/main_192x192` + adaptive 432×432 from `art/branding/AppIcon_Cartoon-Astronaut.png`). Bump `version/code` and `version/name`.
+- [ ] **iOS** (`export_presets.cfg`): bundle id `com.suchsoftware.suchmoonlaunch`, team id, code-sign identity, provisioning profile, ALL icon sizes (use makeappicon.com from a 1024×1024 source). Enable In-App Purchase capability in the App ID at developer.apple.com.
+- [ ] **Privacy policy**: required by Google Play, App Store, and AdMob. Publish a static page (itch.io game page works) and link it in store listings + AdMob app settings. Should cover: device identifiers (AdMob, IAP), in-game nickname (leaderboard), gameplay events (telemetry → our own backend), no personal info collected.
+- [ ] **Itch.io**: rename project URL slug to `such-moon-launch` (ensure `https://suchsoftware.itch.io/such-moon-launch` resolves).
+
+### Store assets
+- [ ] **Screenshots**: 4-8 in-game screenshots per platform (capture from real gameplay; aim for: title screen, mid-flight, landing approach, upgrade shop, victory screen, hazard moment).
+- [ ] **Short description** (≤80 chars): `Land your rocket on the Moon. Dodge asteroids, collect crypto, upgrade your ship.`
+- [ ] **Long description** (~500 words): draft and paste into Play Console + App Store Connect.
+
+### Verification before tagging
+- [ ] All 165 gdUnit tests pass: `Godot --headless --path . -s addons/gdUnit4/bin/GdUnitCmdTool.gd --add "res://test/" --ignoreHeadlessMode`
+- [ ] Manual smoke: rename + save migration (legacy save in old dir copies cleanly into new dir)
+- [ ] Manual smoke: zero forced interstitials anywhere; banner shows on Menu/UpgradeShop only
+- [ ] Manual smoke: Easy mode bounce + share-score button + rate prompt after 3rd landing
+- [ ] Manual smoke: IAP sandbox purchase end-to-end for all 3 products + Restore Purchases
+- [ ] Manual smoke: telemetry events arrive at backend (`SELECT count(*) FROM events WHERE app='moonlaunch' AND created_at > now() - interval '5 minutes';` should grow as you play); daily digest preview works via `python deploy/digest_email.py --dry-run`
+
+### Backend (already done — confirmed compatible with rename)
+- [x] **API URLs are name-neutral**: `/v1/moonlaunch/*` paths require no change.
+- [x] **DB tables are name-neutral**: `moonlaunch_scores`, `moonlaunch_saves` — no migration needed.
+- [x] **Backend README updated**: cosmetic rename of display references to "Such Moon Launch" (also notes the URL/table neutrality).
+- [x] **CORS allowlist updated**: added `https://html-classic.itch.zone` (itch HTML5 iframe origin), `https://suchsoftware.itch.io` (game page), `https://suchmoonlaunch.such.software` (new branded self-host). Legacy `moonlaunch.such.software` kept for compat. Touched both `app/config.py` and `deploy/nginx.conf`.
+- [x] **HMAC secret + device_uuid + score data**: all unaffected by rename. No data migration required.
+
+### Marketing zero-cost
+- [ ] Post on r/godot launch thread (Tuesday is the high-traffic day)
+- [ ] X/Twitter post with a 30s gameplay clip
+- [ ] Itch.io devlog (the platform pushes these to followers)
+
+---
+
+## 🎯 Code work already done in this rename pass
+
+- [x] Renamed `config/name`, `assembly_name`, `package/name`, `package/unique_name`, all export filenames, Game Center IDs, itch URL → "Such Moon Launch" / `com.suchsoftware.suchmoonlaunch`.
+- [x] Save migration shim in `globalvar._migrate_legacy_save()` — copies legacy "Wownero Moon Launch" save to new dir on first launch (desktop only; mobile uses cloud restore).
+- [x] Forced interstitials removed entirely (`AdManager.show_interstitial` is now a no-op stub; DeathScreen and Victory don't call it).
+- [x] Rewarded reward bumped 50 → 150 Moonrocks. Opt-in rewarded button added to Victory screen (alongside DeathScreen + UpgradeShop).
+- [x] `IAPManager` autoload scaffold (3 products defined). Feature-detected; no-op until plugin installed.
+- [x] `Telemetry` autoload (own-backend, no Firebase). Buffers events, POSTs batches to `api.such.software/v1/events` every 30s + on app pause/quit. HMAC-signed via `ScoreClient._get_hmac_secret()`. Event hooks instrumented at 10 sites: `app_open`, `level_start`, `level_complete`, `level_death`, `iap_initiated`, `iap_completed`, `rewarded_watched` (with surface), `share_pressed`, `rate_prompt_shown`, `error`.
+- [x] `ShareService` autoload + "Share Score" button on Victory (web `navigator.share` fallback to clipboard; mobile/desktop clipboard + opens itch URL).
+- [x] Rate prompt: one-time popup after 3rd successful landing. Persisted via `landings_since_install` + `rate_prompt_shown` save fields.
+- [x] UpgradeShop: real-money Remove Ads on mobile (when IAP plugin lands) + Moonrock Store panel (10k/50k Moonrocks tiles) + Restore Purchases link. Web/desktop keep the free 10k-Moonrock-spend Remove Ads.
 
 ---
 

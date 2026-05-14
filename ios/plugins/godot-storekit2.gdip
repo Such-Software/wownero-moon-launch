@@ -1,0 +1,19 @@
+[config]
+name="godot-storekit2"
+binary="godot-storekit2.xcframework"
+use_swift_runtime=true
+
+initialization="register_godot_storekit2_types"
+deinitialization="unregister_godot_storekit2_types"
+
+[dependencies]
+linked=[]
+embedded=[]
+system=["Foundation.framework", "StoreKit.framework"]
+
+capabilities=[]
+
+files=[]
+
+[plist]
+
