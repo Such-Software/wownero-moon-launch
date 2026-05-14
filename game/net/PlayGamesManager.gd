@@ -51,16 +51,12 @@ func _on_user_authenticated(is_authenticated: bool) -> void:
 		_signed_in = true
 		print("PlayGamesManager: user authenticated successfully")
 	else:
-		print("PlayGamesManager: not authenticated, will attempt sign-in")
+		# Don't auto-pop the Play Games account picker — it would obscure
+		# the welcome popup on first launch (and feels intrusive in general).
+		# The user can trigger sign-in explicitly via the Achievements button
+		# on the main menu (try_sign_in()).
 		_signed_in = false
-		_plugin.signIn()
-		# Re-check auth after sign-in flow completes
-		var tree := Engine.get_main_loop() as SceneTree
-		if tree:
-			tree.create_timer(3.0).timeout.connect(func():
-				if _plugin and not _signed_in:
-					_plugin.isAuthenticated()
-			)
+		print("PlayGamesManager: not authenticated — waiting for user to tap Achievements")
 
 
 func try_sign_in() -> void:

@@ -46,7 +46,16 @@ ADS.md
 # Deploy guide (untracked, contains signing/release instructions)
 DEPLOY.md
 
+# Capture sheet (untracked, contains production IDs / OAuth client IDs)
+CAPTURE.md
+
 # AdMob downloaded native libraries (large binaries, per-machine)
 addons/admob/downloads/
 addons/admob/android/bin/
-ios/plugins/
+# AdMob iOS plugin (downloaded via the AdMob editor menu — per-machine).
+# We ignore everything under ios/plugins/ EXCEPT the godot-storekit2 plugin
+# we ship as a versioned release artifact (~2 MB).
+ios/plugins/*
+!ios/plugins/godot-storekit2.gdip
+!ios/plugins/godot-storekit2.debug.xcframework
+!ios/plugins/godot-storekit2.release.xcframework

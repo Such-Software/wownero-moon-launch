@@ -138,9 +138,16 @@ offset_left = 266.0
 offset_top = 49.0
 offset_right = 740.0
 offset_bottom = 121.0
+theme_override_colors/font_color = Color(1.0, 0.92, 0.4, 1)
+theme_override_colors/font_shadow_color = Color(0.3, 0.7, 1.0, 0.85)
+theme_override_constants/shadow_offset_x = 0
+theme_override_constants/shadow_offset_y = 0
+theme_override_constants/shadow_outline_size = 8
 theme_override_fonts/font = SubResource("FontVariation_40")
-theme_override_font_sizes/font_size = 40
-text = "Wownero Moon Launch"
+theme_override_font_sizes/font_size = 44
+text = "SUCH MOON LAUNCH"
+horizontal_alignment = 1
+vertical_alignment = 1
 
 [node name="Moon" type="Sprite2D" parent="." unique_id=1692560880]
 z_index = 3

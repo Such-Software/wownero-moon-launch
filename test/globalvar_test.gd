@@ -23,10 +23,13 @@ func before_test() -> void:
 	globalvar.endless_wave = 1
 	globalvar.tutorial_shown = false
 	globalvar.welcome_shown = false
+	globalvar.landings_since_install = 0
+	globalvar.rate_prompt_shown = false
 	globalvar.best_times = {}
 	globalvar.best_stars = {}
 	globalvar.level_crypto_collected = 0
 	globalvar.level_fuel_remaining = 0.0
+	globalvar.level_easy_bounce_used = false
 	globalvar.has_checkpoint = false
 	globalvar.ads_removed = false
 	for key in globalvar.upgrades.keys():
@@ -182,11 +185,28 @@ func test_thrust_force_max_level() -> void:
 	assert_float(globalvar.get_thrust_force()).is_equal(600.0)
 
 func test_max_fuel_base() -> void:
+	# NORMAL difficulty (set in before_test) — mult is 1.0
 	assert_float(globalvar.get_max_fuel()).is_equal(200.0)
 
 func test_max_fuel_level_5() -> void:
 	globalvar.upgrades["fuel_capacity"] = 5
 	assert_float(globalvar.get_max_fuel()).is_equal(400.0)
+
+func test_max_fuel_easy_has_bigger_tank() -> void:
+	# Easy mode bakes the 1.2x multiplier into max_fuel itself.
+	# This prevents the rocket from starting with >100% fuel and reporting
+	# bogus percentages on the Victory screen.
+	globalvar.difficulty = globalvar.Difficulty.EASY
+	assert_float(globalvar.get_max_fuel()).is_equal_approx(240.0, 0.001)
+
+func test_max_fuel_hard_has_smaller_tank() -> void:
+	globalvar.difficulty = globalvar.Difficulty.HARD
+	assert_float(globalvar.get_max_fuel()).is_equal_approx(180.0, 0.001)
+
+func test_max_fuel_easy_with_upgrades() -> void:
+	globalvar.difficulty = globalvar.Difficulty.EASY
+	globalvar.upgrades["fuel_capacity"] = 5
+	assert_float(globalvar.get_max_fuel()).is_equal_approx(480.0, 0.001)
 
 func test_fuel_drain_base() -> void:
 	assert_float(globalvar.get_fuel_drain()).is_equal(8.0)
@@ -609,15 +629,71 @@ func test_has_next_level_false_at_max() -> void:
 func test_reset_level_stats() -> void:
 	globalvar.level_crypto_collected = 500
 	globalvar.level_fuel_remaining = 75.0
+	globalvar.level_easy_bounce_used = true
 	globalvar.has_checkpoint = true
 	globalvar.checkpoint_fuel = 100.0
 	globalvar.checkpoint_planet_name = "Mars"
 	globalvar.reset_level_stats()
 	assert_int(globalvar.level_crypto_collected).is_equal(0)
 	assert_float(globalvar.level_fuel_remaining).is_equal(0.0)
+	assert_bool(globalvar.level_easy_bounce_used).is_false()
 	assert_bool(globalvar.has_checkpoint).is_false()
 	assert_float(globalvar.checkpoint_fuel).is_equal(0.0)
 	assert_str(globalvar.checkpoint_planet_name).is_equal("")
+
+
+func test_easy_bounce_default_false() -> void:
+	# Per-run flag should default to false at scene reset (handled in before_test).
+	assert_bool(globalvar.level_easy_bounce_used).is_false()
+
+
+func test_easy_bounce_resets_independently() -> void:
+	# Setting and resetting just the bounce flag, with no other state changes,
+	# should leave the rest of reset_level_stats's domain untouched.
+	globalvar.level_easy_bounce_used = true
+	globalvar.reset_level_stats()
+	assert_bool(globalvar.level_easy_bounce_used).is_false()
+
+
+func test_landings_increment_on_record_level_result() -> void:
+	# Lifetime landings counter must increment exactly once per record_level_result call.
+	# It drives the rate-prompt trigger on Victory.
+	assert_int(globalvar.landings_since_install).is_equal(0)
+	globalvar.record_level_result(1, 25.0, 80.0, 50)
+	assert_int(globalvar.landings_since_install).is_equal(1)
+	globalvar.record_level_result(2, 30.0, 70.0, 40)
+	globalvar.record_level_result(3, 32.0, 60.0, 30)
+	assert_int(globalvar.landings_since_install).is_equal(3)
+
+
+func test_landings_and_rate_prompt_round_trip_through_save() -> void:
+	globalvar.landings_since_install = 5
+	globalvar.rate_prompt_shown = true
+	var data := globalvar.get_save_data()
+	assert_int(int(data["landings_since_install"])).is_equal(5)
+	assert_bool(bool(data["rate_prompt_shown"])).is_true()
+	# Wipe and apply: should restore.
+	globalvar.landings_since_install = 0
+	globalvar.rate_prompt_shown = false
+	globalvar._apply_save_data(data)
+	assert_int(globalvar.landings_since_install).is_equal(5)
+	assert_bool(globalvar.rate_prompt_shown).is_true()
+
+
+func test_legacy_save_defaults_to_zero_landings_and_no_prompt() -> void:
+	# Saves predating these fields should default cleanly via .get(...) in _apply_save_data.
+	var legacy := {"level": 3, "wallet": 100}
+	globalvar._apply_save_data(legacy)
+	assert_int(globalvar.landings_since_install).is_equal(0)
+	assert_bool(globalvar.rate_prompt_shown).is_false()
+
+
+func test_reset_progress_clears_landings_and_rate_prompt() -> void:
+	globalvar.landings_since_install = 7
+	globalvar.rate_prompt_shown = true
+	globalvar.reset_progress()
+	assert_int(globalvar.landings_since_install).is_equal(0)
+	assert_bool(globalvar.rate_prompt_shown).is_false()
 
 
 # ==========================================================================
@@ -642,7 +718,9 @@ func test_get_save_data_contains_all_keys() -> void:
 		"best_times", "best_stars", "device_uuid", "nickname", "tutorial_shown",
 		"welcome_shown",
 		"difficulty", "selected_skin", "owned_skins", "endless_best_wave",
-		"levels_unlocked", "total_crypto_earned", "total_deaths", "ads_removed",
+		"levels_unlocked", "total_crypto_earned", "total_deaths",
+		"landings_since_install", "rate_prompt_shown",
+		"ads_removed",
 	]
 	for key in required_keys:
 		assert_bool(data.has(key)).is_true()

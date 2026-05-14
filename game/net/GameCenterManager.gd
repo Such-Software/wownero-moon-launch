@@ -6,28 +6,28 @@ extends Node
 ## On non-iOS platforms, every method safely no-ops.
 ##
 ## Achievement IDs must match those configured in App Store Connect.
-## Use reverse-domain format: com.suchsoftware.wowneromoonlaunch.achievement_key
+## Use reverse-domain format: com.suchsoftware.suchmoonlaunch.achievement_key
 
 ## Achievement ID mapping — set these to match App Store Connect IDs.
 ## Convention: bundle_id + "." + achievement_key
 const ACHIEVEMENT_IDS := {
 	# Milestone achievements (unlocked on level completion)
-	"first_landing":       "com.suchsoftware.wowneromoonlaunch.first_landing",
-	"mars_explorer":       "com.suchsoftware.wowneromoonlaunch.mars_explorer",
-	"inner_planets":       "com.suchsoftware.wowneromoonlaunch.inner_planets",
-	"gas_giants":          "com.suchsoftware.wowneromoonlaunch.gas_giants",
-	"deep_space":          "com.suchsoftware.wowneromoonlaunch.deep_space",
-	"mothership_docked":   "com.suchsoftware.wowneromoonlaunch.mothership_docked",
+	"first_landing":       "com.suchsoftware.suchmoonlaunch.first_landing",
+	"mars_explorer":       "com.suchsoftware.suchmoonlaunch.mars_explorer",
+	"inner_planets":       "com.suchsoftware.suchmoonlaunch.inner_planets",
+	"gas_giants":          "com.suchsoftware.suchmoonlaunch.gas_giants",
+	"deep_space":          "com.suchsoftware.suchmoonlaunch.deep_space",
+	"mothership_docked":   "com.suchsoftware.suchmoonlaunch.mothership_docked",
 	# Mastery achievements
-	"champion":            "com.suchsoftware.wowneromoonlaunch.champion",
-	"speed_demon":         "com.suchsoftware.wowneromoonlaunch.speed_demon",
+	"champion":            "com.suchsoftware.suchmoonlaunch.champion",
+	"speed_demon":         "com.suchsoftware.suchmoonlaunch.speed_demon",
 	# Endurance / grind achievements
-	"endless_wave_10":     "com.suchsoftware.wowneromoonlaunch.endless_wave_10",
-	"grim_reaper":         "com.suchsoftware.wowneromoonlaunch.grim_reaper",
-	"moonrock_hoarder":    "com.suchsoftware.wowneromoonlaunch.moonrock_hoarder",
+	"endless_wave_10":     "com.suchsoftware.suchmoonlaunch.endless_wave_10",
+	"grim_reaper":         "com.suchsoftware.suchmoonlaunch.grim_reaper",
+	"moonrock_hoarder":    "com.suchsoftware.suchmoonlaunch.moonrock_hoarder",
 	# Collection achievements
-	"skin_collector":      "com.suchsoftware.wowneromoonlaunch.skin_collector",
-	"fully_upgraded":      "com.suchsoftware.wowneromoonlaunch.fully_upgraded",
+	"skin_collector":      "com.suchsoftware.suchmoonlaunch.skin_collector",
+	"fully_upgraded":      "com.suchsoftware.suchmoonlaunch.fully_upgraded",
 }
 
 ## Step targets for incremental achievements (Game Center uses percentComplete 0-100).

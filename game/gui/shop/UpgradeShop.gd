@@ -107,17 +107,22 @@ func _ready() -> void:
 		# Shift wallet panel left to make room
 		wallet_panel.position = Vector2(80, 50)
 
-		# Remove Ads purchase button (only if not already purchased)
+		# Remove Ads — real-money IAP on mobile, Moonrock-spend fallback elsewhere.
 		if not globalvar.is_ads_removed():
 			_remove_ads_btn = Button.new()
-			_remove_ads_btn.text = "🚫  Remove Ads — %d 🪨" % globalvar.AD_REMOVAL_COST
-			_remove_ads_btn.custom_minimum_size = Vector2(240, 34)
-			if globalvar.wallet >= globalvar.AD_REMOVAL_COST:
+			if IAPManager.is_available():
+				_remove_ads_btn.text = "Remove Ads — %s" % IAPManager.get_price(IAPManager.PRODUCT_REMOVE_ADS)
 				BS.apply_space_style(_remove_ads_btn, Color(0.9, 0.3, 0.9))
+				_remove_ads_btn.pressed.connect(_on_remove_ads_iap)
 			else:
-				_remove_ads_btn.disabled = true
-				BS.apply_space_style(_remove_ads_btn, Color(0.25, 0.25, 0.35))
-			_remove_ads_btn.pressed.connect(_on_remove_ads)
+				_remove_ads_btn.text = "Remove Ads — %d Moonrocks" % globalvar.AD_REMOVAL_COST
+				if globalvar.wallet >= globalvar.AD_REMOVAL_COST:
+					BS.apply_space_style(_remove_ads_btn, Color(0.9, 0.3, 0.9))
+				else:
+					_remove_ads_btn.disabled = true
+					BS.apply_space_style(_remove_ads_btn, Color(0.25, 0.25, 0.35))
+				_remove_ads_btn.pressed.connect(_on_remove_ads)
+			_remove_ads_btn.custom_minimum_size = Vector2(240, 34)
 			_remove_ads_btn.position = Vector2(660, 50)
 			add_child(_remove_ads_btn)
 
@@ -139,6 +144,10 @@ func _ready() -> void:
 	for upgrade_name in globalvar.upgrades.keys():
 		var card := _create_upgrade_card(upgrade_name)
 		vbox.add_child(card)
+
+	# --- Moonrock Store (real IAP) ---
+	if IAPManager.is_available():
+		_build_moonrock_store(vbox)
 
 	# --- Skin gallery section ---
 	var skin_header := Label.new()
@@ -245,6 +254,90 @@ func _ready() -> void:
 	menu_btn.pressed.connect(func(): get_tree().change_scene_to_file("res://game/gui/menu/Menu.tscn"))
 	vbox.add_child(menu_btn)
 
+	# Restore Purchases — required by Apple + Google for non-consumables.
+	if IAPManager.is_available():
+		var restore_btn := Button.new()
+		restore_btn.text = "Restore Purchases"
+		restore_btn.custom_minimum_size = Vector2(864, 28)
+		restore_btn.flat = true
+		restore_btn.add_theme_color_override("font_color", Color(0.55, 0.7, 0.85))
+		restore_btn.add_theme_font_size_override("font_size", 12)
+		restore_btn.pressed.connect(_on_restore_purchases)
+		vbox.add_child(restore_btn)
+
+
+func _build_moonrock_store(parent: VBoxContainer) -> void:
+	## "Moonrock Store" panel — real-money Moonrock packs.
+	var header := Label.new()
+	header.text = "MOONROCK STORE"
+	header.add_theme_font_size_override("font_size", 18)
+	header.add_theme_color_override("font_color", Color(0.5, 0.85, 1.0))
+	header.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	parent.add_child(header)
+
+	var row := HBoxContainer.new()
+	row.alignment = BoxContainer.ALIGNMENT_CENTER
+	row.add_theme_constant_override("separation", 12)
+	parent.add_child(row)
+
+	var products := [IAPManager.PRODUCT_MOONROCKS_10K, IAPManager.PRODUCT_MOONROCKS_50K]
+	for pid in products:
+		var btn := Button.new()
+		var label: String = IAPManager.PRODUCT_LABELS.get(pid, pid)
+		var price: String = IAPManager.get_price(pid)
+		btn.text = "%s\n%s" % [label, price]
+		btn.custom_minimum_size = Vector2(420, 56)
+		btn.add_theme_font_size_override("font_size", 16)
+		BS.apply_space_style(btn, Color(0.5, 0.85, 1.0))
+		btn.pressed.connect(_on_buy_moonrocks.bind(pid))
+		row.add_child(btn)
+
+
+func _on_remove_ads_iap() -> void:
+	if not IAPManager.is_available(): return
+	IAPManager.purchase_completed.connect(_on_iap_remove_ads_done, CONNECT_ONE_SHOT)
+	IAPManager.purchase(IAPManager.PRODUCT_REMOVE_ADS)
+
+
+func _on_iap_remove_ads_done(product_id: String, success: bool) -> void:
+	if product_id != IAPManager.PRODUCT_REMOVE_ADS: return
+	if success and _remove_ads_btn and is_instance_valid(_remove_ads_btn):
+		_remove_ads_btn.queue_free()
+		_remove_ads_btn = null
+	# Refresh affected UI
+	for uname in _upgrade_buttons.keys():
+		_style_buy_button(uname)
+	_refresh_skin_buttons()
+
+
+func _on_buy_moonrocks(product_id: String) -> void:
+	if not IAPManager.is_available(): return
+	IAPManager.purchase_completed.connect(_on_iap_moonrocks_done, CONNECT_ONE_SHOT)
+	IAPManager.purchase(product_id)
+
+
+func _on_iap_moonrocks_done(product_id: String, success: bool) -> void:
+	if not success: return
+	# IAPManager.apply_purchase already added the crypto + saved.
+	_update_wallet_label()
+	for uname in _upgrade_buttons.keys():
+		_style_buy_button(uname)
+	_refresh_skin_buttons()
+
+
+func _on_restore_purchases() -> void:
+	if not IAPManager.is_available(): return
+	IAPManager.restore_completed.connect(_on_iap_restored, CONNECT_ONE_SHOT)
+	IAPManager.restore_purchases()
+
+
+func _on_iap_restored(_restored_ids: Array) -> void:
+	# IAPManager.apply_purchase has already been called per restored ID.
+	_update_wallet_label()
+	if globalvar.is_ads_removed() and _remove_ads_btn and is_instance_valid(_remove_ads_btn):
+		_remove_ads_btn.queue_free()
+		_remove_ads_btn = null
+
 
 func _on_watch_ad() -> void:
 	if _ad_button:
@@ -255,6 +348,7 @@ func _on_watch_ad() -> void:
 
 func _on_rewarded_result(success: bool) -> void:
 	if success:
+		Telemetry.log_event(Telemetry.EVENT_REWARDED_WATCHED, {"surface": "shop"})
 		globalvar.add_crypto(AdManager.REWARDED_AD_MOONROCKS)
 		_update_wallet_label()
 		# Refresh all buy buttons (player may now afford upgrades)

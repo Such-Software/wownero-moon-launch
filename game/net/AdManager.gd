@@ -15,7 +15,7 @@ signal interstitial_closed
 const AD_FREE_PLATFORMS := ["macOS", "Windows", "Linux"]
 
 ## Rewarded ad Moonrocks grant amount
-const REWARDED_AD_MOONROCKS := 50
+const REWARDED_AD_MOONROCKS := 150
 
 ## AdMob production ad unit IDs
 const ADMOB_IDS := {
@@ -48,7 +48,7 @@ var _rewarded_ad  # RewardedAd
 var _nag_banner: CanvasLayer = null
 
 ## itch.io URL for this game
-const ITCH_URL := "https://suchsoftware.itch.io/wownero-moon-launch"
+const ITCH_URL := "https://suchsoftware.itch.io/such-moon-launch"
 
 
 func _ready() -> void:
@@ -81,17 +81,12 @@ func is_rewarded_available() -> bool:
 	return is_ad_supported()
 
 
-## Show an interstitial ad (between levels). No-op if ad-free.
+## Forced interstitials are disabled by design — we don't push 30-60s ads on
+## players. Kept as a no-op stub so existing call sites don't crash; existing
+## SDK init/load logic stays in place in case we re-enable in a future build.
 func show_interstitial() -> void:
-	if is_ad_free():
-		interstitial_closed.emit()
-		return
-	if _is_web:
-		_web_show_interstitial()
-	elif _is_mobile:
-		_mobile_show_interstitial()
-	else:
-		interstitial_closed.emit()
+	interstitial_closed.emit()
+	return
 
 
 ## Show a rewarded video ad. Calls callback(true) if watched, callback(false) if skipped.

@@ -39,9 +39,15 @@ var _in_slowmo: bool = false
 # 3D Landing mode
 var _landing_mode: CanvasLayer = null
 var _landing_mode_active: bool = false
+var _landing_active_target: Node2D = null   # the body landing-mode is bound to
+var _landing_active_range: float = 0.0      # the trigger range used at activation
 const LANDING_MODE_MIN_RANGE := 80.0   # minimum trigger distance (small bodies)
 const LANDING_MODE_MARGIN := 60.0      # pixels above collision surface to trigger
+const LANDING_MODE_EXIT_HYSTERESIS := 1.25  # multiplier on range for deactivation (anti-flicker)
 const TILT_DEATH_ANGLE := 0.6109  # ~35 degrees
+# Easy-mode second-chance bounce
+const BOUNCE_SPEED := 220.0  # px/s away from crash body
+const BOUNCE_FUEL_PCT := 0.15  # max_fuel fraction restored on bounce
 
 # Proximity beep state
 var _beep_cooldown: float = 0.0
@@ -95,6 +101,20 @@ const EMPPulseScript = preload("res://game/rocket/EMPPulse.gd")
 # not at the moment we approach a planet (was a noticeable freeze).
 const LANDING_MODE_SCRIPT = preload("res://game/rocket/LandingMode.gd")
 
+# Tilt-mode calibration: the gravity vector captured shortly after level start.
+# All tilt input is measured as a DELTA from this baseline so the player's
+# natural hold position registers as zero (no drift).
+var _tilt_baseline: Vector3 = Vector3.ZERO
+# Low-pass-filtered raw gravity. Kills sensor jitter without eating slow
+# intentional tilts (canonical mobile pattern — beats baseline drift).
+var _tilt_filtered: Vector3 = Vector3.ZERO
+var _tilt_calibrated: bool = false
+# Self-destruct button — shown on the HUD when fuel is dangerously low so
+# the player can bail out of an unrecoverable drift.
+var _self_destruct_btn: Button = null
+const SELF_DESTRUCT_FUEL_THRESHOLD := 0.05  # show when fuel ≤ 5% of max
+
+
 func _ready():
 	# Add to group so HUD widgets (FuelBar etc.) can find us
 	add_to_group("rocket")
@@ -102,11 +122,16 @@ func _ready():
 	AdManager.hide_banner()
 	# Reset per-level stats
 	globalvar.reset_level_stats()
+	Telemetry.log_event(Telemetry.EVENT_LEVEL_START, {
+		"level": globalvar.nowlevel,
+		"difficulty": globalvar.difficulty,
+	})
 	# Apply upgrades from globalvar
 	thrust = Vector2(0, globalvar.get_thrust_force())
 	reverse_thrust = Vector2(0, globalvar.get_reverse_thrust_force())
 	max_fuel = globalvar.get_max_fuel()
-	fuel = max_fuel * globalvar.get_starting_fuel_mult()
+	# Start with a full tank — difficulty bonus is already baked into max_fuel.
+	fuel = max_fuel
 	fuel_drain = globalvar.get_fuel_drain() * globalvar.get_fuel_drain_mult()
 	crashspeed = globalvar.get_crash_speed()
 	landingspeed = globalvar.get_landing_speed()
@@ -187,6 +212,54 @@ func _ready():
 		# Defer position/velocity restore to after physics init
 		call_deferred("_apply_checkpoint")
 
+	# Tilt calibration: capture player's natural hold as the "zero" baseline.
+	# Wait a short moment for sensors to stabilize before sampling.
+	if _is_tilt_mode():
+		get_tree().create_timer(0.4).timeout.connect(_calibrate_tilt)
+
+
+func _update_self_destruct_button() -> void:
+	## Show a "Self Destruct" button on the HUD when fuel is critically low,
+	## so the player can manually trigger death (and respawn) if drifting.
+	var low_fuel: bool = (fuel / max_fuel) <= SELF_DESTRUCT_FUEL_THRESHOLD and not flagplaced
+	if low_fuel and _self_destruct_btn == null:
+		var hud := get_node_or_null("../CanvasLayer")
+		if hud == null: return
+		_self_destruct_btn = Button.new()
+		_self_destruct_btn.text = "💥 Self Destruct"
+		_self_destruct_btn.custom_minimum_size = Vector2(180, 44)
+		_self_destruct_btn.add_theme_font_size_override("font_size", 16)
+		_self_destruct_btn.add_theme_color_override("font_color", Color(1.0, 0.4, 0.3))
+		_self_destruct_btn.set_anchors_preset(Control.PRESET_TOP_RIGHT)
+		_self_destruct_btn.offset_left = -200
+		_self_destruct_btn.offset_right = -20
+		_self_destruct_btn.offset_top = 60
+		_self_destruct_btn.offset_bottom = 104
+		_self_destruct_btn.pressed.connect(func(): death(null))
+		hud.add_child(_self_destruct_btn)
+	elif (not low_fuel) and _self_destruct_btn:
+		_self_destruct_btn.queue_free()
+		_self_destruct_btn = null
+
+
+func _is_tilt_mode() -> bool:
+	if globalvar.control_scheme != globalvar.ControlScheme.TILT:
+		return false
+	var os := OS.get_name()
+	return os == "Android" or os == "iOS"
+
+
+func _calibrate_tilt() -> void:
+	## Sample current gravity vector as the player's neutral hold position.
+	## All tilt input is computed as a delta from this baseline.
+	## Seed the low-pass filter with the baseline so the first frame doesn't
+	## produce a spurious delta while the filter is converging.
+	var raw := Input.get_gravity()
+	_tilt_baseline = raw
+	_tilt_filtered = raw
+	_tilt_calibrated = true
+
+
 func _integrate_forces(state):
 	var dt = state.step
 	var has_fuel = fuel > 0.0
@@ -213,8 +286,44 @@ func _integrate_forces(state):
 
 	fuel = maxf(fuel, 0.0)
 
-	var t = int(Input.is_action_pressed("ui_right")) - int(Input.is_action_pressed("ui_left"))
-	constant_torque = torque * t
+	# Self-destruct: emergency escape when stuck (e.g. drifting out of fuel
+	# with no way to recover). Keyboard binding 'X' / on-screen button when
+	# fuel is low. Triggers normal death flow → DeathScreen offers retry.
+	if Input.is_action_just_pressed("self_destruct"):
+		death(null)
+	_update_self_destruct_button()
+
+	# Steering input — branches by control scheme.
+	if _is_tilt_mode() and _tilt_calibrated:
+		# Canonical mobile tilt-to-steer pipeline:
+		#   raw gravity → low-pass filter → delta from baseline → screen-X
+		#   axis with correct sign → deadzone → sensitivity → clamp → output
+		# No baseline drift: it eats slow input. Filter handles jitter.
+		# Orientation is locked to LANDSCAPE in project.godot, so the
+		# device-natural Y axis (top of device in portrait) reliably points
+		# LEFT in screen space — therefore screen-right = -device.y.
+		var raw := Input.get_gravity()
+		_tilt_filtered = _tilt_filtered.lerp(raw, globalvar.TILT_FILTER_ALPHA)
+		var delta := _tilt_filtered - _tilt_baseline
+		# In landscape, the phone's long axis is horizontal (device-Y in
+		# natural portrait frame). Rolling left/right is rotation AROUND
+		# device-Y, which changes device-X (and device-Z) but leaves
+		# device-Y essentially unchanged. So we read delta.x for screen-
+		# horizontal tilt input. Sign: +delta.x means right edge dipping
+		# down → CW ship rotation.
+		var tilt: float = delta.x / 9.81
+		if absf(tilt) < globalvar.TILT_DEADZONE:
+			tilt = 0.0
+		var ctrl := clampf(tilt * globalvar.TILT_SENSITIVITY, -1.0, 1.0)
+		if globalvar.TILT_USE_TORQUE:
+			constant_torque = torque * ctrl
+		else:
+			state.angular_velocity = ctrl * globalvar.TILT_MAX_ANGULAR_VELOCITY
+			constant_torque = 0
+	else:
+		# Keyboard / joystick — torque-based (original behavior).
+		var t: float = float(int(Input.is_action_pressed("ui_right")) - int(Input.is_action_pressed("ui_left")))
+		constant_torque = torque * t
 
 func _process(_delta):
 	if target:
@@ -229,7 +338,7 @@ func _process(_delta):
 		if _shake_intensity <= 0.0:
 			$Camera2D.offset = Vector2.ZERO
 	# Slow-motion & proximity beeps near any landing target (waypoints + final)
-	if target and flagplaced == false:
+	if target and is_instance_valid(target) and flagplaced == false:
 		# Find the nearest body in the targets group
 		var nearest_target: Node2D = target
 		var dist_to_target := global_position.distance_to(target.global_position)
@@ -259,6 +368,16 @@ func _process(_delta):
 				break
 		if dist_to_target < landing_range and not _landing_mode_active and not flagplaced:
 			_activate_landing_mode(nearest_target, landing_range)
+		# Deactivate landing mode if we've drifted out of range, switched targets,
+		# or the target became invalid. Hysteresis prevents flicker on borderline orbits.
+		if _landing_mode_active:
+			var should_deactivate := (
+				not is_instance_valid(_landing_active_target)
+				or nearest_target != _landing_active_target
+				or dist_to_target > _landing_active_range * LANDING_MODE_EXIT_HYSTERESIS
+			)
+			if should_deactivate:
+				_deactivate_landing_mode()
 		# Proximity beeps — pitch increases as rocket approaches target
 		if dist_to_target < BEEP_RANGE:
 			_beep_cooldown -= _delta
@@ -308,13 +427,13 @@ func _process(_delta):
 	if (shipoverlaps.size() > 0):
 		get_node("RocketSprite").hide()
 		if not _try_shield():
-			death()
+			death(shipoverlaps[0])
 	else:
 		get_node("SkullSprite").hide()
 	for i in footoverlaps:
 		if (linear_velocity.length() > crashspeed and i.get_name() != "Rocket"):
 			if not _try_shield():
-				death()
+				death(i)
 		if(i.is_in_group("targets") and i == target and linear_velocity.length() < landingspeed and flagplaced == false and landattemptnow == false):
 			# Angle check — tipped too far = rollover crash
 			# Compute tilt relative to target: 0 = tail pointing at target (correct)
@@ -324,7 +443,7 @@ func _process(_delta):
 			var tilt: float = wrapf(rotation - ideal_rot, -PI, PI)
 			if absf(tilt) > TILT_DEATH_ANGLE:
 				if not _try_shield():
-					death()
+					death(i)
 			else:
 				moonland()
 	# Cancel landing timer only after a grace period of no foot contact
@@ -355,7 +474,20 @@ func _process(_delta):
 				landattemptnow = false
 				_landing_grace = 0.0
 
-func death():
+func death(crash_body: Node2D = null):
+	# Easy-mode second-chance bounce: if the player is about to crash into a
+	# planet/moon/asteroid and they haven't used their bounce this attempt, kick
+	# them away from the crashing body instead of killing them.
+	if globalvar.difficulty == globalvar.Difficulty.EASY \
+			and not globalvar.level_easy_bounce_used \
+			and crash_body and is_instance_valid(crash_body):
+		globalvar.level_easy_bounce_used = true
+		_do_bounce(crash_body)
+		return
+	Telemetry.log_event(Telemetry.EVENT_LEVEL_DEATH, {
+		"level": globalvar.nowlevel,
+		"cause": crash_body.get_name() if (crash_body and is_instance_valid(crash_body)) else "hazard",
+	})
 	# Restore normal time if in slow-mo
 	if _in_slowmo:
 		_in_slowmo = false
@@ -458,6 +590,8 @@ func _activate_landing_mode(landing_target: Node2D = null, trigger_range: float 
 	if not landing_target:
 		return
 	_landing_mode_active = true
+	_landing_active_target = landing_target
+	_landing_active_range = trigger_range
 	_landing_mode = CanvasLayer.new()
 	_landing_mode.set_script(LANDING_MODE_SCRIPT)
 	_landing_mode.setup(self, landing_target, trigger_range)
@@ -469,9 +603,63 @@ func _deactivate_landing_mode() -> void:
 	if not _landing_mode_active:
 		return
 	_landing_mode_active = false
+	_landing_active_target = null
+	_landing_active_range = 0.0
 	if is_instance_valid(_landing_mode):
 		_landing_mode.deactivate()
 		_landing_mode = null
+
+
+func _do_bounce(body: Node2D) -> void:
+	## Easy-mode second-chance: bounce the rocket away from `body` instead of dying.
+	# Cancel any in-progress slow-mo or landing countdown so the player resumes
+	# normal flight cleanly.
+	if _in_slowmo:
+		_in_slowmo = false
+		Engine.time_scale = 1.0
+	if moontimer and not moontimer.is_stopped():
+		moontimer.stop()
+		landattemptnow = false
+	# Direction away from the crashing body. Fall back to "straight up in world
+	# space" if the rocket and body are at exactly the same position.
+	var diff := global_position - body.global_position
+	var dir := diff.normalized() if diff.length_squared() > 0.0001 else Vector2.UP
+	linear_velocity = dir * BOUNCE_SPEED
+	angular_velocity *= 0.3
+	# Restore some fuel so the player can actually retry
+	fuel = minf(fuel + max_fuel * BOUNCE_FUEL_PCT, max_fuel)
+	# Subtle haptic + toast
+	Input.vibrate_handheld(40)
+	_show_bounce_toast()
+
+
+func _show_bounce_toast() -> void:
+	## Yellow "SECOND CHANCE!" label that fades + scales out over ~1.5s.
+	var hud := get_node_or_null("../CanvasLayer")
+	if hud == null:
+		return
+	var lbl := Label.new()
+	lbl.text = "SECOND CHANCE!"
+	lbl.add_theme_font_size_override("font_size", 32)
+	lbl.add_theme_color_override("font_color", Color(1.0, 0.85, 0.2))
+	lbl.add_theme_color_override("font_shadow_color", Color(0, 0, 0, 0.85))
+	lbl.add_theme_constant_override("shadow_offset_x", 2)
+	lbl.add_theme_constant_override("shadow_offset_y", 2)
+	lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	lbl.set_anchors_preset(Control.PRESET_TOP_WIDE)
+	lbl.offset_top = 140
+	lbl.offset_bottom = 180
+	lbl.pivot_offset = Vector2(lbl.size.x * 0.5, lbl.size.y * 0.5)
+	lbl.scale = Vector2(0.6, 0.6)
+	lbl.modulate = Color(1, 1, 1, 0)
+	hud.add_child(lbl)
+	var tw := create_tween().set_parallel(true)
+	tw.tween_property(lbl, "modulate:a", 1.0, 0.15)
+	tw.tween_property(lbl, "scale", Vector2(1.0, 1.0), 0.25).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+	var fade := create_tween()
+	fade.tween_interval(1.0)
+	fade.tween_property(lbl, "modulate:a", 0.0, 0.4)
+	fade.tween_callback(lbl.queue_free)
 
 func flagplanted():
 	Engine.time_scale = 1.0
@@ -524,7 +712,11 @@ func _show_death_screen() -> void:
 
 
 func _on_external_death() -> void:
-	## Called by Martian/GammaRay via globalvar.sendDeath signal.
+	## Called by Martian/GammaRay/BlackHole via globalvar.sendDeath signal.
+	# Hazards can't kill while in landing mode — would be unfair given the player
+	# can't easily evade with the 3D overlay up and the camera locked to target.
+	if _landing_mode_active:
+		return
 	if not _try_shield():
 		death()
 

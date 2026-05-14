@@ -1,4 +1,4 @@
-[gd_scene format=3 uid="uid://co26rhqh538pd"]
+[gd_scene format=3 uid="uid://3rc0omn3ge5o"]
 
 [ext_resource type="Shader" uid="uid://dssia7wcexeve" path="res://game/starfield.gdshader" id="1"]
 
@@ -9,20 +9,12 @@ shader_parameter/twinkle_speed = 1.5
 shader_parameter/brightness = 1.4
 shader_parameter/scroll_offset = Vector2(0, 0)
 
-[node name="ParallaxBackground" type="ParallaxBackground" unique_id=1614602500]
-follow_viewport_enabled = true
+[node name="ParallaxBackground" type="ParallaxBackground" unique_id=451481121]
 
-[node name="StarParallax" type="ParallaxLayer" parent="." unique_id=1682334849]
-motion_scale = Vector2(0, 0)
-motion_mirroring = Vector2(4096, 2400)
-
-[node name="Starfield" type="ColorRect" parent="StarParallax" unique_id=26204459]
+[node name="Starfield" type="ColorRect" parent="." unique_id=13292578]
 material = SubResource("1")
-offset_left = -50212.0
-offset_top = -33833.0
-offset_right = 55632.0
-offset_bottom = 39184.0
-
-[node name="SunParallax" type="ParallexLayer" parent="." unique_id=1759008370]
-motion_scale = Vector2(0, 0)
-motion_mirroring = Vector2(4096, 2400)
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2

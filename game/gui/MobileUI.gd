@@ -59,12 +59,13 @@ func _setup_mobile() -> void:
 
 	var vp := get_viewport().get_visible_rect().size
 
-	# Create virtual joystick (bottom-left)
+	# Create virtual joystick (bottom-left) — hidden when tilt-to-turn is active
 	_joystick = Control.new()
 	_joystick.set_script(VirtualJoystickScript)
 	_joystick.name = "VirtualJoystick"
 	add_child(_joystick)
 	_joystick.position = Vector2(20, vp.y - 170)
+	_joystick.visible = (globalvar.control_scheme != globalvar.ControlScheme.TILT)
 
 	# Create thrust button (right side, upper)
 	_thrust_btn = Control.new()
