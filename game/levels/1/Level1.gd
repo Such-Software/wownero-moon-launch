@@ -25,10 +25,7 @@ func _ready():
 
 
 func _show_tutorial() -> void:
-	# Persist the flag the moment the tutorial is *shown* — fast clears still count.
-	globalvar.tutorial_shown = true
-	globalvar.save_game()
-
+	# Tutorial messages will display. Flag is only persisted when Level 1 is actually completed.
 	_tutorial_messages = _build_tutorial_messages()
 
 	_tutorial_label = Label.new()

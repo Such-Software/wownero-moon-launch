@@ -48,6 +48,9 @@ func _ready():
 	stars = globalvar.record_level_result(nowlevel, finaltime, _fuel_pct, _crypto_collected)
 	var prev_best: float = globalvar.get_best_time(nowlevel)
 	is_new_best = (finaltime <= prev_best) or prev_best < 0
+	# If completing Level 1 for the first time, mark tutorial as shown
+	if nowlevel == 1 and not globalvar.tutorial_shown:
+		globalvar.tutorial_shown = true
 	Telemetry.log_event(Telemetry.EVENT_LEVEL_COMPLETE, {
 		"level": nowlevel,
 		"time_s": finaltime,
