@@ -417,7 +417,11 @@ func get_level_scene(level: int) -> String:
 func get_next_level_scene() -> String:
 	if nowlevel >= MAX_LEVEL:
 		return ""  # No more levels yet — expand LEVEL_SCENES to add more
-	return LEVEL_SCENES.get(nowlevel + 1, "")
+	var next_level := nowlevel + 1
+	# Verify the next level is reachable before returning it
+	if not is_level_reachable(next_level):
+		return ""  # Player hasn't completed this level yet
+	return LEVEL_SCENES.get(next_level, "")
 
 func has_next_level() -> bool:
 	return nowlevel < MAX_LEVEL
@@ -468,6 +472,8 @@ func record_level_result(level: int, time_s: float, fuel_pct: float, crypto: int
 	var prev_stars: int = int(best_stars.get(key, 0))
 	if stars > prev_stars:
 		best_stars[key] = stars
+	# Update progression tracker — only when the player actually completes a level
+	highest_level_completed = maxi(highest_level_completed, level)
 	# Lifetime successful-landings counter — drives the rate-prompt trigger on Victory.
 	landings_since_install += 1
 	check_achievement_skins()
@@ -561,7 +567,6 @@ func _generate_uuid() -> String:
 
 func get_save_data() -> Dictionary:
 	## Returns the full save-state dictionary (used by local save and cloud save).
-	highest_level_completed = maxi(highest_level_completed, nowlevel)
 	return {
 		"level": mini(nowlevel, MAX_LEVEL),
 		"highest_completed": highest_level_completed,
