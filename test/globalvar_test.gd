@@ -751,12 +751,11 @@ func test_save_data_roundtrip() -> void:
 	# Restore from save data
 	globalvar._apply_save_data(data)
 
-	# Note: get_save_data() stores level as mini(nowlevel+1, MAX_LEVEL),
-	# so saved level=6 when nowlevel=5. _apply_save_data sets nowlevel=6.
-	# Also: get_save_data() sets highest_level_completed = max(highest, nowlevel),
-	# so with nowlevel=5 it bumps highest_level_completed from 4 to 5.
+	# Note: highest_level_completed is now updated in record_level_result()
+	# rather than lazily in get_save_data(), so it round-trips as the value
+	# we set (4), not max(4, nowlevel).
 	assert_int(globalvar.wallet).is_equal(1234)
-	assert_int(globalvar.highest_level_completed).is_equal(5)
+	assert_int(globalvar.highest_level_completed).is_equal(4)
 	assert_int(globalvar.difficulty).is_equal(globalvar.Difficulty.HARD)
 	assert_int(globalvar.upgrades["thrust"]).is_equal(3)
 	assert_int(globalvar.upgrades["shield"]).is_equal(2)
