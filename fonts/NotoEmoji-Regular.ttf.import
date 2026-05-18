@@ -2,13 +2,13 @@
 
 importer="font_data_dynamic"
 type="FontFile"
-uid="uid://iynt8c8y52pl"
-path="res://.godot/imported/Computer Speak v0.3.ttf-60e6c4ee13d874627ada299c1b212453.fontdata"
+uid="uid://dem7ikp44aiaa"
+path="res://.godot/imported/NotoEmoji-Regular.ttf-9fe45b9bc95e58e912b3dcdc645ddb6d.fontdata"
 
 [deps]
 
-source_file="res://fonts/Computer Speak v0.3.ttf"
-dest_files=["res://.godot/imported/Computer Speak v0.3.ttf-60e6c4ee13d874627ada299c1b212453.fontdata"]
+source_file="res://fonts/NotoEmoji-Regular.ttf"
+dest_files=["res://.godot/imported/NotoEmoji-Regular.ttf-9fe45b9bc95e58e912b3dcdc645ddb6d.fontdata"]
 
 [params]
 
@@ -27,7 +27,7 @@ subpixel_positioning=4
 keep_rounding_remainders=true
 oversampling=0.0
 Fallbacks=null
-fallbacks=["res://fonts/NotoSansSymbols2-Regular.ttf", "res://fonts/NotoEmoji-Regular.ttf"]
+fallbacks=[]
 Compress=null
 compress=true
 preload=[]
