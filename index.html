@@ -1,0 +1,525 @@
+<!DOCTYPE html>
+<html lang="en">
+	<head>
+		<meta charset="utf-8">
+		<meta name="viewport" content="width=device-width, user-scalable=no, initial-scale=1.0">
+		<title>Such Moon Launch</title>
+		<style>
+html, body, #canvas {
+	margin: 0;
+	padding: 0;
+	border: 0;
+}
+
+body {
+	color: white;
+	background-color: black;
+	overflow: hidden;
+	touch-action: none;
+}
+
+#canvas {
+	display: block;
+}
+
+#canvas:focus {
+	outline: none;
+}
+
+#status, #status-splash, #status-progress {
+	position: absolute;
+	left: 0;
+	right: 0;
+}
+
+#status, #status-splash {
+	top: 0;
+	bottom: 0;
+}
+
+#status {
+	background-color: #0d0d1a;
+	display: flex;
+	flex-direction: column;
+	justify-content: center;
+	align-items: center;
+	visibility: hidden;
+}
+
+#status-splash {
+	max-height: 100%;
+	max-width: 100%;
+	margin: auto;
+}
+
+#status-splash.show-image--false {
+	display: none;
+}
+
+#status-splash.fullsize--true {
+	height: 100%;
+	width: 100%;
+	object-fit: contain;
+}
+
+#status-splash.use-filter--false {
+	image-rendering: pixelated;
+}
+
+#status-progress, #status-notice {
+	display: none;
+}
+
+#status-progress {
+	bottom: 10%;
+	width: 50%;
+	margin: 0 auto;
+}
+
+#status-notice {
+	background-color: #5b3943;
+	border-radius: 0.5rem;
+	border: 1px solid #9b3943;
+	color: #e0e0e0;
+	font-family: 'Noto Sans', 'Droid Sans', Arial, sans-serif;
+	line-height: 1.3;
+	margin: 0 2rem;
+	overflow: hidden;
+	padding: 1rem;
+	text-align: center;
+	z-index: 1;
+}
+
+/* --- Ad containers --- */
+#ad-banner {
+	position: fixed;
+	bottom: 0;
+	left: 0;
+	right: 0;
+	text-align: center;
+	z-index: 100;
+	display: none;
+	background: rgba(0,0,0,0.8);
+	padding: 4px 0;
+}
+
+#ad-interstitial-overlay {
+	position: fixed;
+	top: 0; left: 0; right: 0; bottom: 0;
+	z-index: 200;
+	background: rgba(0,0,0,0.85);
+	display: none;
+	justify-content: center;
+	align-items: center;
+	flex-direction: column;
+}
+
+#ad-interstitial-overlay .ad-close {
+	color: white;
+	font-size: 14px;
+	margin-top: 12px;
+	cursor: pointer;
+	font-family: sans-serif;
+	display: none;
+}
+
+/* --- Nag overlay (shown before first game + on demand from Godot) --- */
+#nag-overlay {
+	position: fixed;
+	top: 0; left: 0; right: 0; bottom: 0;
+	z-index: 300;
+	background: rgba(0, 0, 0, 0.92);
+	display: flex;
+	justify-content: center;
+	align-items: center;
+	font-family: 'Noto Sans', Arial, sans-serif;
+	padding: 20px;
+	box-sizing: border-box;
+}
+#nag-box {
+	max-width: 460px;
+	width: 100%;
+	background: #0c0c19;
+	border: 1px solid rgba(255, 200, 60, 0.4);
+	border-radius: 12px;
+	padding: 28px 26px;
+	color: #e8e8ee;
+	text-align: center;
+	box-shadow: 0 0 28px rgba(255, 200, 60, 0.18);
+}
+#nag-title {
+	font-size: 28px;
+	letter-spacing: 1px;
+	margin: 0;
+	color: #ffc83c;
+}
+#nag-tagline {
+	margin: 6px 0 18px;
+	font-size: 15px;
+	color: #cfcfd6;
+}
+#nag-pitch p {
+	margin: 6px 0;
+	font-size: 15px;
+	line-height: 1.4;
+}
+#nag-pitch strong {
+	color: #ffc83c;
+}
+#nag-store-links {
+	margin: 16px 0 6px;
+	display: flex;
+	flex-direction: column;
+	gap: 10px;
+}
+.nag-btn {
+	display: block;
+	padding: 11px 14px;
+	border-radius: 8px;
+	text-decoration: none;
+	font-weight: 600;
+	font-size: 15px;
+	border: 1px solid transparent;
+	cursor: pointer;
+	transition: background 120ms, border-color 120ms;
+}
+.nag-btn-primary {
+	background: #ffc83c;
+	color: #0c0c19;
+}
+.nag-btn-primary:hover { background: #ffd66d; }
+.nag-btn-store {
+	background: transparent;
+	color: #e8e8ee;
+	border-color: rgba(255, 255, 255, 0.18);
+	flex: 1;
+}
+.nag-btn-store[data-disabled="true"] {
+	color: #7a7a82;
+	cursor: not-allowed;
+	pointer-events: none;
+	border-color: rgba(255, 255, 255, 0.08);
+}
+#nag-mobile-row {
+	display: flex;
+	gap: 10px;
+}
+#nag-mobile-row .nag-btn { flex: 1; }
+#nag-divider {
+	height: 1px;
+	background: rgba(255, 255, 255, 0.1);
+	margin: 18px 0;
+}
+#nag-ad-container { min-height: 90px; }
+#nag-continue {
+	margin-top: 16px;
+	background: transparent;
+	border: 1px solid rgba(255, 255, 255, 0.2);
+	color: #e8e8ee;
+	padding: 10px 18px;
+	border-radius: 8px;
+	font-size: 14px;
+	cursor: pointer;
+}
+#nag-continue:hover { background: rgba(255, 255, 255, 0.05); }
+#nag-fine-print {
+	margin: 12px 0 0;
+	font-size: 11px;
+	color: #7a7a82;
+}
+		</style>
+		<link id="-gd-engine-icon" rel="icon" type="image/png" href="index.icon.png" />
+<link rel="apple-touch-icon" href="index.apple-touch-icon.png"/>
+
+	</head>
+	<body>
+		<canvas id="canvas">
+			Your browser does not support the canvas tag.
+		</canvas>
+
+		<noscript>
+			Your browser does not support JavaScript.
+		</noscript>
+
+		<div id="status">
+			<img id="status-splash" class="show-image--true fullsize--false use-filter--true" src="index.png" alt="">
+			<progress id="status-progress"></progress>
+			<div id="status-notice"></div>
+		</div>
+
+		<!-- ================================================================= -->
+		<!--  NAG OVERLAY — shown before first game and on demand from Godot   -->
+		<!-- ================================================================= -->
+		<div id="nag-overlay">
+			<div id="nag-box">
+				<h1 id="nag-title">SUCH MOON LAUNCH</h1>
+				<p id="nag-tagline">Vry rocket. Much landing. Wow!</p>
+
+				<div id="nag-pitch">
+					<p><strong>Want the full experience without ads?</strong></p>
+					<p>Support us on itch.io for just $2. Desktop, ad-free, forever.</p>
+				</div>
+
+				<div id="nag-store-links">
+					<a href="https://suchsoftware.itch.io/such-moon-launch"
+						target="_blank" rel="noopener noreferrer"
+						class="nag-btn nag-btn-primary">
+						Buy on itch.io for $2
+					</a>
+
+					<div id="nag-mobile-row">
+						<a href="#" data-disabled="true"
+							class="nag-btn nag-btn-store">
+							App Store soon
+						</a>
+						<a href="#" data-disabled="true"
+							class="nag-btn nag-btn-store">
+							Google Play soon
+						</a>
+					</div>
+				</div>
+
+				<div id="nag-divider"></div>
+
+				<div id="nag-ad-container">
+					<ins class="adsbygoogle"
+						style="display:block"
+						data-ad-client="$ADSENSE_CLIENT_ID"
+						data-ad-slot="$ADSENSE_INTERSTITIAL_SLOT"
+						data-ad-format="auto"
+						data-full-width-responsive="true"></ins>
+				</div>
+
+				<button id="nag-continue" onclick="dismissNagOverlay()">
+					Continue to web version
+				</button>
+
+				<p id="nag-fine-print">Free with ads between games</p>
+			</div>
+		</div>
+
+		<!-- Banner ad container -->
+		<div id="ad-banner">
+			<ins class="adsbygoogle"
+				style="display:inline-block;width:728px;height:90px"
+				data-ad-client="$ADSENSE_CLIENT_ID"
+				data-ad-slot="$ADSENSE_BANNER_SLOT"></ins>
+		</div>
+
+		<!-- Interstitial / rewarded overlay -->
+		<div id="ad-interstitial-overlay">
+			<ins class="adsbygoogle"
+				style="display:inline-block;width:300px;height:250px"
+				data-ad-client="$ADSENSE_CLIENT_ID"
+				data-ad-slot="$ADSENSE_INTERSTITIAL_SLOT"></ins>
+			<span class="ad-close" onclick="closeInterstitial()">Close &times;</span>
+		</div>
+
+		<!-- AdSense library (replace data-ad-client with your publisher ID) -->
+		<script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=$ADSENSE_CLIENT_ID" crossorigin="anonymous"></script>
+
+		<script>
+		// ============================================================
+		// Ad bridge — called by Godot's AdManager via JavaScriptBridge
+		// ============================================================
+
+		// Replace these with your real AdSense publisher and slot IDs:
+		// const ADSENSE_CLIENT = "ca-pub-XXXXXXXXXXXXXXXX";
+		// Banner slot, interstitial slot, rewarded slot are set in the
+		// HTML ins tags above. Update data-ad-client and data-ad-slot.
+
+		var _adCallbacks = {};
+		var _interstitialTimer = null;
+
+		// --- Banner ---
+		window.showBannerAd = function() {
+			var el = document.getElementById('ad-banner');
+			el.style.display = 'block';
+			try { (adsbygoogle = window.adsbygoogle || []).push({}); } catch(e) {}
+		};
+
+		window.hideBannerAd = function() {
+			document.getElementById('ad-banner').style.display = 'none';
+		};
+
+		// --- Interstitial ---
+		window.showInterstitialAd = function(callbackId) {
+			var overlay = document.getElementById('ad-interstitial-overlay');
+			overlay.style.display = 'flex';
+			try { (adsbygoogle = window.adsbygoogle || []).push({}); } catch(e) {}
+			// Show close button after 5 seconds
+			var closeBtn = overlay.querySelector('.ad-close');
+			closeBtn.style.display = 'none';
+			_interstitialTimer = setTimeout(function() {
+				closeBtn.style.display = 'block';
+			}, 5000);
+			_adCallbacks['interstitial'] = callbackId;
+		};
+
+		window.closeInterstitial = function() {
+			var overlay = document.getElementById('ad-interstitial-overlay');
+			overlay.style.display = 'none';
+			if (_interstitialTimer) clearTimeout(_interstitialTimer);
+			var cid = _adCallbacks['interstitial'];
+			if (cid && window.godotAdCallback) {
+				window.godotAdCallback(cid, true);
+			}
+			_adCallbacks['interstitial'] = null;
+		};
+
+		// --- Rewarded ---
+		window.showRewardedAd = function(callbackId) {
+			// For rewarded ads on web, we show a longer interstitial-style
+			// display ad and grant the reward after a mandatory watch period.
+			var overlay = document.getElementById('ad-interstitial-overlay');
+			overlay.style.display = 'flex';
+			try { (adsbygoogle = window.adsbygoogle || []).push({}); } catch(e) {}
+			var closeBtn = overlay.querySelector('.ad-close');
+			closeBtn.style.display = 'none';
+			_adCallbacks['rewarded'] = callbackId;
+			// Reward granted after 15 seconds
+			_interstitialTimer = setTimeout(function() {
+				overlay.style.display = 'none';
+				if (window.godotAdCallback) {
+					window.godotAdCallback(callbackId, true);
+				}
+				_adCallbacks['rewarded'] = null;
+			}, 15000);
+		};
+
+		// --- Godot callback bridge ---
+		window.godotAdCallback = function(id, success) {
+			// The Godot side handles this via timer fallback.
+			// This exists so future proper JS→Godot callback
+			// integration can replace the timer approach.
+			console.log('Ad callback:', id, success);
+		};
+
+		// --- Nag overlay (shown before first game + on demand from Godot) ---
+		(function() {
+			// Request the first ad once the overlay is in the DOM.
+			setTimeout(function() {
+				try { (adsbygoogle = window.adsbygoogle || []).push({}); } catch(e) {}
+			}, 400);
+		})();
+
+		window.dismissNagOverlay = function() {
+			var overlay = document.getElementById('nag-overlay');
+			if (overlay) overlay.style.display = 'none';
+		};
+
+		// Callable from Godot via JavaScriptBridge.eval("showNagOverlay()")
+		// to re-display the overlay between games (after a death or win).
+		window.showNagOverlay = function() {
+			var overlay = document.getElementById('nag-overlay');
+			if (!overlay) return;
+			overlay.style.display = 'flex';
+			try { (adsbygoogle = window.adsbygoogle || []).push({}); } catch(e) {}
+		};
+		</script>
+
+		<script src="index.js"></script>
+		<script>
+const GODOT_CONFIG = {"args":[],"canvasResizePolicy":2,"emscriptenPoolSize":8,"ensureCrossOriginIsolationHeaders":true,"executable":"index","experimentalVK":false,"fileSizes":{"index.pck":83060064,"index.wasm":37685705},"focusCanvas":true,"gdextensionLibs":[],"godotPoolSize":4};
+const GODOT_THREADS_ENABLED = false;
+const engine = new Engine(GODOT_CONFIG);
+
+(function () {
+	const statusOverlay = document.getElementById('status');
+	const statusProgress = document.getElementById('status-progress');
+	const statusNotice = document.getElementById('status-notice');
+
+	let initializing = true;
+	let statusMode = '';
+
+	function setStatusMode(mode) {
+		if (statusMode === mode || !initializing) {
+			return;
+		}
+		if (mode === 'hidden') {
+			statusOverlay.remove();
+			initializing = false;
+			return;
+		}
+		statusOverlay.style.visibility = 'visible';
+		statusProgress.style.display = mode === 'progress' ? 'block' : 'none';
+		statusNotice.style.display = mode === 'notice' ? 'block' : 'none';
+		statusMode = mode;
+	}
+
+	function setStatusNotice(text) {
+		while (statusNotice.lastChild) {
+			statusNotice.removeChild(statusNotice.lastChild);
+		}
+		const lines = text.split('\n');
+		lines.forEach((line) => {
+			statusNotice.appendChild(document.createTextNode(line));
+			statusNotice.appendChild(document.createElement('br'));
+		});
+	}
+
+	function displayFailureNotice(err) {
+		console.error(err);
+		if (err instanceof Error) {
+			setStatusNotice(err.message);
+		} else if (typeof err === 'string') {
+			setStatusNotice(err);
+		} else {
+			setStatusNotice('An unknown error occurred.');
+		}
+		setStatusMode('notice');
+		initializing = false;
+	}
+
+	const missing = Engine.getMissingFeatures({
+		threads: GODOT_THREADS_ENABLED,
+	});
+
+	if (missing.length !== 0) {
+		if (GODOT_CONFIG['serviceWorker'] && GODOT_CONFIG['ensureCrossOriginIsolationHeaders'] && 'serviceWorker' in navigator) {
+			let serviceWorkerRegistrationPromise;
+			try {
+				serviceWorkerRegistrationPromise = navigator.serviceWorker.getRegistration();
+			} catch (err) {
+				serviceWorkerRegistrationPromise = Promise.reject(new Error('Service worker registration failed.'));
+			}
+			Promise.race([
+				serviceWorkerRegistrationPromise.then((registration) => {
+					if (registration != null) {
+						return Promise.reject(new Error('Service worker already exists.'));
+					}
+					return registration;
+				}).then(() => engine.installServiceWorker()),
+				new Promise((resolve) => {
+					setTimeout(() => resolve(), 2000);
+				}),
+			]).then(() => {
+				window.location.reload();
+			}).catch((err) => {
+				console.error('Error while registering service worker:', err);
+			});
+		} else {
+			const missingMsg = 'Error\nThe following features required to run Godot projects on the Web are missing:\n';
+			displayFailureNotice(missingMsg + missing.join('\n'));
+		}
+	} else {
+		setStatusMode('progress');
+		engine.startGame({
+			'onProgress': function (current, total) {
+				if (current > 0 && total > 0) {
+					statusProgress.value = current;
+					statusProgress.max = total;
+				} else {
+					statusProgress.removeAttribute('value');
+					statusProgress.removeAttribute('max');
+				}
+			},
+		}).then(() => {
+			setStatusMode('hidden');
+		}, displayFailureNotice);
+	}
+}());
+		</script>
+	</body>
+</html>
+
