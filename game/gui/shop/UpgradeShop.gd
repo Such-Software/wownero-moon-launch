@@ -129,10 +129,21 @@ func _ready() -> void:
 	# Show banner ad on shop screen
 	AdManager.show_banner()
 
-	# Scrollable upgrade list
+	# Scrollable upgrade list — sized to the runtime viewport so it actually
+	# fills the screen on mobile. Reserves bottom margin for the AdMob
+	# banner (~70px) plus phone safe-area / gesture nav (~60px) = 130 total.
+	var vp := get_viewport_rect().size
+	var side_margin: float = 50.0
+	var top_y: float = 90.0
+	var bottom_reserve: float = 130.0  # banner + safe area
 	var scroll := ScrollContainer.new()
-	scroll.position = Vector2(80, 90)
-	scroll.size = Vector2(864, 420)
+	scroll.position = Vector2(side_margin, top_y)
+	scroll.size = Vector2(maxf(vp.x - 2 * side_margin, 600.0), maxf(vp.y - top_y - bottom_reserve, 360.0))
+	# Enable touch drag-scrolling over interactive children (Buttons in cards).
+	# Without a deadzone, every drag is consumed by whichever child the
+	# touch starts on. With 10px the user has to drag more than 10px before
+	# the scroll container "captures" the gesture.
+	scroll.scroll_deadzone = 20
 	add_child(scroll)
 
 	var vbox := VBoxContainer.new()
@@ -151,7 +162,7 @@ func _ready() -> void:
 
 	# --- Skin gallery section ---
 	var skin_header := Label.new()
-	skin_header.text = "🚀  SHIP SKINS"
+	skin_header.text = "SHIP SKINS"
 	skin_header.add_theme_font_size_override("font_size", 18)
 	skin_header.add_theme_color_override("font_color", Color(0.9, 0.6, 1.0))
 	skin_header.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
@@ -417,6 +428,10 @@ func _create_upgrade_card(upgrade_name: String) -> PanelContainer:
 
 	# Card panel
 	var card := PanelContainer.new()
+	# Critical for mobile drag-scroll: don't intercept touches at the panel
+	# level so the parent ScrollContainer can capture vertical drags. The
+	# Buy button INSIDE keeps its default STOP and still receives taps.
+	card.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	var card_style := StyleBoxFlat.new()
 	card_style.bg_color = Color(0.05, 0.05, 0.15, 0.85)
 	card_style.border_color = accent * 0.4 if not is_maxed else Color(0.25, 0.25, 0.25, 0.5)
