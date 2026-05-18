@@ -256,7 +256,10 @@ func _build_optional_buttons() -> void:
 	var btn_specs: Array = []
 	var next_text := "Upgrade Shop" if globalvar.has_next_level() else "Upgrades & Menu"
 	btn_specs.append({"text": next_text, "color": Color.GREEN, "handler": _on_Label_NextLevel_pressed, "kind": "next"})
-	if AdManager.is_rewarded_available() and not AdManager.is_ad_free():
+	# Rewarded opt-in stays available for premium players — Remove Ads only
+	# kills banners/forced ads, not the player's choice to watch for bonus
+	# Moonrocks (consistent with UpgradeShop + DeathScreen).
+	if AdManager.is_rewarded_available():
 		btn_specs.append({"text": "+%d Moonrocks (Watch Ad)" % AdManager.REWARDED_AD_MOONROCKS, "color": Color(1.0, 0.85, 0.2), "handler": _on_rewarded_pressed, "kind": "rewarded"})
 	btn_specs.append({"text": "Share Score", "color": Color(0.5, 0.85, 1.0), "handler": _on_share_pressed, "kind": "share"})
 	btn_specs.append({"text": "Quit", "color": Color.RED, "handler": _on_Label_Quit_pressed, "kind": "quit"})
