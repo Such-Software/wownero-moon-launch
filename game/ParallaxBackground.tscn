@@ -10,11 +10,17 @@ shader_parameter/brightness = 1.4
 shader_parameter/scroll_offset = Vector2(0, 0)
 
 [node name="ParallaxBackground" type="ParallaxBackground" unique_id=451481121]
+follow_viewport_enabled = true
 
 [node name="Starfield" type="ColorRect" parent="." unique_id=13292578]
 material = SubResource("1")
-anchors_preset = 15
-anchor_right = 1.0
-anchor_bottom = 1.0
-grow_horizontal = 2
-grow_vertical = 2
+; Massively over-sized rect that covers any expanded viewport. With Godot's
+; canvas_items stretch + expand aspect, FULL_RECT anchors only cover the
+; 1024x600 design area — the extra screen space on phones falls outside.
+; Explicit large offsets guarantee coverage on any aspect ratio. The
+; starfield shader uses SCREEN_UV so its star density looks the same
+; regardless of the underlying rect size.
+offset_left = -3000.0
+offset_top = -3000.0
+offset_right = 3000.0
+offset_bottom = 3000.0

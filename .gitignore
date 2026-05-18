@@ -49,6 +49,9 @@ DEPLOY.md
 # Capture sheet (untracked, contains production IDs / OAuth client IDs)
 CAPTURE.md
 
+# Signing material copied locally for headless builds (sandbox workaround)
+.signing/
+
 # AdMob downloaded native libraries (large binaries, per-machine)
 addons/admob/downloads/
 addons/admob/android/bin/

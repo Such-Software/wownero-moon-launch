@@ -26,6 +26,7 @@ var _time_label: Label = null
 var _fuel_label: Label = null
 var _crypto_label: Label = null
 var _best_label: Label = null
+var _stats_group: Node2D = null
 var _rewarded_btn: Button = null
 var _share_btn: Button = null
 var _rate_prompt_panel: PanelContainer = null
@@ -99,6 +100,14 @@ func labelanim():
 	var base_pos: Vector2 = score_node.position
 	var base_scale: Vector2 = score_node.scale
 
+	# Parent the count-up labels under a Node2D so we can shrink+slide the
+	# whole stats column when the action buttons fade in (otherwise they
+	# would collide with the bottom-anchored button column on phone
+	# aspect ratios shorter than the 600px design height).
+	_stats_group = Node2D.new()
+	_stats_group.name = "StatsGroup"
+	add_child(_stats_group)
+
 	# Time count-up label
 	_time_label = Label.new()
 	_time_label.text = "Time: 0.00 s"
@@ -106,7 +115,7 @@ func labelanim():
 	_time_label.add_theme_font_size_override("font_size", 16)
 	_time_label.position = base_pos
 	_time_label.scale = base_scale
-	add_child(_time_label)
+	_stats_group.add_child(_time_label)
 
 	# Star labels (pop in one-by-one after count-up)
 	for i in 3:
@@ -117,7 +126,7 @@ func labelanim():
 		sl.position = base_pos + Vector2((280 + i * 50) / base_scale.x, 0) * base_scale
 		sl.scale = base_scale
 		sl.modulate = Color(1, 1, 1, 0.3)
-		add_child(sl)
+		_stats_group.add_child(sl)
 		_star_labels.append(sl)
 
 	# Fuel label (below time)
@@ -128,7 +137,7 @@ func labelanim():
 	_fuel_label.position = base_pos + Vector2(0, 22) * base_scale
 	_fuel_label.scale = base_scale
 	_fuel_label.modulate = Color(1, 1, 1, 0)
-	add_child(_fuel_label)
+	_stats_group.add_child(_fuel_label)
 
 	# Crypto label (next to fuel)
 	_crypto_label = Label.new()
@@ -138,7 +147,7 @@ func labelanim():
 	_crypto_label.position = base_pos + Vector2(200 / base_scale.x, 22) * base_scale
 	_crypto_label.scale = base_scale
 	_crypto_label.modulate = Color(1, 1, 1, 0)
-	add_child(_crypto_label)
+	_stats_group.add_child(_crypto_label)
 
 	# NEW BEST flash label
 	if is_new_best:
@@ -148,7 +157,7 @@ func labelanim():
 		_best_label.add_theme_font_size_override("font_size", 18)
 		_best_label.position = base_pos + Vector2(0, -25) * base_scale
 		_best_label.scale = Vector2.ZERO
-		add_child(_best_label)
+		_stats_group.add_child(_best_label)
 
 	_counting_up = true
 	_count_elapsed = 0.0
@@ -165,39 +174,46 @@ func colors():
 
 
 func presskey():
-	get_node("ButtonNode").show()
-	get_node("ButtonNode").set_process(true)
-	# Style the victory buttons
-	BS.apply_space_style($ButtonNode/Label_Quit, Color.RED)
-	if globalvar.has_next_level():
-		$ButtonNode/Label_NextLevel.text = "Upgrade Shop"
-	else:
-		$ButtonNode/Label_NextLevel.text = "Upgrades & Menu"
-	BS.apply_space_style($ButtonNode/Label_NextLevel, Color.GREEN)
-
-	# Insert opt-in rewarded + share buttons into ButtonNode (siblings of NextLevel/Quit).
-	# Hidden from desktop builds (no ad SDK + no real ads to watch) by AdManager.is_ad_supported.
+	# Build the 4-button column in a CanvasLayer pinned to viewport bottom.
+	# (The .tscn-baked ButtonNode is hidden inside _build_optional_buttons.)
 	_build_optional_buttons()
 
-	# Slide buttons in from below with stagger
-	var buttons: Array[Node] = []
-	buttons.append($ButtonNode/Label_NextLevel)
-	if _rewarded_btn: buttons.append(_rewarded_btn)
-	if _share_btn: buttons.append(_share_btn)
-	buttons.append($ButtonNode/Label_Quit)
-	for i in buttons.size():
-		var btn: Control = buttons[i]
-		var final_pos := btn.position
-		btn.position.y += 30
-		btn.modulate = Color(1, 1, 1, 0)
-		var tw := create_tween()
-		tw.set_ease(Tween.EASE_OUT)
-		tw.set_trans(Tween.TRANS_BACK)
-		tw.set_parallel(true)
-		# Stagger: 0.1s between each button
-		var delay := i * 0.1
-		tw.tween_property(btn, "position", final_pos, 0.25).set_delay(delay)
-		tw.tween_property(btn, "modulate", Color.WHITE, 0.2).set_delay(delay)
+	# Shrink + slide the stats group up-and-left so it stops fighting the
+	# bottom button block on short-aspect phone viewports. Scale toward
+	# Node2D origin already pulls children up-and-left; the negative X
+	# offset nudges them further into the upper-left quadrant.
+	if _stats_group:
+		var tw_stats := create_tween()
+		tw_stats.set_ease(Tween.EASE_OUT)
+		tw_stats.set_trans(Tween.TRANS_CUBIC)
+		tw_stats.set_parallel(true)
+		tw_stats.tween_property(_stats_group, "scale", Vector2(0.65, 0.65), 0.55)
+		tw_stats.tween_property(_stats_group, "position", Vector2(-80, 20), 0.55)
+
+	# Fade-in stagger on the new buttons. Iterate the leaf buttons inside
+	# the HBox rows (vbox -> HBox -> Button).
+	var cl := get_node_or_null("ButtonsCanvasLayer")
+	if cl:
+		var vbox := cl.get_child(0)
+		var btn_index: int = 0
+		for row in vbox.get_children():
+			for btn in row.get_children():
+				if btn is Control:
+					(btn as Control).modulate = Color(1, 1, 1, 0)
+					var tw := create_tween()
+					tw.set_ease(Tween.EASE_OUT)
+					tw.set_trans(Tween.TRANS_QUAD)
+					var delay := btn_index * 0.08
+					tw.tween_property(btn, "modulate", Color.WHITE, 0.25).set_delay(delay)
+					btn_index += 1
+
+	# Rate prompt fires once after the 3rd successful landing in the player's
+	# history (and only once per save). Trigger after the button stagger.
+	if globalvar.landings_since_install >= 3 and not globalvar.rate_prompt_shown:
+		var rt_timer := get_tree().create_timer(1.2)
+		rt_timer.timeout.connect(_show_rate_prompt)
+
+	done = true
 
 	# Rate prompt fires once after the 3rd successful landing in the player's history
 	# (and only once per save). Trigger after the button stagger completes.
@@ -209,54 +225,75 @@ func presskey():
 
 
 func _build_optional_buttons() -> void:
-	## Lay out all four buttons (NextLevel, Rewarded, Share, Quit) as a clean
-	## vertical stack. Overrides the .tscn-baked positions for NextLevel and
-	## Quit because they were too close together (40px apart) for inserted
-	## buttons to fit without overlap.
-	var bn: Node = get_node("ButtonNode")
-	if bn == null:
-		return
-	var next_btn: Control = $ButtonNode/Label_NextLevel
-	var quit_btn: Control = $ButtonNode/Label_Quit
+	## Build the action buttons as a 2-column grid (two rows of two) inside a
+	## CanvasLayer pinned to the bottom-center of the ACTUAL viewport. Two
+	## rows is roughly half as tall as the old 4-stack, which leaves enough
+	## room above for the stats column on short phone aspects without any
+	## design-coord math.
+	##
+	## Hides the original .tscn-baked ButtonNode and routes its handlers to
+	## the freshly-created buttons here.
+	var old_bn := get_node_or_null("ButtonNode")
+	if old_bn:
+		old_bn.visible = false
 
-	# Keep horizontal position from the .tscn (200 left of viewport center).
-	var x: float = next_btn.position.x
-	var w: float = 420.0  # matches .tscn offset_right - offset_left
-	var h: float = 44.0
-	var spacing: float = 10.0
-	var y: float = 410.0  # top of the button column
+	var btn_w := 290.0
+	var btn_h := 50.0
+	var h_spacing := 16.0
+	var v_spacing := 12.0
+	var bottom_margin := 70.0
 
-	# NextLevel (green, primary CTA)
-	next_btn.position = Vector2(x, y)
-	next_btn.size = Vector2(w, h)
-	y += h + spacing
+	var cl := CanvasLayer.new()
+	cl.name = "ButtonsCanvasLayer"
+	cl.layer = 5
+	add_child(cl)
 
-	# Rewarded "+N Moonrocks (Watch Ad)" — only if ad system can serve rewarded.
+	var vbox := VBoxContainer.new()
+	vbox.add_theme_constant_override("separation", v_spacing)
+	vbox.alignment = BoxContainer.ALIGNMENT_CENTER
+
+	# Build the spec list in display order (top-left, top-right, bot-left, bot-right).
+	var btn_specs: Array = []
+	var next_text := "Upgrade Shop" if globalvar.has_next_level() else "Upgrades & Menu"
+	btn_specs.append({"text": next_text, "color": Color.GREEN, "handler": _on_Label_NextLevel_pressed, "kind": "next"})
 	if AdManager.is_rewarded_available() and not AdManager.is_ad_free():
-		_rewarded_btn = Button.new()
-		_rewarded_btn.text = "+%d Moonrocks (Watch Ad)" % AdManager.REWARDED_AD_MOONROCKS
-		_rewarded_btn.custom_minimum_size = Vector2(w, h)
-		_rewarded_btn.position = Vector2(x, y)
-		_rewarded_btn.add_theme_font_size_override("font_size", 16)
-		BS.apply_space_style(_rewarded_btn, Color(1.0, 0.85, 0.2))
-		_rewarded_btn.pressed.connect(_on_rewarded_pressed)
-		bn.add_child(_rewarded_btn)
-		y += h + spacing
+		btn_specs.append({"text": "+%d Moonrocks (Watch Ad)" % AdManager.REWARDED_AD_MOONROCKS, "color": Color(1.0, 0.85, 0.2), "handler": _on_rewarded_pressed, "kind": "rewarded"})
+	btn_specs.append({"text": "Share Score", "color": Color(0.5, 0.85, 1.0), "handler": _on_share_pressed, "kind": "share"})
+	btn_specs.append({"text": "Quit", "color": Color.RED, "handler": _on_Label_Quit_pressed, "kind": "quit"})
 
-	# Share button — always available
-	_share_btn = Button.new()
-	_share_btn.text = "Share Score"
-	_share_btn.custom_minimum_size = Vector2(w, h)
-	_share_btn.position = Vector2(x, y)
-	_share_btn.add_theme_font_size_override("font_size", 16)
-	BS.apply_space_style(_share_btn, Color(0.5, 0.85, 1.0))
-	_share_btn.pressed.connect(_on_share_pressed)
-	bn.add_child(_share_btn)
-	y += h + spacing
+	var n: int = btn_specs.size()
+	var rows: int = int(ceil(n / 2.0))
+	var total_w: float = 2 * btn_w + h_spacing
+	var total_h: float = rows * btn_h + (rows - 1) * v_spacing
 
-	# Quit at bottom
-	quit_btn.position = Vector2(x, y)
-	quit_btn.size = Vector2(w, h)
+	vbox.set_anchors_preset(Control.PRESET_CENTER_BOTTOM)
+	vbox.offset_left = -total_w / 2.0
+	vbox.offset_right = total_w / 2.0
+	vbox.offset_top = -(total_h + bottom_margin)
+	vbox.offset_bottom = -bottom_margin
+	cl.add_child(vbox)
+
+	var i: int = 0
+	while i < n:
+		var row := HBoxContainer.new()
+		row.add_theme_constant_override("separation", h_spacing)
+		row.alignment = BoxContainer.ALIGNMENT_CENTER
+		vbox.add_child(row)
+		for _j in 2:
+			if i >= n:
+				break
+			var spec: Dictionary = btn_specs[i]
+			var btn := Button.new()
+			btn.text = spec["text"]
+			btn.custom_minimum_size = Vector2(btn_w, btn_h)
+			btn.add_theme_font_size_override("font_size", 14)
+			BS.apply_space_style(btn, spec["color"])
+			btn.pressed.connect(spec["handler"])
+			row.add_child(btn)
+			match spec["kind"]:
+				"rewarded": _rewarded_btn = btn
+				"share": _share_btn = btn
+			i += 1
 
 
 func _on_rewarded_pressed() -> void:
@@ -289,18 +326,22 @@ func _on_share_pressed() -> void:
 
 func _on_score_submitted(success: bool, rank: int) -> void:
 	if success and rank > 0:
-		# Show rank in the gap between the stats row and the button column.
-		# (Was previously at y=395 which overlapped the new dynamic Share
-		# button on mobile.)
+		# Rank label inside a CanvasLayer so its TOP_WIDE anchor actually
+		# spans the viewport horizontally (Node2D parent has no rect, so
+		# anchored Controls don't auto-center properly when added directly).
+		var cl := CanvasLayer.new()
+		add_child(cl)
 		var rank_label := Label.new()
 		rank_label.text = "Leaderboard Rank: #%d" % rank
 		rank_label.add_theme_color_override("font_color", Color(1, 0.85, 0.2))
 		rank_label.add_theme_font_size_override("font_size", 18)
 		rank_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		# Anchor to top-wide; place vertically near the upper third so it
+		# sits below the Level title and above the stats column.
 		rank_label.set_anchors_preset(Control.PRESET_TOP_WIDE)
-		rank_label.offset_top = 380
-		rank_label.offset_bottom = 405
-		add_child(rank_label)
+		rank_label.offset_top = 200
+		rank_label.offset_bottom = 230
+		cl.add_child(rank_label)
 
 func _process(delta):
 	# Drive count-up animation
