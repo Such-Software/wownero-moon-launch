@@ -108,9 +108,12 @@ func _ready() -> void:
 		wallet_panel.position = Vector2(80, 50)
 
 		# Remove Ads — real-money IAP on mobile, Moonrock-spend fallback elsewhere.
+		# Gate on is_supported (platform) not is_available (init state) so
+		# the real-money button appears immediately on iOS/Android even
+		# before StoreKit has finished its async product fetch.
 		if not globalvar.is_ads_removed():
 			_remove_ads_btn = Button.new()
-			if IAPManager.is_available():
+			if IAPManager.is_supported():
 				_remove_ads_btn.text = "Remove Ads — %s" % IAPManager.get_price(IAPManager.PRODUCT_REMOVE_ADS)
 				BS.apply_space_style(_remove_ads_btn, Color(0.9, 0.3, 0.9))
 				_remove_ads_btn.pressed.connect(_on_remove_ads_iap)
@@ -157,7 +160,11 @@ func _ready() -> void:
 		vbox.add_child(card)
 
 	# --- Moonrock Store (real IAP) ---
-	if IAPManager.is_available():
+	# Same fix as Remove Ads above: render the section on every platform
+	# that supports IAPs, even if StoreKit/Play Billing hasn't finished
+	# product fetch yet — Apple review opened the shop too fast and saw
+	# no Moonrock buttons in earlier rejections.
+	if IAPManager.is_supported():
 		_build_moonrock_store(vbox)
 
 	# --- Skin gallery section ---
@@ -266,7 +273,7 @@ func _ready() -> void:
 	vbox.add_child(menu_btn)
 
 	# Restore Purchases — required by Apple + Google for non-consumables.
-	if IAPManager.is_available():
+	if IAPManager.is_supported():
 		var restore_btn := Button.new()
 		restore_btn.text = "Restore Purchases"
 		restore_btn.custom_minimum_size = Vector2(864, 28)

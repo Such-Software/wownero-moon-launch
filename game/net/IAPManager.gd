@@ -90,10 +90,24 @@ func _ready() -> void:
 				_initialized = true
 
 
-## Returns true if the platform can perform real-money purchases.
-## UI should hide IAP buttons when this is false.
+## Returns true once the platform-native billing layer has finished its
+## product fetch. Useful for showing fallback prices vs live prices.
+## DO NOT use this to decide whether to render IAP UI — that should
+## happen on every supported platform regardless of init state, or Apple
+## review will mark the IAPs as missing (see is_supported below).
 func is_available() -> bool:
 	return _initialized
+
+
+## Returns true on platforms that support real-money IAP, regardless of
+## whether the native billing layer has finished initializing yet. UI
+## should use this to decide whether to render IAP buttons. The
+## purchase() call itself is safe to invoke before _initialized — it
+## just emits a failed purchase_completed signal, so taps before init
+## complete are no-ops (acceptable UX vs. hidden IAPs which Apple flags).
+func is_supported() -> bool:
+	var p := OS.get_name()
+	return p == "iOS" or p == "Android"
 
 
 ## Begin a purchase flow. Always emits purchase_completed when done.
