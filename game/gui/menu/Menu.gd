@@ -684,12 +684,18 @@ func _show_store_popup() -> void:
 	vbox.add_child(HSeparator.new())
 
 	# --- Remove Ads ---
+	# Mobile (iOS/Android) ALWAYS shows the real-money IAP button regardless
+	# of whether StoreKit/Play Billing has finished its async product fetch.
+	# Otherwise Apple review opens Store within the few-second window before
+	# init completes, sees the moonrock fallback (and it's disabled because
+	# wallet is 0 on a fresh install), and rejects with "Remove Ads
+	# unresponsive" / "cannot locate IAPs".
 	if not globalvar.is_ads_removed():
 		var ra_btn := Button.new()
 		ra_btn.custom_minimum_size = Vector2(420, 44)
 		ra_btn.add_theme_font_size_override("font_size", 16)
 		BS.apply_space_style(ra_btn, Color(0.9, 0.3, 0.9))
-		if IAPManager.is_available():
+		if IAPManager.is_supported():
 			ra_btn.text = "Remove Ads — %s" % IAPManager.get_price(IAPManager.PRODUCT_REMOVE_ADS)
 			ra_btn.pressed.connect(func(): IAPManager.purchase(IAPManager.PRODUCT_REMOVE_ADS))
 		else:
@@ -710,7 +716,10 @@ func _show_store_popup() -> void:
 		vbox.add_child(ad_free)
 
 	# --- Moonrock packs (real IAP only) ---
-	if IAPManager.is_available():
+	# Same fix as Remove Ads above — gate on is_supported (platform) not
+	# is_available (init state) so Apple review sees the buttons on first
+	# Store popup open before StoreKit's async product fetch finishes.
+	if IAPManager.is_supported():
 		vbox.add_child(HSeparator.new())
 		var pack_header := Label.new()
 		pack_header.text = "Moonrock Packs"
