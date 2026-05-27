@@ -53,6 +53,11 @@ const DIFF_COLORS := {
 func _ready():
 	globalvar.load_game()
 
+	# Show a banner ad on the main menu so reviewers + players see
+	# advertising the moment the app opens (matching standard ad-supported
+	# mobile UX). UpgradeShop calls show_banner() too; that's idempotent.
+	AdManager.show_banner()
+
 	# Adapt layout to actual viewport size (handles ultrawide displays)
 	var vp := get_viewport_rect().size
 

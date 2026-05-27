@@ -4,8 +4,8 @@ extends Node
 ##
 ## Platform strategy:
 ##   Desktop (macOS, Windows, Linux) = always ad-free (premium builds)
-##   Web     = AdSense via JavaScript bridge in custom HTML shell
-##   Mobile  = AdMob via poing-studios Godot AdMob plugin
+##   Web     = in-game nag banner/popup promoting itch.io
+##   Mobile  = AdMob via godot-sdk-integrations/godot-admob plugin v6+
 ##   Any platform can be upgraded to ad-free via IAP
 
 signal rewarded_ad_completed(success: bool)
@@ -17,8 +17,12 @@ const AD_FREE_PLATFORMS := ["macOS", "Windows", "Linux"]
 ## Rewarded ad Moonrocks grant amount
 const REWARDED_AD_MOONROCKS := 150
 
+## AdMob production application IDs (one per platform).
+const ADMOB_APP_ID_ANDROID := "ca-app-pub-2501747033825166~3900713647"
+const ADMOB_APP_ID_IOS     := "ca-app-pub-2501747033825166~9592024025"
+
 ## AdMob production ad unit IDs
-const ADMOB_IDS := {
+const ADMOB_IDS_REAL := {
 	"banner_android": "ca-app-pub-2501747033825166/3145067570",
 	"banner_ios": "ca-app-pub-2501747033825166/3228828051",
 	"interstitial_android": "ca-app-pub-2501747033825166/8510609741",
@@ -27,10 +31,26 @@ const ADMOB_IDS := {
 	"rewarded_ios": "ca-app-pub-2501747033825166/1915746383",
 }
 
-## Whether a rewarded ad is currently showing
-var _rewarded_pending: bool = false
+## Google's universal test ad units. ALWAYS return test ads. Used in debug builds
+## so we can verify the pipeline without waiting for AdMob console propagation
+## or registering the device as a test device.
+const ADMOB_IDS_TEST := {
+	"banner_android": "ca-app-pub-3940256099942544/6300978111",
+	"banner_ios": "ca-app-pub-3940256099942544/2934735716",
+	"interstitial_android": "ca-app-pub-3940256099942544/1033173712",
+	"interstitial_ios": "ca-app-pub-3940256099942544/4411468910",
+	"rewarded_android": "ca-app-pub-3940256099942544/5224354917",
+	"rewarded_ios": "ca-app-pub-3940256099942544/1712485313",
+}
 
-## Pending callback for rewarded ad
+## Use test ad unit IDs in debug builds so the iPad sideload installs see ads
+## without needing the device registered in the AdMob console (a propagation
+## delay on real ad units, and Google often returns no-fill for unregistered
+## debug devices on real units anyway).
+var ADMOB_IDS: Dictionary = ADMOB_IDS_TEST if OS.is_debug_build() else ADMOB_IDS_REAL
+
+## Whether a rewarded ad is currently in-flight (between request and result)
+var _rewarded_pending: bool = false
 var _rewarded_callback: Callable
 
 ## Platform detection
@@ -38,16 +58,18 @@ var _is_web: bool = false
 var _is_mobile: bool = false
 var _platform: String = ""
 
-## AdMob state (mobile only)
+## New AdMob plugin (godot-sdk-integrations/godot-admob) — single Admob node
+## owns banner / interstitial / rewarded lifecycles. Created lazily on mobile.
+var _admob = null      # Admob from res://addons/AdmobPlugin/Admob.gd
 var _admob_ready: bool = false
-var _ad_view  # AdView (banner) — untyped because class only exists when plugin loaded
-var _interstitial_ad  # InterstitialAd
-var _rewarded_ad  # RewardedAd
+var _banner_visible: bool = false
 
 ## Web nag banner (in-game CanvasLayer shown instead of AdSense)
 var _nag_banner: CanvasLayer = null
 
-## itch.io URL for this game
+func _dbg(msg: String) -> void:
+	push_warning("[AdManager] " + msg)
+
 const ITCH_URL := "https://suchsoftware.itch.io/such-moon-launch"
 
 
@@ -55,9 +77,11 @@ func _ready() -> void:
 	_platform = OS.get_name()
 	_is_web = _platform == "Web"
 	_is_mobile = _platform in ["Android", "iOS"]
+	_dbg("ready on %s ads_removed=%s" % [_platform, globalvar.is_ads_removed()])
 
-	if is_ad_free():
-		return
+	# Always initialize on supported platforms. is_ad_free() only gates the
+	# public show methods (banner, interstitial) — rewarded ads stay opt-in
+	# even for premium users so they can still grind extra Moonrocks.
 	if _is_web:
 		_setup_web_bridge()
 	elif _is_mobile:
@@ -82,8 +106,7 @@ func is_rewarded_available() -> bool:
 
 
 ## Forced interstitials are disabled by design — we don't push 30-60s ads on
-## players. Kept as a no-op stub so existing call sites don't crash; existing
-## SDK init/load logic stays in place in case we re-enable in a future build.
+## players. Kept as a no-op stub so existing call sites don't crash.
 func show_interstitial() -> void:
 	interstitial_closed.emit()
 	return
@@ -133,146 +156,146 @@ func remove_ads() -> bool:
 
 ## Restore ad removal state (reads from globalvar save data — no separate file).
 func restore_purchase() -> void:
-	# ads_removed is now part of savegame.json via globalvar; nothing extra to do.
 	pass
 
 
 # ============================================================
-# Mobile — AdMob via poing-studios/godot-admob-plugin
+# Mobile — AdMob via godot-sdk-integrations/godot-admob plugin v6
 # ============================================================
 
-func _get_ad_id(kind: String) -> String:
-	var key := kind + "_" + ("android" if _platform == "Android" else "ios")
-	return ADMOB_IDS.get(key, "")
-
-
 func _init_admob() -> void:
-	# MobileAds is a GDScript class_name from the poing-studios AdMob plugin.
-	# Its _plugin will be null if the native singleton isn't present (e.g. in
-	# the editor or if the plugin .aar/.xcframework wasn't exported). In that
-	# case all its methods safely no-op, but we still get initialization.
-	var on_init := OnInitializationCompleteListener.new()
-	on_init.on_initialization_complete = func(_status) -> void:
-		_admob_ready = true
-		# Pre-load interstitial and rewarded so they're ready when needed
-		_mobile_load_interstitial()
-		_mobile_load_rewarded()
+	_dbg("A: init_admob start")
+	if not Engine.has_singleton("AdmobPlugin"):
+		_dbg("B: singleton NOT registered")
+		return
+	_dbg("B: got singleton")
+	_admob = Engine.get_singleton("AdmobPlugin")
+	_dbg("C: connecting signals")
+	_admob.connect("initialization_completed", _on_native_init_complete)
+	_admob.connect("banner_ad_loaded", _on_native_banner_loaded)
+	_admob.connect("banner_ad_failed_to_load", _on_native_banner_failed)
+	_admob.connect("rewarded_ad_loaded", _on_native_rewarded_loaded)
+	_admob.connect("rewarded_ad_failed_to_load", _on_native_rewarded_failed)
+	_admob.connect("rewarded_ad_user_earned_reward", _on_native_rewarded_earned)
+	_admob.connect("rewarded_ad_dismissed_full_screen_content", _on_native_rewarded_dismissed)
+	_admob.connect("rewarded_ad_failed_to_show_full_screen_content", _on_native_rewarded_dismissed)
+	_dbg("D: signals ok, calling initialize()")
+	_admob.initialize()
+	_dbg("E: initialize() returned, waiting for signal")
+	var watchdog := get_tree().create_timer(5.0)
+	watchdog.timeout.connect(func():
+		if _admob_ready: return
+		_dbg("WATCHDOG 5s: init_completed never fired")
+	)
 
-	MobileAds.initialize(on_init)
+
+# ============================================================
+# Native plugin handlers (talking to AdmobPlugin singleton directly)
+# ============================================================
+
+var _banner_ad_id: String = ""
+var _rewarded_ad_id: String = ""
+
+func _on_native_init_complete(_status_data) -> void:
+	_admob_ready = true
+	_dbg("init COMPLETE - loading banner+rewarded")
+	_native_load_banner()
+	_native_load_rewarded()
+
+
+func _native_load_banner() -> void:
+	var ad_unit: String = ADMOB_IDS["banner_ios"] if _platform == "iOS" else ADMOB_IDS["banner_android"]
+	var request := {
+		"ad_unit_id": ad_unit,
+		"ad_position": "BOTTOM",
+		"ad_size": "BANNER",
+		"anchor_to_safe_area": true,
+		"keywords": [],
+		"network_extras": [],
+	}
+	_admob.load_banner_ad(request)
+
+
+func _native_load_rewarded() -> void:
+	var ad_unit: String = ADMOB_IDS["rewarded_ios"] if _platform == "iOS" else ADMOB_IDS["rewarded_android"]
+	var request := {
+		"ad_unit_id": ad_unit,
+		"keywords": [],
+		"network_extras": [],
+	}
+	_admob.load_rewarded_ad(request)
+
+
+func _on_native_banner_loaded(ad_data: Dictionary, _response_info: Dictionary) -> void:
+	_banner_ad_id = ad_data.get("ad_id", "")
+	_dbg("banner loaded id=%s want_show=%s" % [_banner_ad_id, _banner_visible])
+	if _banner_visible and _admob:
+		_admob.show_banner_ad(_banner_ad_id)
+
+
+func _on_native_banner_failed(_ad_data: Dictionary, error_data: Dictionary) -> void:
+	_dbg("banner FAILED: %s" % str(error_data))
+
+
+func _on_native_rewarded_loaded(ad_data: Dictionary, _response_info: Dictionary) -> void:
+	_rewarded_ad_id = ad_data.get("ad_id", "")
+	if _rewarded_pending and _admob:
+		_admob.show_rewarded_ad(_rewarded_ad_id)
+
+
+func _on_native_rewarded_failed(_ad_data: Dictionary, error_data: Dictionary) -> void:
+	_dbg("rewarded FAILED: %s" % str(error_data))
+	if _rewarded_pending:
+		_finish_rewarded(false)
+
+
+func _on_native_rewarded_earned(_ad_data: Dictionary, _reward_data: Dictionary) -> void:
+	_finish_rewarded(true)
+
+
+func _on_native_rewarded_dismissed(_ad_data: Dictionary, _error_data = null) -> void:
+	if _rewarded_pending:
+		_finish_rewarded(false)
+	_native_load_rewarded()
 
 
 # --- Banner ---
 
 func _mobile_show_banner() -> void:
-	if not _admob_ready:
-		return
-	if _ad_view:
-		_ad_view.show()
-		return
-	var unit_id := _get_ad_id("banner")
-	if unit_id.is_empty():
-		return
-	var ad_size = AdSize.get_current_orientation_anchored_adaptive_banner_ad_size(AdSize.FULL_WIDTH)
-	_ad_view = AdView.new(unit_id, ad_size, AdPosition.Values.BOTTOM)
-	var listener := AdListener.new()
-	listener.on_ad_failed_to_load = func(err) -> void:
-		push_warning("AdManager: Banner failed to load: ", err.message)
-	_ad_view.ad_listener = listener
-	_ad_view.load_ad(AdRequest.new())
+	_banner_visible = true
+	if not _admob_ready or _admob == null:
+		return  # show when banner_loaded fires
+	if _banner_ad_id != "":
+		_admob.show_banner_ad(_banner_ad_id)
+	else:
+		_native_load_banner()
 
 
 func _mobile_hide_banner() -> void:
-	if _ad_view:
-		_ad_view.hide()
-
-
-# --- Interstitial ---
-
-func _mobile_load_interstitial() -> void:
-	if not _admob_ready:
-		return
-	var unit_id := _get_ad_id("interstitial")
-	if unit_id.is_empty():
-		return
-	var load_cb := InterstitialAdLoadCallback.new()
-	load_cb.on_ad_loaded = func(ad) -> void:
-		_interstitial_ad = ad
-		var content_cb := FullScreenContentCallback.new()
-		content_cb.on_ad_dismissed_full_screen_content = func() -> void:
-			_interstitial_ad.destroy()
-			_interstitial_ad = null
-			interstitial_closed.emit()
-			_mobile_load_interstitial()  # Pre-load next one
-		content_cb.on_ad_failed_to_show_full_screen_content = func(_err) -> void:
-			_interstitial_ad.destroy()
-			_interstitial_ad = null
-			interstitial_closed.emit()
-			_mobile_load_interstitial()
-		_interstitial_ad.full_screen_content_callback = content_cb
-	load_cb.on_ad_failed_to_load = func(err) -> void:
-		push_warning("AdManager: Interstitial failed to load: ", err.message)
-	InterstitialAdLoader.new().load(unit_id, AdRequest.new(), load_cb)
-
-
-func _mobile_show_interstitial() -> void:
-	if _interstitial_ad:
-		_interstitial_ad.show()
-	else:
-		# Ad not loaded yet — don't block the player
-		interstitial_closed.emit()
-		_mobile_load_interstitial()
+	_banner_visible = false
+	if _admob and _banner_ad_id != "":
+		_admob.hide_banner_ad(_banner_ad_id)
 
 
 # --- Rewarded ---
 
-func _mobile_load_rewarded() -> void:
-	if not _admob_ready:
-		return
-	var unit_id := _get_ad_id("rewarded")
-	if unit_id.is_empty():
-		return
-	var load_cb := RewardedAdLoadCallback.new()
-	load_cb.on_ad_loaded = func(ad) -> void:
-		_rewarded_ad = ad
-		var content_cb := FullScreenContentCallback.new()
-		content_cb.on_ad_dismissed_full_screen_content = func() -> void:
-			_rewarded_ad.destroy()
-			_rewarded_ad = null
-			# If reward wasn't granted by on_user_earned_reward, treat as skip
-			if _rewarded_pending:
-				_rewarded_pending = false
-				if _rewarded_callback.is_valid():
-					_rewarded_callback.call(false)
-			_mobile_load_rewarded()  # Pre-load next one
-		content_cb.on_ad_failed_to_show_full_screen_content = func(_err) -> void:
-			_rewarded_ad.destroy()
-			_rewarded_ad = null
-			if _rewarded_pending:
-				_rewarded_pending = false
-				if _rewarded_callback.is_valid():
-					_rewarded_callback.call(false)
-			_mobile_load_rewarded()
-		_rewarded_ad.full_screen_content_callback = content_cb
-	load_cb.on_ad_failed_to_load = func(err) -> void:
-		push_warning("AdManager: Rewarded ad failed to load: ", err.message)
-	RewardedAdLoader.new().load(unit_id, AdRequest.new(), load_cb)
-
-
 func _mobile_show_rewarded() -> void:
-	if _rewarded_ad:
-		var reward_listener := OnUserEarnedRewardListener.new()
-		reward_listener.on_user_earned_reward = func(_item) -> void:
-			# Player watched the full ad — grant reward
-			_rewarded_pending = false
-			if _rewarded_callback.is_valid():
-				_rewarded_callback.call(true)
-		_rewarded_ad.show(reward_listener)
+	if not _admob_ready or _admob == null:
+		_finish_rewarded(false)
+		return
+	if _rewarded_ad_id != "":
+		_admob.show_rewarded_ad(_rewarded_ad_id)
 	else:
-		# Ad not loaded — fail gracefully
-		_rewarded_pending = false
-		if _rewarded_callback.is_valid():
-			_rewarded_callback.call(false)
-		_mobile_load_rewarded()
+		_native_load_rewarded()
+
+
+func _finish_rewarded(success: bool) -> void:
+	_rewarded_pending = false
+	if _rewarded_callback.is_valid():
+		var cb := _rewarded_callback
+		_rewarded_callback = Callable()
+		cb.call(success)
+	rewarded_ad_completed.emit(success)
 
 
 # ============================================================
@@ -326,16 +349,10 @@ func _web_hide_nag_banner() -> void:
 		_nag_banner = null
 
 
-func _web_show_interstitial() -> void:
-	_web_show_nag_popup(func(): interstitial_closed.emit())
-
-
 func _web_show_rewarded() -> void:
 	_web_show_nag_popup(func():
 		# Grant reward anyway as a goodwill gesture (like watching an ad)
-		_rewarded_pending = false
-		if _rewarded_callback.is_valid():
-			_rewarded_callback.call(true)
+		_finish_rewarded(true)
 	)
 
 
