@@ -62,3 +62,6 @@ ios/plugins/*
 !ios/plugins/godot-storekit2.gdip
 !ios/plugins/godot-storekit2.debug.xcframework
 !ios/plugins/godot-storekit2.release.xcframework
+
+# Google iOS SDK frameworks (downloaded per-machine; 37MB GoogleMobileAds + UMP)
+ios/framework/

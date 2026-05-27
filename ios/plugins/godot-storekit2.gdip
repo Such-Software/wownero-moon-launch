@@ -15,5 +15,7 @@ capabilities=[]
 
 files=[]
 
+linker_flags=["-Wl,-undefined,dynamic_lookup"]
+
 [plist]
 

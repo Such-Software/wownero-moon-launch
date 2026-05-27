@@ -339,11 +339,14 @@ func _on_score_submitted(success: bool, rank: int) -> void:
 		rank_label.add_theme_color_override("font_color", Color(1, 0.85, 0.2))
 		rank_label.add_theme_font_size_override("font_size", 18)
 		rank_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-		# Anchor to top-wide; place vertically near the upper third so it
-		# sits below the Level title and above the stats column.
+		# Anchor to top-wide; place vertically far enough below the design-
+		# space subtitle ("Level X — ... Complete!") that it doesn't collide
+		# on tall aspects (iPad 4:3 expand mode pushes design coords down).
+		# Subtitle bottom ≈ design Y 165 → on iPad viewport Y ~249; offset
+		# 270 leaves a safe gap on both iPhone (slim landscape) and iPad.
 		rank_label.set_anchors_preset(Control.PRESET_TOP_WIDE)
-		rank_label.offset_top = 200
-		rank_label.offset_bottom = 230
+		rank_label.offset_top = 270
+		rank_label.offset_bottom = 300
 		cl.add_child(rank_label)
 
 func _process(delta):

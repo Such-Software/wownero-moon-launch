@@ -305,13 +305,20 @@ func _integrate_forces(state):
 		var raw := Input.get_gravity()
 		_tilt_filtered = _tilt_filtered.lerp(raw, globalvar.TILT_FILTER_ALPHA)
 		var delta := _tilt_filtered - _tilt_baseline
-		# In landscape, the phone's long axis is horizontal (device-Y in
-		# natural portrait frame). Rolling left/right is rotation AROUND
-		# device-Y, which changes device-X (and device-Z) but leaves
-		# device-Y essentially unchanged. So we read delta.x for screen-
-		# horizontal tilt input. Sign: +delta.x means right edge dipping
-		# down → CW ship rotation.
-		var tilt: float = delta.x / 9.81
+		# In landscape, the phone's long axis is horizontal. Rolling
+		# left/right is rotation AROUND that long axis. Which device axis
+		# (X or Y) reads the roll component depends on the OS's reported
+		# natural orientation: Android phones in our setup use delta.x;
+		# iPads in their default landscape (home button on the right)
+		# report the same rotation as a change on delta.y (empirically
+		# confirmed on iPad Pro 12.9). Pick the axis per-platform.
+		var tilt: float
+		if OS.get_name() == "iOS":
+			# Sign flipped vs delta.x because of how iPad's natural-axis
+			# layout maps to landscape roll (verified empirically on iPad).
+			tilt = -delta.y / 9.81
+		else:
+			tilt = delta.x / 9.81
 		if absf(tilt) < globalvar.TILT_DEADZONE:
 			tilt = 0.0
 		var ctrl := clampf(tilt * globalvar.TILT_SENSITIVITY, -1.0, 1.0)
