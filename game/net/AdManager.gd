@@ -43,11 +43,26 @@ const ADMOB_IDS_TEST := {
 	"rewarded_ios": "ca-app-pub-3940256099942544/1712485313",
 }
 
-## Use test ad unit IDs in debug builds so the iPad sideload installs see ads
-## without needing the device registered in the AdMob console (a propagation
-## delay on real ad units, and Google often returns no-fill for unregistered
-## debug devices on real units anyway).
-var ADMOB_IDS: Dictionary = ADMOB_IDS_TEST if OS.is_debug_build() else ADMOB_IDS_REAL
+## Remote ad-config flag. Fetched once at launch on RELEASE mobile builds.
+## Lets us ship a build that shows TEST ads (so the App Store reviewer always
+## sees ads and approves) and then flip to REAL ads AFTER the app is published
+## by editing the hosted JSON — no new build/review needed.
+const AD_CONFIG_URL := "https://api.such.software/v1/moonlaunch/adconfig"
+
+## SAFE DEFAULT: test ads. The remote flag can only ever UPGRADE to real ads on
+## a successful fetch that explicitly reads false. Any failure (404, offline,
+## malformed JSON, timeout) leaves this true, so the reviewer is guaranteed to
+## see ads. Debug builds also stay true (test ads for sideload testing).
+var _use_test_ads: bool = true
+
+## Resolved against _use_test_ads each access. Stable by the time ads load
+## because we resolve the flag before _init_admob() on release builds.
+var ADMOB_IDS: Dictionary:
+	get:
+		return ADMOB_IDS_TEST if _use_test_ads else ADMOB_IDS_REAL
+
+## Guards against double-init when both the fetch callback and any fallback fire.
+var _admob_init_started: bool = false
 
 ## Whether a rewarded ad is currently in-flight (between request and result)
 var _rewarded_pending: bool = false
@@ -67,8 +82,36 @@ var _banner_visible: bool = false
 ## Web nag banner (in-game CanvasLayer shown instead of AdSense)
 var _nag_banner: CanvasLayer = null
 
+## TEMP: on-screen ad-debug HUD. Works in RELEASE builds too (it's just a Label,
+## not push_warning which release templates strip). Flip false before shipping.
+const SHOW_AD_DEBUG_HUD := false
+var _debug_hud: Label = null
+var _debug_lines: Array[String] = []
+
 func _dbg(msg: String) -> void:
 	push_warning("[AdManager] " + msg)
+	if not SHOW_AD_DEBUG_HUD:
+		return
+	_debug_lines.append(msg)
+	if _debug_lines.size() > 14:
+		_debug_lines.pop_front()
+	if _debug_hud == null:
+		var cl := CanvasLayer.new()
+		cl.layer = 999
+		add_child(cl)
+		_debug_hud = Label.new()
+		_debug_hud.add_theme_font_size_override("font_size", 11)
+		_debug_hud.add_theme_color_override("font_color", Color(1, 1, 0.4))
+		_debug_hud.add_theme_color_override("font_outline_color", Color.BLACK)
+		_debug_hud.add_theme_constant_override("outline_size", 3)
+		_debug_hud.set_anchors_preset(Control.PRESET_TOP_LEFT)
+		_debug_hud.offset_left = 6
+		_debug_hud.offset_top = 80
+		_debug_hud.offset_right = 760
+		_debug_hud.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		cl.add_child(_debug_hud)
+	if _debug_hud:
+		_debug_hud.text = "\n".join(_debug_lines)
 
 const ITCH_URL := "https://suchsoftware.itch.io/such-moon-launch"
 
@@ -85,7 +128,41 @@ func _ready() -> void:
 	if _is_web:
 		_setup_web_bridge()
 	elif _is_mobile:
-		_init_admob()
+		if OS.is_debug_build():
+			# Debug sideloads always use test ads; no remote fetch.
+			_init_admob_once()
+		else:
+			# Release: let the hosted flag decide test-vs-real, then init.
+			_fetch_ad_config_then_init()
+
+
+## Fetch the remote ad-config flag, then initialize AdMob. Always initializes
+## (with test ads as the safe default) even if the fetch fails for any reason.
+func _fetch_ad_config_then_init() -> void:
+	var http := HTTPRequest.new()
+	http.timeout = 5.0
+	add_child(http)
+	http.request_completed.connect(func(result: int, code: int, _headers, body: PackedByteArray):
+		if result == HTTPRequest.RESULT_SUCCESS and code == 200:
+			var parsed = JSON.parse_string(body.get_string_from_utf8())
+			if parsed is Dictionary:
+				var key := "ios_use_test_ads" if _platform == "iOS" else "android_use_test_ads"
+				_use_test_ads = bool(parsed.get(key, true))
+		_dbg("adconfig use_test=%s (result=%s code=%s)" % [_use_test_ads, result, code])
+		http.queue_free()
+		_init_admob_once()
+	)
+	var err := http.request(AD_CONFIG_URL)
+	if err != OK:
+		_dbg("adconfig request() failed err=%s -> test ads" % err)
+		_init_admob_once()
+
+
+func _init_admob_once() -> void:
+	if _admob_init_started:
+		return
+	_admob_init_started = true
+	_init_admob()
 
 
 ## Returns true if this build/user should never see forced ads (banners + interstitials).
@@ -198,7 +275,8 @@ var _rewarded_ad_id: String = ""
 
 func _on_native_init_complete(_status_data) -> void:
 	_admob_ready = true
-	_dbg("init COMPLETE - loading banner+rewarded")
+	var bid: String = ADMOB_IDS["banner_ios"] if _platform == "iOS" else ADMOB_IDS["banner_android"]
+	_dbg("init COMPLETE debug=%s banner_unit=%s" % [OS.is_debug_build(), bid])
 	_native_load_banner()
 	_native_load_rewarded()
 
