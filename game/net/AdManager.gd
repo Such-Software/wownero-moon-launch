@@ -140,7 +140,7 @@ func _ready() -> void:
 ## (with test ads as the safe default) even if the fetch fails for any reason.
 func _fetch_ad_config_then_init() -> void:
 	var http := HTTPRequest.new()
-	http.timeout = 5.0
+	http.timeout = 3.0  # 3s is plenty for a 50-byte GET; failure -> test ads
 	add_child(http)
 	http.request_completed.connect(func(result: int, code: int, _headers, body: PackedByteArray):
 		if result == HTTPRequest.RESULT_SUCCESS and code == 200:
@@ -334,6 +334,11 @@ func _on_native_rewarded_earned(_ad_data: Dictionary, _reward_data: Dictionary) 
 func _on_native_rewarded_dismissed(_ad_data: Dictionary, _error_data = null) -> void:
 	if _rewarded_pending:
 		_finish_rewarded(false)
+	# Clear the consumed ad ID immediately. Without this, a fast re-tap before
+	# the next preload completes would try to show an already-watched ad and
+	# fail with "Ad unavailable" (a second flavor of the 2.1(a) race we got
+	# rejected on).
+	_rewarded_ad_id = ""
 	_native_load_rewarded()
 
 
@@ -358,13 +363,35 @@ func _mobile_hide_banner() -> void:
 # --- Rewarded ---
 
 func _mobile_show_rewarded() -> void:
-	if not _admob_ready or _admob == null:
+	# If we have an ad cached, show it immediately.
+	if _admob_ready and _admob != null and _rewarded_ad_id != "":
+		_admob.show_rewarded_ad(_rewarded_ad_id)
+		return
+	# Singleton genuinely missing — only path that fails fast.
+	if _admob == null:
 		_finish_rewarded(false)
 		return
-	if _rewarded_ad_id != "":
-		_admob.show_rewarded_ad(_rewarded_ad_id)
-	else:
+	# Otherwise WAIT for init + load to complete. The pending state set in
+	# show_rewarded() makes _on_native_init_complete -> _on_native_rewarded_loaded
+	# auto-fire the show. Don't fail on a fast reviewer who tapped before
+	# init/load finished on cold launch — that's the App Store 2.1(a)
+	# "Ad unavailable" race we got rejected on in builds 6 and 7.
+	if _admob_ready:
+		# Init done, just no ad cached yet; kick a load. _on_native_rewarded_loaded
+		# checks _rewarded_pending and shows.
 		_native_load_rewarded()
+	# else: init still pending; _on_native_init_complete will auto-load and
+	# the pending check will fire the show. Nothing to do but wait.
+	#
+	# Safety net: if init or load truly never completes (e.g. SDK is wedged
+	# offline), don't leave the UI on "Loading..." forever. 15s is well past
+	# normal cold-launch init (1-3s) + load (~0.5-1s).
+	var timeout := get_tree().create_timer(15.0)
+	timeout.timeout.connect(func():
+		if _rewarded_pending:
+			_dbg("rewarded TIMEOUT 15s waiting for init/load")
+			_finish_rewarded(false)
+	)
 
 
 func _finish_rewarded(success: bool) -> void:
