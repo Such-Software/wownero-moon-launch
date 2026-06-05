@@ -11,6 +11,28 @@ var _title_label: Label = null
 var _ad_button: Button = null
 var _remove_ads_btn: Button = null
 var _skin_buttons := {}  # skin_id -> Button
+var _moonrocks_buttons := {}  # product_id -> Button (for IAP UI state mgmt)
+
+# Per-button IAP state machine. Only one IAP can be in flight at a time;
+# all buy buttons disable on tap and restore on completion or 30s timeout.
+# Fixes: double-tap producing duplicate sandbox prompts (Apple 2.1(b) on
+# build 8), no failure recovery (button stuck on "Processing..."),
+# CONNECT_ONE_SHOT fragility (unrelated purchase_completed signals would
+# consume the connection without doing useful work).
+# Shape: { pid: { "btn": Button, "original_text": String } } — size 0 or 1.
+var _iap_pending: Dictionary = {}
+
+# Time-based lockout to absorb queued double-taps that arrive AFTER a fast
+# purchase completion (StoreKit2 RESTORE path completes synchronously and
+# clears _iap_pending before the second queued tap is processed by Godot,
+# so a state-only guard isn't sufficient). Millisecond timestamp.
+var _iap_lockout_until_ms: int = 0
+
+# Timestamp of the most recent IAP tap that PASSED the guards. Used to
+# reject any second tap arriving < 1.5s later, which catches the iOS
+# queued-touch race even when the button's pressed signal somehow fires
+# twice for what the user perceived as one rapid double-tap.
+var _last_iap_tap_ms: int = 0
 
 # Icons for each upgrade
 const UPGRADE_ICONS := {
@@ -309,38 +331,111 @@ func _build_moonrock_store(parent: VBoxContainer) -> void:
 		BS.apply_space_style(btn, Color(0.5, 0.85, 1.0))
 		btn.pressed.connect(_on_buy_moonrocks.bind(pid))
 		row.add_child(btn)
+		_moonrocks_buttons[pid] = btn
 
 
 func _on_remove_ads_iap() -> void:
-	if not IAPManager.is_available(): return
-	IAPManager.purchase_completed.connect(_on_iap_remove_ads_done, CONNECT_ONE_SHOT)
-	IAPManager.purchase(IAPManager.PRODUCT_REMOVE_ADS)
-
-
-func _on_iap_remove_ads_done(product_id: String, success: bool) -> void:
-	if product_id != IAPManager.PRODUCT_REMOVE_ADS: return
-	if success and _remove_ads_btn and is_instance_valid(_remove_ads_btn):
-		_remove_ads_btn.queue_free()
-		_remove_ads_btn = null
-	# Refresh affected UI
-	for uname in _upgrade_buttons.keys():
-		_style_buy_button(uname)
-	_refresh_skin_buttons()
+	_start_iap_purchase(IAPManager.PRODUCT_REMOVE_ADS, _remove_ads_btn)
 
 
 func _on_buy_moonrocks(product_id: String) -> void:
-	if not IAPManager.is_available(): return
-	IAPManager.purchase_completed.connect(_on_iap_moonrocks_done, CONNECT_ONE_SHOT)
-	IAPManager.purchase(product_id)
+	_start_iap_purchase(product_id, _moonrocks_buttons.get(product_id, null))
 
 
-func _on_iap_moonrocks_done(product_id: String, success: bool) -> void:
-	if not success: return
-	# IAPManager.apply_purchase already added the crypto + saved.
-	_update_wallet_label()
-	for uname in _upgrade_buttons.keys():
-		_style_buy_button(uname)
-	_refresh_skin_buttons()
+## Unified IAP purchase entry point. Enforces a single in-flight purchase,
+## disables the tapped button + shows "Processing...", and routes completion
+## (success / fail / 30s timeout) through _on_iap_completed which restores
+## the UI properly. Replaces the previous CONNECT_ONE_SHOT-based handlers.
+func _start_iap_purchase(pid: String, btn: Button) -> void:
+	var now_ms := Time.get_ticks_msec()
+	# Shop-level UI feedback guards. IAPManager.purchase has its own
+	# duplicate-purchase protection (rapid-tap / in-flight / lockout) so
+	# even if these UI guards are bypassed, the native call won't fire
+	# twice. These guards exist so the button visually responds correctly
+	# (Processing... + cooldown text) — not to gate the underlying purchase.
+	if now_ms - _last_iap_tap_ms < 1500:
+		return
+	if not _iap_pending.is_empty():
+		return
+	if now_ms < _iap_lockout_until_ms:
+		return
+	if not IAPManager.is_supported():
+		return
+	if btn == null or not is_instance_valid(btn):
+		return
+	_last_iap_tap_ms = now_ms
+	_iap_pending[pid] = {"btn": btn, "original_text": btn.text}
+	btn.disabled = true
+	btn.text = "Processing..."
+	# Persistent connection — we filter by pid inside the handler. Don't use
+	# CONNECT_ONE_SHOT here: it can be consumed by an unrelated signal
+	# (e.g. auto-restore firing for another product) before our purchase
+	# completes, leaving the UI stuck on "Processing..." forever.
+	if not IAPManager.purchase_completed.is_connected(_on_iap_completed):
+		IAPManager.purchase_completed.connect(_on_iap_completed)
+	IAPManager.purchase(pid)
+	# Safety timeout. If the native StoreKit/Billing call hangs (offline,
+	# auth server slow, etc.), don't strand the user on "Processing..."
+	# forever. 30s is well past normal sandbox auth latency.
+	var timeout_pid := pid
+	get_tree().create_timer(30.0).timeout.connect(func():
+		if _iap_pending.has(timeout_pid):
+			_on_iap_completed(timeout_pid, false)
+	)
+
+
+func _on_iap_completed(product_id: String, success: bool) -> void:
+	if _iap_pending.is_empty():
+		return
+	var active_pid: String = _iap_pending.keys()[0]
+	# Android emits empty product_id on connection failure / cancel; treat
+	# as a response for whatever we have in flight.
+	if product_id != "" and product_id != active_pid:
+		return
+	var entry: Dictionary = _iap_pending[active_pid]
+	var btn: Button = entry["btn"]
+	var original_text: String = entry["original_text"]
+	_iap_pending.clear()
+	if IAPManager.purchase_completed.is_connected(_on_iap_completed):
+		IAPManager.purchase_completed.disconnect(_on_iap_completed)
+	# Always set a brief post-completion lockout, even on failure — absorbs
+	# the queued-tap race described where iOS dispatched a second tap before
+	# Godot got to update its state.
+	_iap_lockout_until_ms = Time.get_ticks_msec() + 2000
+	if success:
+		if active_pid == IAPManager.PRODUCT_REMOVE_ADS:
+			# Non-consumable: button goes away permanently.
+			if btn and is_instance_valid(btn):
+				btn.queue_free()
+			_remove_ads_btn = null
+		else:
+			# Consumable (moonrocks). Wallet was bumped in IAPManager.apply_purchase.
+			# Keep the button DISABLED with positive-feedback text for ~2s
+			# (matches the watch-ad cooldown), then restore. This both
+			# confirms the purchase visually AND prevents a queued second
+			# tap from re-triggering an unintended re-buy.
+			_update_wallet_label()
+			if btn and is_instance_valid(btn):
+				var amount: int = IAPManager.MOONROCK_REWARDS.get(active_pid, 0)
+				btn.text = "+%s Moonrocks!" % str(amount)
+				btn.disabled = true
+				var cooldown_btn := btn
+				var cooldown_label := original_text
+				get_tree().create_timer(2.0).timeout.connect(func():
+					if cooldown_btn and is_instance_valid(cooldown_btn):
+						cooldown_btn.disabled = false
+						cooldown_btn.text = cooldown_label
+				)
+		# Other UI dependent on wallet / ad-removal state.
+		for uname in _upgrade_buttons.keys():
+			_style_buy_button(uname)
+		_refresh_skin_buttons()
+	else:
+		# Cancel / failure / timeout — restore the button so the user can
+		# try again instead of being stuck on "Processing..." forever.
+		if btn and is_instance_valid(btn):
+			btn.disabled = false
+			btn.text = original_text
 
 
 func _on_restore_purchases() -> void:

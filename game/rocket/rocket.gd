@@ -8,6 +8,14 @@ var shipoverlaps
 var footoverlaps
 var crashspeed = 100.0
 var landingspeed = 40.0
+
+# Decaying high-water-mark of recent speed. Used by the crash check so a
+# very fast impact still fires death(); without this, the physics solver
+# can damp velocity below crashspeed between the "incoming fast" frame
+# and the first overlap-poll frame, letting tail-first high-speed crashes
+# (notably into Earth) bounce off without dying.
+var _recent_max_speed: float = 0.0
+const _RECENT_SPEED_DECAY := 0.92  # per physics frame -> ~25% kept after 10 frames
 # Fuel — base values overridden by upgrades in _ready()
 var fuel: float = 100.0
 var max_fuel: float = 100.0
@@ -263,6 +271,8 @@ func _calibrate_tilt() -> void:
 func _integrate_forces(state):
 	var dt = state.step
 	var has_fuel = fuel > 0.0
+	# Track recent peak speed BEFORE the solver may have damped this frame.
+	_recent_max_speed = maxf(_recent_max_speed * _RECENT_SPEED_DECAY, state.linear_velocity.length())
 
 	if has_fuel and Input.is_action_pressed("thrust"):
 		constant_force = state.total_gravity - thrust.rotated(rotation)
@@ -438,7 +448,11 @@ func _process(_delta):
 	else:
 		get_node("SkullSprite").hide()
 	for i in footoverlaps:
-		if (linear_velocity.length() > crashspeed and i.get_name() != "Rocket"):
+		# Use max(current, recent peak) so a fast crash that the solver damped
+		# between frames still trips the threshold. Previously a tail-first
+		# high-speed crash into Earth could bounce off without dying.
+		var crash_speed: float = maxf(linear_velocity.length(), _recent_max_speed)
+		if (crash_speed > crashspeed and i.get_name() != "Rocket"):
 			if not _try_shield():
 				death(i)
 		if(i.is_in_group("targets") and i == target and linear_velocity.length() < landingspeed and flagplaced == false and landattemptnow == false):

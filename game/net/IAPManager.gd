@@ -60,6 +60,16 @@ var _ios_storekit  # GDScriptStoreKit2 wrapper (iOS only)
 
 var _initialized: bool = false
 
+# Single source of truth for IAP-purchase concurrency. Lives here (not in
+# UI code) so EVERY caller — UpgradeShop, Menu's Store popup, future entry
+# points — gets the same protection automatically. Apple Store Connect
+# 2.1(b) rejected build 8 because the Menu's Store popup had raw inline
+# IAPManager.purchase() calls with no double-tap protection: rapid taps
+# fired duplicate native purchase dialogs on the reviewer's device.
+var _purchase_in_flight_pid: String = ""
+var _purchase_last_tap_ms: int = 0
+var _purchase_lockout_until_ms: int = 0
+
 ## Force IAP UI to render on desktop with fallback prices — ONLY for
 ## capturing App Store / Play Store screenshots from the Godot editor.
 ## Always commit as `false`. With this on, clicking a buy button just
@@ -111,11 +121,28 @@ func is_supported() -> bool:
 
 
 ## Begin a purchase flow. Always emits purchase_completed when done.
+##
+## Three layered defenses against duplicate-purchase from any caller:
+##   1. 1.5s minimum interval between IAP taps (catches iOS double-tap
+##      events dispatched as two separate touches before Godot's main
+##      loop can update state).
+##   2. In-flight guard (one purchase at a time globally).
+##   3. Post-completion lockout (catches taps queued during the previous
+##      purchase that finally dispatch after completion).
 func purchase(product_id: String) -> void:
+	var now_ms := Time.get_ticks_msec()
+	if now_ms - _purchase_last_tap_ms < 1500:
+		return
+	if _purchase_in_flight_pid != "":
+		return
+	if now_ms < _purchase_lockout_until_ms:
+		return
 	Telemetry.log_event(Telemetry.EVENT_IAP_INITIATED, {"product_id": product_id})
 	if not _initialized:
 		purchase_completed.emit(product_id, false)
 		return
+	_purchase_last_tap_ms = now_ms
+	_purchase_in_flight_pid = product_id
 	if _android_billing:
 		_android_billing.purchase(product_id)
 		# Result arrives via on_purchase_updated → _on_android_purchase_updated.
@@ -124,7 +151,16 @@ func purchase(product_id: String) -> void:
 		_ios_storekit.purchase_product(product_id, 1)
 		# Result arrives via transaction_state_changed → _on_ios_transaction.
 		return
+	# No backend bound — fail and clear state.
+	_purchase_in_flight_pid = ""
 	purchase_completed.emit(product_id, false)
+
+
+## Internal: clear in-flight state and arm the post-completion lockout.
+## Called from every code path that emits purchase_completed.
+func _finish_in_flight() -> void:
+	_purchase_in_flight_pid = ""
+	_purchase_lockout_until_ms = Time.get_ticks_msec() + 2000
 
 
 ## Re-apply previously-bought non-consumables. Required by Apple + Google.
@@ -154,7 +190,16 @@ func get_price(product_id: String) -> String:
 func apply_purchase(product_id: String) -> void:
 	match product_id:
 		PRODUCT_REMOVE_ADS:
-			AdManager.remove_ads()
+			# Real-money IAP grant. Bypass globalvar.buy_ad_removal() entirely:
+			# that's the IN-GAME moonrocks purchase, which silently returns
+			# false when wallet < AD_REMOVAL_COST and DOES NOT set the flag.
+			# Apple's reviewer paid real money on an empty wallet, so the old
+			# path failed even though the Apple-side transaction succeeded
+			# (App Store 2.1(b) rejection on build 8). Set the flag directly,
+			# save, and hide the banner. Idempotent for restore_purchases.
+			globalvar.ads_removed = true
+			globalvar.save_game()
+			AdManager.hide_banner()
 		PRODUCT_MOONROCKS_10K, PRODUCT_MOONROCKS_50K:
 			var amount: int = MOONROCK_REWARDS.get(product_id, 0)
 			if amount > 0:
@@ -242,6 +287,7 @@ func _on_android_purchase_updated(response: Dictionary) -> void:
 			# We don't know which one without context; emit a single generic failure.
 			pass
 		# Emit a single failure with empty id; callers using CONNECT_ONE_SHOT will hear it.
+		_finish_in_flight()
 		purchase_completed.emit("", false)
 
 
@@ -261,6 +307,7 @@ func _handle_android_purchase(purchase: Dictionary, _is_query: bool) -> void:
 			# Non-consumable: acknowledge if not already.
 			if not bool(purchase.get("is_acknowledged", false)) and token != "":
 				_android_billing.acknowledge_purchase(token)
+		_finish_in_flight()
 		purchase_completed.emit(pid, true)
 		Telemetry.log_event(Telemetry.EVENT_IAP_COMPLETED, {
 			"product_id": pid,
@@ -310,6 +357,7 @@ func _on_ios_transaction(transaction) -> void:
 	# transaction is GDScriptStoreKit2.TransactionData
 	if str(transaction.error) != "":
 		Telemetry.record_error("IAPManager iOS transaction error: %s" % transaction.error)
+		_finish_in_flight()
 		purchase_completed.emit("", false)
 		return
 	var pid := str(transaction.product_id)
@@ -319,15 +367,18 @@ func _on_ios_transaction(transaction) -> void:
 			or state == int(_ios_storekit.TransactionState.RESTORED)
 	if purchased_or_restored:
 		apply_purchase(pid)
+		_finish_in_flight()
 		purchase_completed.emit(pid, true)
 		Telemetry.log_event(Telemetry.EVENT_IAP_COMPLETED, {
 			"product_id": pid,
 			"success": true,
 		})
 	elif state == _ios_storekit.TransactionState.CANCELED:
+		_finish_in_flight()
 		purchase_completed.emit(pid, false)
 	else:
 		# PENDING / DEFERRED / FAILED / REFUNDED / EXPIRED — surface to caller.
+		_finish_in_flight()
 		purchase_completed.emit(pid, false)
 
 
