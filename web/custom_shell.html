@@ -254,165 +254,44 @@ body {
 				<p id="nag-tagline">Vry rocket. Much landing. Wow!</p>
 
 				<div id="nag-pitch">
-					<p><strong>Want the full experience without ads?</strong></p>
-					<p>Support us on itch.io for just $2. Desktop, ad-free, forever.</p>
+					<p><strong>Now on iOS &amp; Android!</strong></p>
+					<p>Get the free app to play anywhere and climb the global leaderboards.</p>
 				</div>
 
 				<div id="nag-store-links">
-					<a href="https://suchsoftware.itch.io/such-moon-launch"
-						target="_blank" rel="noopener noreferrer"
-						class="nag-btn nag-btn-primary">
-						Buy on itch.io for $2
-					</a>
-
 					<div id="nag-mobile-row">
-						<a href="#" data-disabled="true"
+						<a href="https://apps.apple.com/us/app/such-moon-launch/id6767909623"
+							target="_blank" rel="noopener noreferrer"
 							class="nag-btn nag-btn-store">
-							App Store soon
+							App Store
 						</a>
-						<a href="#" data-disabled="true"
+						<a href="https://play.google.com/store/apps/details?id=com.suchsoftware.suchmoonlaunch"
+							target="_blank" rel="noopener noreferrer"
 							class="nag-btn nag-btn-store">
-							Google Play soon
+							Google Play
 						</a>
 					</div>
-				</div>
-
-				<div id="nag-divider"></div>
-
-				<div id="nag-ad-container">
-					<ins class="adsbygoogle"
-						style="display:block"
-						data-ad-client="$ADSENSE_CLIENT_ID"
-						data-ad-slot="$ADSENSE_INTERSTITIAL_SLOT"
-						data-ad-format="auto"
-						data-full-width-responsive="true"></ins>
 				</div>
 
 				<button id="nag-continue" onclick="dismissNagOverlay()">
 					Continue to web version
 				</button>
 
-				<p id="nag-fine-print">Free with ads between games</p>
+				<p id="nag-fine-print">Free to play in your browser</p>
 			</div>
 		</div>
 
-		<!-- Banner ad container -->
-		<div id="ad-banner">
-			<ins class="adsbygoogle"
-				style="display:inline-block;width:728px;height:90px"
-				data-ad-client="$ADSENSE_CLIENT_ID"
-				data-ad-slot="$ADSENSE_BANNER_SLOT"></ins>
-		</div>
-
-		<!-- Interstitial / rewarded overlay -->
-		<div id="ad-interstitial-overlay">
-			<ins class="adsbygoogle"
-				style="display:inline-block;width:300px;height:250px"
-				data-ad-client="$ADSENSE_CLIENT_ID"
-				data-ad-slot="$ADSENSE_INTERSTITIAL_SLOT"></ins>
-			<span class="ad-close" onclick="closeInterstitial()">Close &times;</span>
-		</div>
-
-		<!-- AdSense library (replace data-ad-client with your publisher ID) -->
-		<script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=$ADSENSE_CLIENT_ID" crossorigin="anonymous"></script>
+		<!-- NOTE: Web monetization is handled by the in-game nag (Godot
+		     AdManager), not AdSense. The old AdSense placeholders + JS bridge
+		     were never configured and are unused, so they were removed. -->
 
 		<script>
-		// ============================================================
-		// Ad bridge — called by Godot's AdManager via JavaScriptBridge
-		// ============================================================
-
-		// Replace these with your real AdSense publisher and slot IDs:
-		// const ADSENSE_CLIENT = "ca-pub-XXXXXXXXXXXXXXXX";
-		// Banner slot, interstitial slot, rewarded slot are set in the
-		// HTML ins tags above. Update data-ad-client and data-ad-slot.
-
-		var _adCallbacks = {};
-		var _interstitialTimer = null;
-
-		// --- Banner ---
-		window.showBannerAd = function() {
-			var el = document.getElementById('ad-banner');
-			el.style.display = 'block';
-			try { (adsbygoogle = window.adsbygoogle || []).push({}); } catch(e) {}
-		};
-
-		window.hideBannerAd = function() {
-			document.getElementById('ad-banner').style.display = 'none';
-		};
-
-		// --- Interstitial ---
-		window.showInterstitialAd = function(callbackId) {
-			var overlay = document.getElementById('ad-interstitial-overlay');
-			overlay.style.display = 'flex';
-			try { (adsbygoogle = window.adsbygoogle || []).push({}); } catch(e) {}
-			// Show close button after 5 seconds
-			var closeBtn = overlay.querySelector('.ad-close');
-			closeBtn.style.display = 'none';
-			_interstitialTimer = setTimeout(function() {
-				closeBtn.style.display = 'block';
-			}, 5000);
-			_adCallbacks['interstitial'] = callbackId;
-		};
-
-		window.closeInterstitial = function() {
-			var overlay = document.getElementById('ad-interstitial-overlay');
-			overlay.style.display = 'none';
-			if (_interstitialTimer) clearTimeout(_interstitialTimer);
-			var cid = _adCallbacks['interstitial'];
-			if (cid && window.godotAdCallback) {
-				window.godotAdCallback(cid, true);
-			}
-			_adCallbacks['interstitial'] = null;
-		};
-
-		// --- Rewarded ---
-		window.showRewardedAd = function(callbackId) {
-			// For rewarded ads on web, we show a longer interstitial-style
-			// display ad and grant the reward after a mandatory watch period.
-			var overlay = document.getElementById('ad-interstitial-overlay');
-			overlay.style.display = 'flex';
-			try { (adsbygoogle = window.adsbygoogle || []).push({}); } catch(e) {}
-			var closeBtn = overlay.querySelector('.ad-close');
-			closeBtn.style.display = 'none';
-			_adCallbacks['rewarded'] = callbackId;
-			// Reward granted after 15 seconds
-			_interstitialTimer = setTimeout(function() {
-				overlay.style.display = 'none';
-				if (window.godotAdCallback) {
-					window.godotAdCallback(callbackId, true);
-				}
-				_adCallbacks['rewarded'] = null;
-			}, 15000);
-		};
-
-		// --- Godot callback bridge ---
-		window.godotAdCallback = function(id, success) {
-			// The Godot side handles this via timer fallback.
-			// This exists so future proper JS→Godot callback
-			// integration can replace the timer approach.
-			console.log('Ad callback:', id, success);
-		};
-
-		// --- Nag overlay (shown before first game + on demand from Godot) ---
-		(function() {
-			// Request the first ad once the overlay is in the DOM.
-			setTimeout(function() {
-				try { (adsbygoogle = window.adsbygoogle || []).push({}); } catch(e) {}
-			}, 400);
-		})();
-
+		// Pre-game splash overlay. Dismissed by the "Continue to web version"
+		// button. (Web monetization / cross-promo is the in-game Godot nag, so
+		// there is no JS ad bridge here.)
 		window.dismissNagOverlay = function() {
 			var overlay = document.getElementById('nag-overlay');
 			if (overlay) overlay.style.display = 'none';
-		};
-
-		// Callable from Godot via JavaScriptBridge.eval("showNagOverlay()")
-		// to re-display the overlay between games (after a death or win).
-		window.showNagOverlay = function() {
-			var overlay = document.getElementById('nag-overlay');
-			if (!overlay) return;
-			overlay.style.display = 'flex';
-			try { (adsbygoogle = window.adsbygoogle || []).push({}); } catch(e) {}
 		};
 		</script>
 
