@@ -315,18 +315,29 @@ func _integrate_forces(state):
 		var raw := Input.get_gravity()
 		_tilt_filtered = _tilt_filtered.lerp(raw, globalvar.TILT_FILTER_ALPHA)
 		var delta := _tilt_filtered - _tilt_baseline
-		# In landscape, the phone's long axis is horizontal. Rolling
-		# left/right is rotation AROUND that long axis. Which device axis
-		# (X or Y) reads the roll component depends on the OS's reported
-		# natural orientation: Android phones in our setup use delta.x;
-		# iPads in their default landscape (home button on the right)
-		# report the same rotation as a change on delta.y (empirically
-		# confirmed on iPad Pro 12.9). Pick the axis per-platform.
+		# In landscape the device's long axis is horizontal; rolling left/right
+		# is rotation about that long axis. On iOS that roll reads on delta.y;
+		# on Android it reads on delta.x.
+		#
+		# CRITICAL: iPhone and iPad lock to OPPOSITE landscape orientations
+		# (Info.plist: iPhone=LandscapeLeft, iPad=LandscapeRight, 180° apart).
+		# Godot reports gravity in the device's physical frame, so the same
+		# physical roll yields opposite-sign delta.y between the two device
+		# classes — which is why a single hardcoded sign was correct on iPad
+		# but inverted on iPhone. Read the actual screen orientation and flip
+		# the sign for the reverse landscape so steering is correct on both.
 		var tilt: float
 		if OS.get_name() == "iOS":
-			# Sign flipped vs delta.x because of how iPad's natural-axis
-			# layout maps to landscape roll (verified empirically on iPad).
-			tilt = -delta.y / 9.81
+			# Key the sign off the DEVICE CLASS, which determines the locked
+			# landscape orientation: the generated Info.plist locks iPad to
+			# LandscapeRight and iPhone to LandscapeLeft (180° apart). iPad's
+			# orientation steers correctly with -delta.y (verified on iPad Pro
+			# 12.9); iPhone, being the opposite landscape, needs +delta.y.
+			# OS.get_model_name() returns the hardware id ("iPad13,1" /
+			# "iPhone15,2"), so begins_with("iPad") reliably selects the class.
+			var is_ipad: bool = OS.get_model_name().begins_with("iPad")
+			var sign_y: float = -1.0 if is_ipad else 1.0
+			tilt = sign_y * delta.y / 9.81
 		else:
 			tilt = delta.x / 9.81
 		if absf(tilt) < globalvar.TILT_DEADZONE:

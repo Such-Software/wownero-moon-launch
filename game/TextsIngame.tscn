@@ -89,6 +89,14 @@ theme_override_font_sizes/font_size = 20
 text = "Resume"
 flat = true
 
+[node name="Restart" type="Button" parent="popupMenu" unique_id=437746208]
+custom_minimum_size = Vector2(164, 42)
+layout_mode = 2
+theme_override_fonts/font = SubResource("FontVar_default")
+theme_override_font_sizes/font_size = 20
+text = "Restart Level"
+flat = true
+
 [node name="backtomenu" type="Button" parent="popupMenu" unique_id=668724102]
 custom_minimum_size = Vector2(164, 42)
 layout_mode = 2
@@ -107,4 +115,5 @@ flat = true
 [connection signal="released" from="down" to="." method="_on_down_released"]
 [connection signal="pressed" from="menu" to="." method="_on_menu_pressed"]
 [connection signal="pressed" from="popupMenu/Resume" to="." method="_on_Resume_pressed"]
+[connection signal="pressed" from="popupMenu/Restart" to="." method="_on_restart_pressed"]
 [connection signal="pressed" from="popupMenu/backtomenu" to="." method="_on_backtomenu_pressed"]

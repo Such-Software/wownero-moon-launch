@@ -177,6 +177,17 @@ func is_ad_supported() -> bool:
 	return not (_platform in AD_FREE_PLATFORMS)
 
 
+## Height (in 1024x600 design units) that the bottom banner ad occupies, for
+## menu/shop UI that must avoid drawing under it. Returns 0 when no banner will
+## show (ad-free user, or unsupported/desktop platform). 90 is a conservative
+## cover for a 50dp banner plus the phone safe-area inset; on tablets the real
+## banner is shorter so the reserve is harmless slack.
+func banner_reserve_px() -> float:
+	if is_ad_free() or not is_ad_supported():
+		return 0.0
+	return 90.0
+
+
 ## Returns true if rewarded ads can be shown (always available on ad-supported platforms).
 func is_rewarded_available() -> bool:
 	return is_ad_supported()

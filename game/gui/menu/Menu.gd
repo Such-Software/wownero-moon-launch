@@ -80,6 +80,13 @@ func _ready():
 	$VButtonArray.anchor_right = 0.5
 	$VButtonArray.offset_left = -240
 	$VButtonArray.offset_right = 240
+	# When a bottom banner ad will be shown, the button stack's last row
+	# (Help/Options/Store) ends ~22px into the banner zone on phones and gets
+	# covered. Compact the inter-button spacing so the whole stack lifts clear
+	# of the banner without moving its top (which would overlap the title).
+	# Only applies when a banner actually shows (mobile + ads not removed).
+	if AdManager.banner_reserve_px() > 0.0:
+		$VButtonArray.add_theme_constant_override("separation", 10)
 	$Label.anchor_left = 0.5
 	$Label.anchor_right = 0.5
 	$Label.offset_left = -260
@@ -1547,7 +1554,10 @@ func _build_cloud_restore_button() -> void:
 	var bar := HBoxContainer.new()
 	bar.name = "CloudBar"
 	bar.set_anchors_preset(Control.PRESET_BOTTOM_RIGHT)
-	bar.position = Vector2(-170, -44)
+	# Sits at the very bottom-right; lift it above the banner when one shows so
+	# "Restore Cloud Save" isn't covered.
+	var bar_y := -44.0 - AdManager.banner_reserve_px()
+	bar.position = Vector2(-170, bar_y)
 	bar.add_theme_constant_override("separation", 8)
 	add_child(bar)
 

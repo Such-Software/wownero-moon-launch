@@ -35,11 +35,19 @@ func _ready() -> void:
 
 	# Style the pause popup buttons
 	var resume_btn = get_node_or_null("popupMenu/Resume")
+	var restart_btn = get_node_or_null("popupMenu/Restart")
 	var back_btn = get_node_or_null("popupMenu/backtomenu")
 	if resume_btn:
 		BS.apply_space_style(resume_btn, Color.GREEN)
+	if restart_btn:
+		BS.apply_space_style(restart_btn, Color(0.2, 0.8, 1.0))
 	if back_btn:
 		BS.apply_space_style(back_btn, Color.RED)
+
+	# A proper, always-tappable Pause button (top-right). The legacy `menu`
+	# TouchScreenButton was hidden on mobile / freed on desktop, so there was
+	# no way to pause on phones. This replaces it on every platform.
+	_setup_pause_button()
 
 	if is_mobile:
 		_setup_mobile()
@@ -48,6 +56,27 @@ func _ready() -> void:
 
 	# HUD widgets — always visible on all platforms
 	_setup_hud()
+
+
+func _setup_pause_button() -> void:
+	var vp := get_viewport().get_visible_rect().size
+	var btn := Button.new()
+	btn.name = "PauseButton"
+	btn.text = "II"
+	btn.custom_minimum_size = Vector2(54, 54)
+	btn.add_theme_font_size_override("font_size", 22)
+	btn.focus_mode = Control.FOCUS_NONE
+	# Stays tappable even while paused (harmless) and during slow-mo.
+	btn.process_mode = Node.PROCESS_MODE_ALWAYS
+	BS.apply_space_style(btn, Color(0.7, 0.7, 0.85))
+	add_child(btn)
+	btn.position = Vector2(vp.x - 66.0, 12.0)
+	btn.pressed.connect(_on_menu_pressed)
+	get_viewport().size_changed.connect(func() -> void:
+		if is_instance_valid(btn):
+			var v := get_viewport().get_visible_rect().size
+			btn.position = Vector2(v.x - 66.0, 12.0)
+	)
 
 
 func _setup_mobile() -> void:
@@ -236,6 +265,17 @@ func _on_Resume_pressed():
 	get_tree().paused = false
 	$popupMenu.hide()
 
+func _on_restart_pressed():
+	# Restart the current level — mirrors DeathScreen._on_retry so behavior is
+	# identical to a death-retry: reset time scale, reload the level scene.
+	get_tree().paused = false
+	$popupMenu.hide()
+	Engine.time_scale = 1.0
+	var scene_path: String = globalvar.get_level_scene(globalvar.nowlevel)
+	get_tree().change_scene_to_file(scene_path)
+
 func _on_backtomenu_pressed():
-	_on_Resume_pressed()
+	get_tree().paused = false
+	$popupMenu.hide()
+	Engine.time_scale = 1.0
 	get_tree().change_scene_to_file("res://game/gui/menu/Menu.tscn")
