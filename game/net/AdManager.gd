@@ -114,6 +114,9 @@ func _dbg(msg: String) -> void:
 		_debug_hud.text = "\n".join(_debug_lines)
 
 const ITCH_URL := "https://suchsoftware.itch.io/such-moon-launch"
+## The free web build funnels players to the monetized mobile apps.
+const APP_STORE_URL := "https://apps.apple.com/us/app/such-moon-launch/id6767909623"
+const PLAY_STORE_URL := "https://play.google.com/store/apps/details?id=com.suchsoftware.suchmoonlaunch"
 
 
 func _ready() -> void:
@@ -436,16 +439,22 @@ func _web_show_nag_banner() -> void:
 	hbox.add_theme_constant_override("separation", 16)
 	panel.add_child(hbox)
 	var lbl := Label.new()
-	lbl.text = "Enjoy the game? Get the full version on itch.io!"
+	lbl.text = "Love the game? Get the free app:"
 	lbl.add_theme_font_size_override("font_size", 14)
 	lbl.add_theme_color_override("font_color", Color(1.0, 0.85, 0.2))
 	hbox.add_child(lbl)
-	var btn := Button.new()
-	btn.text = "Visit itch.io"
-	btn.add_theme_font_size_override("font_size", 13)
-	btn.custom_minimum_size = Vector2(100, 24)
-	btn.pressed.connect(func(): OS.shell_open(ITCH_URL))
-	hbox.add_child(btn)
+	var ios_btn := Button.new()
+	ios_btn.text = " App Store "
+	ios_btn.add_theme_font_size_override("font_size", 13)
+	ios_btn.custom_minimum_size = Vector2(96, 24)
+	ios_btn.pressed.connect(func(): OS.shell_open(APP_STORE_URL))
+	hbox.add_child(ios_btn)
+	var play_btn := Button.new()
+	play_btn.text = " Google Play "
+	play_btn.add_theme_font_size_override("font_size", 13)
+	play_btn.custom_minimum_size = Vector2(110, 24)
+	play_btn.pressed.connect(func(): OS.shell_open(PLAY_STORE_URL))
+	hbox.add_child(play_btn)
 
 
 func _web_hide_nag_banner() -> void:
@@ -495,14 +504,14 @@ func _web_show_nag_popup(on_close: Callable) -> void:
 	panel.add_child(vbox)
 
 	var title := Label.new()
-	title.text = "Support the Developer!"
+	title.text = "Get the Mobile App!"
 	title.add_theme_font_size_override("font_size", 22)
 	title.add_theme_color_override("font_color", Color(1.0, 0.85, 0.2))
 	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	vbox.add_child(title)
 
 	var msg := Label.new()
-	msg.text = "Get the full version on itch.io!\nAd-free, supports development,\nand play on desktop or mobile."
+	msg.text = "Take Such Moon Launch with you!\nPlay anywhere, climb the leaderboards,\nand earn Moonrocks on iOS & Android."
 	msg.add_theme_font_size_override("font_size", 15)
 	msg.add_theme_color_override("font_color", Color(0.8, 0.85, 0.9))
 	msg.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
@@ -511,22 +520,30 @@ func _web_show_nag_popup(on_close: Callable) -> void:
 
 	var btn_row := HBoxContainer.new()
 	btn_row.alignment = BoxContainer.ALIGNMENT_CENTER
-	btn_row.add_theme_constant_override("separation", 16)
+	btn_row.add_theme_constant_override("separation", 12)
 	vbox.add_child(btn_row)
 
-	var visit := Button.new()
-	visit.text = "Visit itch.io"
-	visit.custom_minimum_size = Vector2(140, 36)
-	visit.add_theme_font_size_override("font_size", 16)
-	visit.pressed.connect(func(): OS.shell_open(ITCH_URL))
-	btn_row.add_child(visit)
+	var ios_btn := Button.new()
+	ios_btn.text = "App Store"
+	ios_btn.custom_minimum_size = Vector2(130, 36)
+	ios_btn.add_theme_font_size_override("font_size", 16)
+	ios_btn.pressed.connect(func(): OS.shell_open(APP_STORE_URL))
+	btn_row.add_child(ios_btn)
+
+	var play_btn := Button.new()
+	play_btn.text = "Google Play"
+	play_btn.custom_minimum_size = Vector2(130, 36)
+	play_btn.add_theme_font_size_override("font_size", 16)
+	play_btn.pressed.connect(func(): OS.shell_open(PLAY_STORE_URL))
+	btn_row.add_child(play_btn)
 
 	var close := Button.new()
-	close.text = "Continue"
-	close.custom_minimum_size = Vector2(120, 36)
-	close.add_theme_font_size_override("font_size", 16)
+	close.text = "Continue Playing"
+	close.custom_minimum_size = Vector2(150, 32)
+	close.add_theme_font_size_override("font_size", 14)
+	close.flat = true
 	close.pressed.connect(func():
 		overlay.queue_free()
 		on_close.call()
 	)
-	btn_row.add_child(close)
+	vbox.add_child(close)
