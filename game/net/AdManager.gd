@@ -185,7 +185,7 @@ func is_ad_supported() -> bool:
 func banner_reserve_px() -> float:
 	if is_ad_free() or not is_ad_supported():
 		return 0.0
-	return 90.0
+	return 110.0
 
 
 ## Returns true if rewarded ads can be shown (always available on ad-supported platforms).

@@ -80,13 +80,6 @@ func _ready():
 	$VButtonArray.anchor_right = 0.5
 	$VButtonArray.offset_left = -240
 	$VButtonArray.offset_right = 240
-	# When a bottom banner ad will be shown, the button stack's last row
-	# (Help/Options/Store) ends ~22px into the banner zone on phones and gets
-	# covered. Compact the inter-button spacing so the whole stack lifts clear
-	# of the banner without moving its top (which would overlap the title).
-	# Only applies when a banner actually shows (mobile + ads not removed).
-	if AdManager.banner_reserve_px() > 0.0:
-		$VButtonArray.add_theme_constant_override("separation", 10)
 	$Label.anchor_left = 0.5
 	$Label.anchor_right = 0.5
 	$Label.offset_left = -260
@@ -120,7 +113,21 @@ func _ready():
 	_build_level_select()
 	_build_cloud_restore_button()
 	_build_pgs_buttons()
-	
+
+	# Banner-ad clearance (phones). The bottom AdMob banner draws over Godot's
+	# surface; with safe-area anchoring its top reaches ~y485 in 1024x600 design
+	# space on iPhone. The full 6-row button stack (5x52 + a ~44 row, sep 20,
+	# top 136) bottoms out near y540 and gets covered. Done AFTER all rows are
+	# built (Achievements + Help/Options/Store are added in the _build_* calls
+	# above). Lift the top just under the title and compact rows+spacing so the
+	# whole stack clears the banner. Only when a banner actually shows.
+	if AdManager.banner_reserve_px() > 0.0:
+		$VButtonArray.offset_top = 124.0
+		$VButtonArray.add_theme_constant_override("separation", 8)
+		for child in $VButtonArray.get_children():
+			if child is Control:
+				(child as Control).custom_minimum_size.y = 44.0
+
 	# Show nickname prompt on first launch only (independent of Level 1 tutorial)
 	if not globalvar.welcome_shown:
 		var timer := get_tree().create_timer(0.5)
@@ -1000,9 +1007,20 @@ func _show_first_time_nickname_prompt() -> void:
 	btn_row.add_child(start_btn)
 	vbox.add_child(btn_row)
 
-	# Intentionally NOT auto-focusing the line edit: on mobile that pops the
-	# on-screen keyboard immediately and obscures half the popup. Player can
-	# tap the field if they want to type a custom nickname.
+	# On mobile, pin the popup to the TOP of the screen and auto-focus the
+	# field. The landscape on-screen keyboard covers the bottom ~half, so a
+	# centered popup put the field under it; tapping to focus was also
+	# unreliable on iPhone (a tester saw no keyboard at all). Top-anchored +
+	# grab_focus reliably raises the keyboard with the field above it; the
+	# keyboard return key submits (text_submitted -> commit).
+	if OS.get_name() == "Android" or OS.get_name() == "iOS":
+		vbox.add_theme_constant_override("separation", 8)
+		popup.set_anchors_preset(Control.PRESET_CENTER_TOP)
+		popup.offset_left = -220
+		popup.offset_right = 220
+		popup.offset_top = 8
+		popup.offset_bottom = 250
+		line_edit.call_deferred("grab_focus")
 
 
 func _show_nickname_edit_popup(nick_label: Label) -> void:
@@ -1059,7 +1077,15 @@ func _show_nickname_edit_popup(nick_label: Label) -> void:
 	btn_row.add_child(cancel_btn)
 
 	line_edit.text_submitted.connect(func(_t): commit.call())
-	line_edit.grab_focus()
+	# On mobile, pin to the top so the field stays above the landscape
+	# on-screen keyboard (same reasoning as the first-launch prompt).
+	if OS.get_name() == "Android" or OS.get_name() == "iOS":
+		popup.set_anchors_preset(Control.PRESET_CENTER_TOP)
+		popup.offset_left = -220
+		popup.offset_right = 220
+		popup.offset_top = 8
+		popup.offset_bottom = 230
+	line_edit.call_deferred("grab_focus")
 	line_edit.caret_column = line_edit.text.length()
 
 
