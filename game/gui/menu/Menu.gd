@@ -53,12 +53,15 @@ const DIFF_COLORS := {
 func _ready():
 	globalvar.load_game()
 
-	# No banner ad on the title screen. The menu's button stack is dense and
-	# the bottom row (Help/Options/Store) sat too close to a bottom banner on
-	# phones — an AdMob accidental-click policy risk. Banners run on the
-	# Upgrade Shop instead, which reserves a clean 130px bottom strip. Actively
-	# hide any banner left showing when returning here from the shop.
-	AdManager.hide_banner()
+	# No AdMob banner on the dense mobile title screen — the bottom button row
+	# sat too close to it (AdMob accidental-click policy risk); banners run on
+	# the Upgrade Shop instead. The WEB build's bottom bar is a harmless itch
+	# self-promo nag (no ad network, no policy), so keep it on web. Hiding on
+	# mobile also clears any banner left showing when returning from the shop.
+	if OS.get_name() == "Web":
+		AdManager.show_banner()
+	else:
+		AdManager.hide_banner()
 
 	# Adapt layout to actual viewport size (handles ultrawide displays)
 	var vp := get_viewport_rect().size
