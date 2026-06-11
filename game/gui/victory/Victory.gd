@@ -1,11 +1,6 @@
 extends Node2D
 
 const BS = preload("res://game/gui/ButtonStyles.gd")
-## Pixel UI font. Used on the programmatic stat labels so symbol glyphs
-## (★ ☆ 🪨) render from its bundled Symbols2/Emoji fallbacks — the engine
-## default font has no bundled fallback, so those glyphs tofu on web (which,
-## unlike mobile/desktop, has no OS font to fall back to).
-const UI_FONT := preload("res://fonts/Computer Speak v0.3.ttf")
 
 var finaltime: float
 var nowlevel: int
@@ -117,7 +112,6 @@ func labelanim():
 	_time_label = Label.new()
 	_time_label.text = "Time: 0.00 s"
 	_time_label.add_theme_color_override("font_color", Color.WHITE)
-	_time_label.add_theme_font_override("font", UI_FONT)
 	_time_label.add_theme_font_size_override("font_size", 16)
 	_time_label.position = base_pos
 	_time_label.scale = base_scale
@@ -128,7 +122,6 @@ func labelanim():
 		var sl := Label.new()
 		sl.text = "☆"
 		sl.add_theme_color_override("font_color", Color(0.4, 0.4, 0.4))
-		sl.add_theme_font_override("font", UI_FONT)
 		sl.add_theme_font_size_override("font_size", 20)
 		sl.position = base_pos + Vector2((280 + i * 50) / base_scale.x, 0) * base_scale
 		sl.scale = base_scale
@@ -140,7 +133,6 @@ func labelanim():
 	_fuel_label = Label.new()
 	_fuel_label.text = "Fuel: 0%"
 	_fuel_label.add_theme_color_override("font_color", Color(0.3, 0.85, 1.0))
-	_fuel_label.add_theme_font_override("font", UI_FONT)
 	_fuel_label.add_theme_font_size_override("font_size", 16)
 	_fuel_label.position = base_pos + Vector2(0, 22) * base_scale
 	_fuel_label.scale = base_scale
@@ -151,7 +143,6 @@ func labelanim():
 	_crypto_label = Label.new()
 	_crypto_label.text = "Crypto: +0 🪨"
 	_crypto_label.add_theme_color_override("font_color", Color(1.0, 0.85, 0.2))
-	_crypto_label.add_theme_font_override("font", UI_FONT)
 	_crypto_label.add_theme_font_size_override("font_size", 16)
 	_crypto_label.position = base_pos + Vector2(200 / base_scale.x, 22) * base_scale
 	_crypto_label.scale = base_scale
@@ -163,7 +154,6 @@ func labelanim():
 		_best_label = Label.new()
 		_best_label.text = "NEW BEST!"
 		_best_label.add_theme_color_override("font_color", Color(1.0, 0.3, 0.1))
-		_best_label.add_theme_font_override("font", UI_FONT)
 		_best_label.add_theme_font_size_override("font_size", 18)
 		_best_label.position = base_pos + Vector2(0, -25) * base_scale
 		_best_label.scale = Vector2.ZERO

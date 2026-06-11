@@ -2,10 +2,6 @@ extends Control
 ## HUD wallet display — shows current Moonrocks balance from globalvar.
 ## Standalone widget: create with Control.new(), set_script(), add_child().
 
-## Pixel font with bundled Symbols2/Emoji fallback so the 🪨 glyph renders on
-## web (the engine fallback font has no bundled fallback -> tofu in-browser).
-const UI_FONT := preload("res://fonts/Computer Speak v0.3.ttf")
-
 var _display_amount: int = 0  # animated counter
 var _target_amount: int = 0
 
@@ -30,7 +26,7 @@ func _process(delta: float) -> void:
 
 
 func _draw() -> void:
-	var font: Font = UI_FONT
+	var font := ThemeDB.fallback_font
 	if not font:
 		return
 	var text := str(_display_amount) + " 🪨"

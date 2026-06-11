@@ -515,6 +515,17 @@ func get_platform_string() -> String:
 
 # --- Save / Load ---
 func _ready():
+	# WEB-ONLY: point the global fallback font at the pixel UI font (whose
+	# import declares Symbols2 + Emoji fallbacks) so symbol/emoji glyphs
+	# (★ ☆ 🪨 💰 🔒) render in-browser. The browser runtime has no system
+	# fonts, so default-font labels otherwise show tofu boxes for these.
+	# Mobile/desktop are untouched: they keep the engine-default (sans) font
+	# and resolve these glyphs through the OS font as before. This fixes every
+	# default-font label at once (menu, shop, leaderboard, HUD, victory) with
+	# no per-label edits and no change to the native builds.
+	if OS.get_name() == "Web":
+		ThemeDB.fallback_font = load("res://fonts/Computer Speak v0.3.ttf")
+
 	# One-shot migration from the old "Wownero Moon Launch" save dir (if any)
 	# must run before load_game so the legacy file is in place to be read.
 	_migrate_legacy_save()

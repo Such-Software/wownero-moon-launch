@@ -148,9 +148,6 @@ func _spawn_popup(value: int) -> void:
 	var label := Label.new()
 	label.text = "+" + str(value) + " 🪨"
 	label.add_theme_color_override("font_color", TYPE_COLORS.get(crypto_type, Color.WHITE))
-	# Pixel UI font carries the Symbols2/Emoji fallback so 🪨 renders on web
-	# (engine default font has no bundled fallback -> tofu in-browser).
-	label.add_theme_font_override("font", preload("res://fonts/Computer Speak v0.3.ttf"))
 	label.add_theme_font_size_override("font_size", 14)
 	label.position = global_position - Vector2(20, 20)
 	label.z_index = 100
