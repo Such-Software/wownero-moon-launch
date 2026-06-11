@@ -53,10 +53,12 @@ const DIFF_COLORS := {
 func _ready():
 	globalvar.load_game()
 
-	# Show a banner ad on the main menu so reviewers + players see
-	# advertising the moment the app opens (matching standard ad-supported
-	# mobile UX). UpgradeShop calls show_banner() too; that's idempotent.
-	AdManager.show_banner()
+	# No banner ad on the title screen. The menu's button stack is dense and
+	# the bottom row (Help/Options/Store) sat too close to a bottom banner on
+	# phones — an AdMob accidental-click policy risk. Banners run on the
+	# Upgrade Shop instead, which reserves a clean 130px bottom strip. Actively
+	# hide any banner left showing when returning here from the shop.
+	AdManager.hide_banner()
 
 	# Adapt layout to actual viewport size (handles ultrawide displays)
 	var vp := get_viewport_rect().size
@@ -113,20 +115,6 @@ func _ready():
 	_build_level_select()
 	_build_cloud_restore_button()
 	_build_pgs_buttons()
-
-	# Banner-ad clearance (phones). The bottom AdMob banner draws over Godot's
-	# surface; with safe-area anchoring its top reaches ~y485 in 1024x600 design
-	# space on iPhone. The full 6-row button stack (5x52 + a ~44 row, sep 20,
-	# top 136) bottoms out near y540 and gets covered. Done AFTER all rows are
-	# built (Achievements + Help/Options/Store are added in the _build_* calls
-	# above). Lift the top just under the title and compact rows+spacing so the
-	# whole stack clears the banner. Only when a banner actually shows.
-	if AdManager.banner_reserve_px() > 0.0:
-		$VButtonArray.offset_top = 124.0
-		$VButtonArray.add_theme_constant_override("separation", 8)
-		for child in $VButtonArray.get_children():
-			if child is Control:
-				(child as Control).custom_minimum_size.y = 44.0
 
 	# Show nickname prompt on first launch only (independent of Level 1 tutorial)
 	if not globalvar.welcome_shown:
@@ -1580,10 +1568,7 @@ func _build_cloud_restore_button() -> void:
 	var bar := HBoxContainer.new()
 	bar.name = "CloudBar"
 	bar.set_anchors_preset(Control.PRESET_BOTTOM_RIGHT)
-	# Sits at the very bottom-right; lift it above the banner when one shows so
-	# "Restore Cloud Save" isn't covered.
-	var bar_y := -44.0 - AdManager.banner_reserve_px()
-	bar.position = Vector2(-170, bar_y)
+	bar.position = Vector2(-170, -44)
 	bar.add_theme_constant_override("separation", 8)
 	add_child(bar)
 
