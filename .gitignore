@@ -65,3 +65,8 @@ ios/plugins/*
 
 # Google iOS SDK frameworks (downloaded per-machine; 37MB GoogleMobileAds + UMP)
 ios/framework/
+
+# Firebase client config (contains client API keys; unused until the Firebase
+# SDK is integrated in v1.1.0). Kept locally, out of version control.
+android/google-services.json
+ios/GoogleService-Info.plist
