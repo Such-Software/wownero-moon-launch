@@ -125,7 +125,12 @@ func _ready():
 		timer.timeout.connect(_show_first_time_nickname_prompt)
 	
 	_bg_action_delay = randf_range(5.0, 7.0)
-	AdManager.show_banner()
+	# NOTE: banner visibility for the title screen is decided ONCE near the top
+	# of _ready (web => show the itch nag, mobile => hide the AdMob banner).
+	# Do NOT call show_banner() here — a leftover unconditional call here was
+	# re-showing the AdMob banner over the menu buttons on mobile (it only
+	# looked "gone" on Android because real ads no-filled; iOS test ads always
+	# filled, so it stayed visible and blocked the bottom buttons).
 
 
 func _set_title_glow(size: int) -> void:
