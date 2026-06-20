@@ -42,6 +42,13 @@ var radial_bias := 1.0
 var tangent_bias := 0.0   # 0 = pure-radial climb-out (stable); add tangent later for the arc
 var avoid_range := 260.0  # transfer: bend heading away from non-target bodies within this
 var avoid_gain := 1.6     # transfer: how hard to bend around them
+var hazard_range := 210.0 # sidestep chasers/hazards (e.g. Martian) only within this
+var hazard_gain := 1.5    # how hard to sidestep them
+var flee_speed := 78.0    # while threatened (outside the pad safe zone), don't drop below this
+var safe_zone := 130.0    # within this of the target the Martian backs off; brake normally
+var evade_hazards := false # AP_EVADE=1 to enable chaser evasion (WIP; see README hazard notes)
+var _hazards: Array = []  # cached CharacterBody2D hazards in the current level
+var _haz_for: Object = null
 
 
 func _f(name: String, def: float) -> float:
@@ -66,6 +73,12 @@ func _ready() -> void:
 	tangent_bias = _f("AP_TANGENT_BIAS", tangent_bias)
 	avoid_range = _f("AP_AVOID_RANGE", avoid_range)
 	avoid_gain = _f("AP_AVOID_GAIN", avoid_gain)
+	hazard_range = _f("AP_HAZARD_RANGE", hazard_range)
+	hazard_gain = _f("AP_HAZARD_GAIN", hazard_gain)
+	flee_speed = _f("AP_FLEE_SPEED", flee_speed)
+	safe_zone = _f("AP_SAFE_ZONE", safe_zone)
+	var ev := OS.get_environment("AP_EVADE")
+	evade_hazards = ev != "" and ev != "0"
 	if "--autopilot" in OS.get_cmdline_args():
 		active = true
 
@@ -88,6 +101,10 @@ func _physics_process(_dt: float) -> void:
 	# so our torque/thrust inputs would silently do nothing if it ever rests.
 	_rocket.can_sleep = false
 	_rocket.sleeping = false
+	# (re)scan the level for chaser hazards when the rocket instance changes
+	if _rocket != _haz_for:
+		_haz_for = _rocket
+		_refresh_hazards()
 	var tgt = _rocket.get("target")
 	if tgt == null or not is_instance_valid(tgt):
 		_release_all()
@@ -146,10 +163,37 @@ func _drive(tgt: Node2D) -> void:
 				avoid += off.normalized() * ((avoid_range - d) / avoid_range)
 		desired_dir = (dir_tgt + avoid * avoid_gain).normalized()
 
-	# Target speed: cruise, easing down only on final approach to the target.
+	# Evade chasers (Martian: CharacterBody2D that follows + kills on contact).
+	# Only when one is genuinely close, and dodge SIDEWAYS (perpendicular) toward
+	# the target side, so we keep making progress instead of fleeing backward and
+	# derailing. We outrun it (120 vs 40) and it backs off within 120px of a pad.
+	# Chaser evasion (WIP, opt-in via AP_EVADE). Beats the Martian's chase in open
+	# space but does not yet robustly clear the hazard levels, and a blunt version
+	# can derail clean levels, so it is OFF by default. See README hazard notes.
+	var near_hazard := false
+	if evade_hazards:
+		for h in _hazards:
+			if not is_instance_valid(h):
+				continue
+			var hoff: Vector2 = pos - h.global_position   # away from the hazard
+			var hd := hoff.length()
+			if hd < hazard_range and hd > 0.5:
+				near_hazard = true
+				var side := Vector2(-hoff.y, hoff.x).normalized()  # perpendicular
+				if side.dot(dir_tgt) < 0.0:
+					side = -side                                    # toward-target side
+				var w := (hazard_range - hd) / hazard_range
+				desired_dir = (desired_dir + side * w * hazard_gain).normalized()
+	# Threatened only OUTSIDE the pad safe zone; within it the Martian backs off.
+	var threatened := near_hazard and dist > safe_zone
+
+	# Target speed: cruise, easing to land on final approach. While threatened,
+	# floor at flee_speed (above the Martian's 40 so we still evade, but low enough
+	# to brake once we reach the safe zone) instead of blitzing in too fast to stop.
 	var tgt_speed := seek_speed
 	if dist < approach_radius:
-		tgt_speed = lerpf(land_speed, seek_speed, clampf(dist / approach_radius, 0.0, 1.0))
+		var eased := lerpf(land_speed, seek_speed, clampf(dist / approach_radius, 0.0, 1.0))
+		tgt_speed = maxf(eased, flee_speed) if threatened else eased
 
 	# Steering target:
 	#   ESCAPE  -> the radial heading; just point out of the well and climb.
@@ -197,3 +241,19 @@ func _release_all() -> void:
 	for a in ["thrust", "revthrust", "ui_left", "ui_right"]:
 		if Input.is_action_pressed(a):
 			Input.action_release(a)
+
+
+func _refresh_hazards() -> void:
+	# Chaser hazards (the Martian) are CharacterBody2D nodes; find them by scanning
+	# the level so we never have to touch game code. Cached per level.
+	_hazards.clear()
+	var root := get_tree().current_scene
+	if root != null:
+		_collect_hazards(root)
+
+
+func _collect_hazards(n: Node) -> void:
+	if n is CharacterBody2D:
+		_hazards.append(n)
+	for c in n.get_children():
+		_collect_hazards(c)

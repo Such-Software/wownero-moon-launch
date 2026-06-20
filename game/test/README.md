@@ -107,8 +107,16 @@ recompiling:
 | `AP_TANGENT_BIAS` | 0.0 | Escape: sideways lead for a prettier slingshot arc. 0 = pure radial (stable). |
 | `AP_AVOID_RANGE` | 260 | Transfer: bend away from non-target bodies within this. |
 | `AP_AVOID_GAIN` | 1.6 | Transfer: how hard to bend around them. |
+| `AP_EVADE` | off | `1` enables chaser evasion (WIP, see ceiling below). |
+| `AP_HAZARD_RANGE` | 210 | Evade: sidestep a chaser within this. |
+| `AP_HAZARD_GAIN` | 1.5 | Evade: sidestep strength. |
+| `AP_FLEE_SPEED` | 78 | Evade: don't slow below this while threatened (above Martian's 40). |
+| `AP_SAFE_ZONE` | 130 | Evade: within this of the pad the Martian backs off; brake normally. |
 
 Example: `AP_SEEK_SPEED=90 AP_LAND_SPEED=18 godot --headless --autopilot --sim ...`
+
+`SIM_RESULT` reports a `cause=hazard|crash` on deaths (hazard = killed via
+`globalvar.sendDeath`, i.e. Martian / black hole / etc.; crash = a collision).
 
 ## Capturing video
 
@@ -141,11 +149,29 @@ ffmpeg -y -i L1_win.avi -vf "crop=405:720:437:0,scale=1080:1920" -c:v libx264 -p
 
 ## Current results & known ceiling
 
-NORMAL difficulty, base upgrades: **wins Levels 1 and 3**. Levels 2+ all carry a
-**Martian** (shoots), and the maps escalate — L5 Wormhole, L6 SolarWind, L11
-BlackHole + Mothership. The pilot has no reactive hazard sense, so it dies
-mid-cruise on those. That's the design ceiling, and a useful balance signal: the
-difficulty cliff is the Martian arriving on every level from 2 onward.
+NORMAL difficulty, base upgrades: **reliably wins Levels 1 and 3** (the flight,
+gravity-assist, and landing are solved). Levels 2+ all carry a **Martian** and the
+maps escalate — L5 Wormhole, L6 SolarWind, L11 BlackHole + Mothership.
+
+**What we learned chasing all-levels (the `cause=` diagnostic made this visible):**
+
+- The **Martian is a `CharacterBody2D` chaser that kills on contact** (not a
+  shooter) and **backs off within 120px of any pad**. We're faster than it (120 vs
+  40), so in open space we beat its chase. With `AP_EVADE=1` the bot sidesteps it
+  and reaches the pad on the near levels.
+- But it then **arrives too fast to land** (blitzing past the brake point) — so
+  the deaths flip from `cause=hazard` to `cause=crash`. Flooring the flee speed
+  helps but the window is tight on varied geometry, and a blunt evasion *derails
+  clean levels* (it cost us L3 until we gated it off).
+- The far levels (5-11) also have **non-`CharacterBody2D` hazards** (wormhole,
+  solar wind, black hole, mothership) the chaser-evasion doesn't even see.
+
+Net: a **reactive heuristic does not robustly clear the hazard levels.** Getting
+there needs predictive interception-avoidance + per-hazard handling (or ML) — a
+real project, not a tuning pass. Evasion is therefore **off by default** (`AP_EVADE`)
+so we keep the clean L1/L3 baseline, with all the knobs + diagnostics preserved for
+a future run at it. Honest balance signal stands: the difficulty cliff is the
+Martian landing on every level from 2 onward.
 
 ## Upgrade ideas (if we come back to this)
 
