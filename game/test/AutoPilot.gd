@@ -1,17 +1,31 @@
 extends Node
-## Heuristic autopilot — play-tester + promo B-roll pilot.
+## Heuristic autopilot — automated play-tester + promo B-roll pilot.
 ##
-## NOT machine learning: a phased controller (ESCAPE the launch body's gravity
-## well -> TRANSFER to the target -> APPROACH/land) that flies a gravity-assisted
-## arc instead of a straight line (a straight line into Earth is the #1 cause of
-## death in the live telemetry).
+## NOT machine learning. A phased PD / bang-bang controller:
+##   ESCAPE   — climb radially OUT of the gravity well the rocket starts in
+##              (the nearest non-target body, e.g. Earth) until clear of it. A
+##              straight thrust into that body is the #1 death cause in the live
+##              telemetry, so getting out cleanly first is the whole point.
+##   TRANSFER — head for the landing target, bending the heading around any
+##              intervening non-target body so we curve AROUND it, not through it.
+##   APPROACH — folded into TRANSFER: as we near the target the cruise speed eases
+##              toward land_speed and the nose swings RETROGRADE to brake, so we
+##              touch down under the rocket's landingspeed instead of slamming in.
 ##
-## Desktop/headless only: it drives the same inputs a keyboard player uses
-## (ui_left / ui_right / thrust / revthrust), so it reuses rocket.gd's real
-## physics with ZERO changes to the rocket — mobile/production are untouched.
+## It drives the SAME inputs a keyboard player uses (ui_left / ui_right / thrust),
+## so it reuses rocket.gd's real physics with ZERO changes to the rocket. This
+## node is fully inert unless it's a debug build or --autopilot is passed (see
+## _ready), so mobile and production builds are completely untouched.
 ##
-## Enable:  press F8 in a debug build, or launch with --autopilot
-## Tuning knobs are env-overridable (AP_*) so the headless harness can sweep them.
+## Results (NORMAL difficulty, base upgrades, headless): wins the clean physics
+## levels (1, 3). Levels 2+ all carry a Martian plus escalating hazards (wormhole,
+## solar wind, black hole, mothership) that a non-reactive pilot can't dodge —
+## that's the known ceiling, not a flight bug.
+##
+## Enable:  press F8 in a debug build, or launch with --autopilot.
+## Tune:    every knob below is env-overridable (AP_*) so the headless harness
+##          (SimHarness.gd, --sim) can sweep it without recompiling.
+## Docs:    game/test/README.md  (architecture, how to run sims, capture video).
 
 var active := false
 var _rocket: RigidBody2D = null
@@ -102,10 +116,13 @@ func _drive(tgt: Node2D) -> void:
 				dominant = body
 
 	# Phased desired HEADING:
-	#   ESCAPE  (deep in the well): thrust mostly radially OUT to climb, with a
-	#           tangential lead toward the target's side -> leaves on an arc.
-	#   TRANSFER (climbed out): head straight at the target; gravity curves the
-	#           coast into a slingshot.
+	#   ESCAPE  (dom_d < escape_radius): point radially OUT of the dominant well
+	#           and climb. tangent_bias would add a sideways lead for a prettier
+	#           slingshot arc, but defaults to 0 (pure radial) because a STABLE
+	#           heading is what reliably climbs out — a swinging heading made the
+	#           controller chase its tail and fall back. Raise it for looks only.
+	#   TRANSFER (clear of the well): aim at the target, bending the heading away
+	#           from any close non-target body (avoid_*) so we go around, not in.
 	var desired_dir := dir_tgt
 	var phase := "XFER"
 	if dominant != null and dom_d < escape_radius:
