@@ -70,3 +70,10 @@ ios/framework/
 # SDK is integrated in v1.1.0). Kept locally, out of version control.
 android/google-services.json
 ios/GoogleService-Info.plist
+
+# marketing renders + heavy source assets
+marketing/out/
+marketing/**/.assemble_tmp/
+marketing/assets/characters/*.glb
+marketing/assets/music/*
+marketing/assets/vo/*
