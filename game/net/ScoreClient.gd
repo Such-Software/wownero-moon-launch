@@ -35,7 +35,7 @@ func submit_score(level: int, completion_time: float, fuel_remaining: float,
 		crypto_collected: int, stars: int, wave: int = 0) -> void:
 	# Never post bot scores from automated sims / captures to the live leaderboard.
 	var argv := OS.get_cmdline_args()
-	if "--sim" in argv or "--autopilot" in argv:
+	if "--sim" in argv or "--autopilot" in argv or "--capture" in argv:
 		return
 	var body := {
 		"device_uuid": globalvar.device_uuid,

@@ -29,6 +29,8 @@ SCENE="$1"; OUT="$2"; FRAMES="$3"; shift 3
 mkdir -p "$(dirname "$OUT")"
 
 echo "[capture] $SCENE -> $OUT (${FRAMES}f @ ${RES})"
+# --capture keeps telemetry/scores disabled even for non-gameplay scenes (the
+# autopilot guard only covers gameplay segments launched with --autopilot).
 "$GODOT" --path "$PROJ" --resolution "$RES" --position 6000,6000 \
-  --write-movie "$OUT" --quit-after "$FRAMES" "$@" "$SCENE" 2>&1 \
+  --write-movie "$OUT" --quit-after "$FRAMES" --capture "$@" "$SCENE" 2>&1 \
   | grep -E "frames at|Done recording|SCRIPT ERROR" || true
