@@ -55,7 +55,8 @@ func _build_tutorial_messages() -> Array[String]:
 			"Hold THRUST to fly up",
 			rotate_hint,
 			"Tap REVERSE to slow your descent",
-			"Earth's gravity is strong — arc around it, don't fall back in!",
+			"Slingshot! Swing around Earth to sling toward the Moon",
+			"Don't fly straight at it — Earth's pull will drag you back!",
 			"Switch controls anytime in Options",
 			"Land slowly and upright on the Moon!",
 		]
