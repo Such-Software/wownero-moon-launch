@@ -77,3 +77,8 @@ marketing/**/.assemble_tmp/
 marketing/assets/characters/*.glb
 marketing/assets/music/*
 marketing/assets/vo/*
+
+# RL training artifacts
+rl/.venv/
+rl/*.onnx
+rl/train_logs/
