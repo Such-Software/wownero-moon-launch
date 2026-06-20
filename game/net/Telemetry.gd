@@ -53,6 +53,12 @@ func _ready() -> void:
 	_flush_timer.timeout.connect(_flush)
 	add_child(_flush_timer)
 
+	# Automated bot runs (headless sims / Movie Maker captures) must not write
+	# to the live events backend, so leave telemetry uninitialized for them.
+	var argv := OS.get_cmdline_args()
+	if "--sim" in argv or "--autopilot" in argv:
+		return
+
 	_initialized = true
 	log_event(EVENT_APP_OPEN, {})
 

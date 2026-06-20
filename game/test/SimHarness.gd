@@ -1,0 +1,71 @@
+extends Node
+## Headless balance / autopilot-tuning harness. NO window, NO Movie Maker.
+##
+## Run one level to completion and print a single parseable result line, then
+## quit the instant the outcome is known:
+##
+##   godot --headless --autopilot --sim res://game/levels/1/Level1.tscn
+##   -> SIM_RESULT outcome=WIN level=1 t=12.34 fuel=44.0 frames=740
+##
+## Env knobs:
+##   SIM_LEVEL       set globalvar.nowlevel (upgrades/scaling/report); default keeps the scene's
+##   SIM_MAX_TIME    seconds of game-time before TIMEOUT (default 90)
+##   SIM_TIME_SCALE  Engine.time_scale for faster-than-real sims (default 1.0; keep low for fidelity)
+##   AP_*            autopilot tuning knobs (see AutoPilot.gd)
+##
+## Telemetry + score submission are disabled under --sim (see Telemetry.gd / ScoreClient.gd),
+## so sweeps never touch the live backend.
+
+var _start_frame := 0
+var _max_frames := 0
+var _done := false
+
+
+func _ready() -> void:
+	if not ("--sim" in OS.get_cmdline_args()):
+		set_physics_process(false)
+		return
+	Engine.max_fps = 0
+	var ts := OS.get_environment("SIM_TIME_SCALE")
+	if ts != "":
+		Engine.time_scale = maxf(0.1, float(ts))
+	var lvl := OS.get_environment("SIM_LEVEL")
+	if lvl != "":
+		globalvar.nowlevel = int(lvl)
+	var maxt := 90.0
+	var mt := OS.get_environment("SIM_MAX_TIME")
+	if mt != "":
+		maxt = float(mt)
+	_max_frames = int(maxt * Engine.physics_ticks_per_second)
+	_start_frame = Engine.get_physics_frames()
+
+
+func _physics_process(_dt: float) -> void:
+	if _done:
+		return
+	var elapsed := Engine.get_physics_frames() - _start_frame
+	var arr := get_tree().get_nodes_in_group("rocket")
+	var rocket = arr[0] if arr.size() > 0 else null
+	if rocket != null and is_instance_valid(rocket):
+		# WIN: touchdown within landing speed (set well before the Victory scene loads)
+		if rocket.get("landattemptnow") == true or rocket.get("flagplaced") == true:
+			_report("WIN", rocket, elapsed)
+			return
+		# DEATH: death() shows the skull (normal mode; easy-bounce is off by default)
+		var skull = rocket.get_node_or_null("SkullSprite")
+		if skull != null and skull.visible:
+			_report("DEATH", rocket, elapsed)
+			return
+	if elapsed > _max_frames:
+		_report("TIMEOUT", rocket, elapsed)
+
+
+func _report(outcome: String, rocket, frames: int) -> void:
+	_done = true
+	set_physics_process(false)
+	var t := float(frames) / float(Engine.physics_ticks_per_second)
+	var fuel := 0.0
+	if rocket != null and is_instance_valid(rocket):
+		fuel = float(rocket.get("fuel"))
+	print("SIM_RESULT outcome=%s level=%d t=%.2f fuel=%.1f frames=%d" % [outcome, globalvar.nowlevel, t, fuel, frames])
+	get_tree().quit()

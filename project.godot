@@ -32,6 +32,7 @@ IAPManager="*res://game/net/IAPManager.gd"
 Telemetry="*res://game/net/Telemetry.gd"
 WarpTransition="*res://game/warp/WarpTransition.gd"
 AutoPilot="*res://game/test/AutoPilot.gd"
+SimHarness="*res://game/test/SimHarness.gd"
 
 [display]
 
