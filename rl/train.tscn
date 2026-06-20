@@ -1,0 +1,20 @@
+[gd_scene load_steps=4 format=3]
+
+[ext_resource type="Script" path="res://addons/godot_rl_agents/sync.gd" id="1_sync"]
+[ext_resource type="Script" path="res://rl/RocketAIController.gd" id="2_agent"]
+[ext_resource type="PackedScene" path="res://game/levels/1/Level1.tscn" id="3_level"]
+
+[node name="Train" type="Node2D"]
+
+[node name="Sync" type="Node" parent="."]
+script = ExtResource("1_sync")
+action_repeat = 8
+speed_up = 8.0
+
+[node name="Agent" type="Node2D" parent="."]
+script = ExtResource("2_agent")
+reset_after = 3000
+env_path = NodePath("../Env")
+level_scene = ExtResource("3_level")
+
+[node name="Env" type="Node2D" parent="."]

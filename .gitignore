@@ -82,3 +82,5 @@ marketing/assets/vo/*
 rl/.venv/
 rl/*.onnx
 rl/train_logs/
+rl/checkpoints/
+rl/*.zip
