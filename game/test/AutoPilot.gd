@@ -26,6 +26,8 @@ var max_turn_rate := 4.5    # cap on desired turn rate (rad/s)
 var escape_radius := 320.0
 var radial_bias := 1.0
 var tangent_bias := 0.0   # 0 = pure-radial climb-out (stable); add tangent later for the arc
+var avoid_range := 260.0  # transfer: bend heading away from non-target bodies within this
+var avoid_gain := 1.6     # transfer: how hard to bend around them
 
 
 func _f(name: String, def: float) -> float:
@@ -48,6 +50,8 @@ func _ready() -> void:
 	escape_radius = _f("AP_ESCAPE_RADIUS", escape_radius)
 	radial_bias = _f("AP_RADIAL_BIAS", radial_bias)
 	tangent_bias = _f("AP_TANGENT_BIAS", tangent_bias)
+	avoid_range = _f("AP_AVOID_RANGE", avoid_range)
+	avoid_gain = _f("AP_AVOID_GAIN", avoid_gain)
 	if "--autopilot" in OS.get_cmdline_args():
 		active = true
 
@@ -111,6 +115,19 @@ func _drive(tgt: Node2D) -> void:
 		if tang.dot(dir_tgt) < 0.0:
 			tang = -tang
 		desired_dir = (radial_n * radial_bias + tang * tangent_bias).normalized()
+	elif bodies != null:
+		# TRANSFER: aim at the target, but bend the heading away from any close
+		# non-target body so we curve AROUND intervening planets/moons instead of
+		# flying straight through them (the cause of the far-map deaths in 5-11).
+		var avoid := Vector2.ZERO
+		for body in bodies:
+			if body == tgt or not is_instance_valid(body):
+				continue
+			var off: Vector2 = pos - body.global_position
+			var d := maxf(off.length(), 1.0)
+			if d < avoid_range:
+				avoid += off.normalized() * ((avoid_range - d) / avoid_range)
+		desired_dir = (dir_tgt + avoid * avoid_gain).normalized()
 
 	# Target speed: cruise, easing down only on final approach to the target.
 	var tgt_speed := seek_speed
