@@ -615,6 +615,13 @@ func moonland():
 
 
 func _activate_landing_mode(landing_target: Node2D = null, trigger_range: float = 150.0) -> void:
+	# Skip the cosmetic 3D landing overlay during automated runs (RL training /
+	# Movie Maker capture, which pass --capture). It's visual-only — the 2D physics
+	# stays the source of truth — but it rebuilds a SubViewport + 3D scene every
+	# episode, adding render overhead and per-frame timing jitter right at the
+	# critical descent. Production/mobile never pass --capture, so they're unaffected.
+	if "--capture" in OS.get_cmdline_args():
+		return
 	if _landing_mode_active:
 		return
 	if landing_target == null:
