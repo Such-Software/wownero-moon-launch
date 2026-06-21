@@ -30,7 +30,7 @@ def main():
     else:
         model = PPO(
             "MultiInputPolicy", env, verbose=1,
-            n_steps=128, batch_size=64, ent_coef=0.01, gamma=0.999,
+            n_steps=256, batch_size=64, ent_coef=0.02, gamma=0.999,
             tensorboard_log="rl/logs",
         )
 

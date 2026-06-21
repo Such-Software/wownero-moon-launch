@@ -133,6 +133,10 @@ func reset() -> void:
 
 func _physics_process(delta: float) -> void:
 	super._physics_process(delta)  # n_steps++, sets needs_reset after reset_after
+	# Re-assert the training time_scale every frame. The rocket's landing slow-mo
+	# (0.7) and its death handler (1.0) reset Engine.time_scale, which would corrupt
+	# the Sync's speedup and the physics dt -> breaks landing fidelity + transfer.
+	Engine.time_scale = Engine.physics_ticks_per_second / 60.0
 	if needs_reset:
 		if not done:
 			# timeout (hit reset_after with no win/death). Count it as a failure with
@@ -191,5 +195,5 @@ func _physics_process(delta: float) -> void:
 
 func _log_progress() -> void:
 	if _episodes % 25 == 0:
-		print("[RL] episodes=%d wins=%d win_rate=%.1f%% closest_ever=%.0f" % [
-			_episodes, _wins, 100.0 * _wins / maxf(_episodes, 1), _best_min])
+		print("[RL] episodes=%d wins=%d win_rate=%.1f%% closest_ever=%.0f ts=%.1f" % [
+			_episodes, _wins, 100.0 * _wins / maxf(_episodes, 1), _best_min, Engine.time_scale])
