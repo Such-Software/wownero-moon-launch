@@ -7,11 +7,12 @@ set -u
 cd "$(dirname "${BASH_SOURCE[0]}")/.."
 GODOT="${GODOT:-/Applications/Godot.app/Contents/MacOS/Godot}"
 TIMESTEPS="${1:-4096}"
+RESTORE="${2:-}"   # optional: path to a checkpoint .zip to continue from
 mkdir -p rl/logs
 : > rl/logs/trainer.log; : > rl/logs/godot.log
 
-echo "[orch] starting PPO server (timesteps=$TIMESTEPS)..."
-rl/.venv/bin/python rl/train_sb3.py --timesteps "$TIMESTEPS" --speedup 8 > rl/logs/trainer.log 2>&1 &
+echo "[orch] starting PPO server (timesteps=$TIMESTEPS${RESTORE:+, restore=$RESTORE})..."
+rl/.venv/bin/python rl/train_sb3.py --timesteps "$TIMESTEPS" --speedup 8 ${RESTORE:+--restore "$RESTORE"} > rl/logs/trainer.log 2>&1 &
 TRAINER=$!
 
 # give the server a moment to bind the port, then launch the Godot client

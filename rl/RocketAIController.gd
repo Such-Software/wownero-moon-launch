@@ -170,8 +170,12 @@ func _physics_process(delta: float) -> void:
 		reward += (_prev_dist - dist) * 0.01   # dense: progress toward the pad
 	_prev_dist = dist
 	reward -= 0.005                            # mild time pressure
-	if dist < 250.0:                           # near the pad, going fast is bad
-		reward -= clampf((spd - 40.0) / 300.0, 0.0, 1.0) * 0.03
+	# Touchdown shaping: near the pad, going fast is STRONGLY penalized, ramping up
+	# as it gets closer -> a hard gradient toward a slow final descent. (The lone
+	# fluke landing meant this gradient was far too weak before.)
+	if dist < 300.0:
+		var closeness := 1.0 - dist / 300.0
+		reward -= clampf((spd - 30.0) / 200.0, 0.0, 1.0) * 0.15 * closeness
 	if _rocket.get("landattemptnow") == true or _rocket.get("flagplaced") == true:
 		reward += 12.0 + float(_rocket.get("fuel")) / 100.0
 		done = true
