@@ -234,7 +234,10 @@ func _physics_process(delta: float) -> void:
 			var tilt := wrapf(_rocket.rotation - ((_target.global_position - _rocket.global_position).angle() - PI / 2.0), -PI, PI)
 			var upright := 1.0 - clampf(absf(tilt) / (PI / 2.0), 0.0, 1.0)  # 1 = upright for landing
 			# win needs close + slow + UPRIGHT; reward how close the crash got to all three
-			reward += -10.0 + prox * (slow * 5.0 + upright * 5.0)
+			# proximity is ALWAYS rewarded (teaches approach/Earth-escape); slow+upright
+			# add the landing bonus. (Gating proximity behind slow+upright killed the
+			# approach gradient on the natural start — closest stuck at ~540.)
+			reward += -10.0 + prox * (6.0 + slow * 3.0 + upright * 3.0)
 			done = true
 			needs_reset = true
 			_episodes += 1
