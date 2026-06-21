@@ -17,6 +17,17 @@ var _hazard_death := false
 var _episodes := 0
 var _wins := 0
 
+# Reverse curriculum: start the rocket THIS far from the Moon. Begins close (learn
+# the touchdown in isolation, where a random policy can actually stumble into a soft
+# landing) and auto-grows toward the full Level-1 distance as the landing rate climbs.
+var _spawn_dist := 150.0
+const SPAWN_DIST_MAX := 650.0
+const SPAWN_DIST_STEP := 60.0
+const CURRICULUM_WINDOW := 50      # episodes per evaluation
+const CURRICULUM_PROMOTE := 0.45   # land-rate over the window to move the start outward
+var _last_ep_check := 0
+var _last_win_check := 0
+
 # Robust reset: free the old level one frame, spawn the new the next, then a short
 # grace before detecting outcomes (so a freed dead rocket can't trigger an instant
 # 1-frame "death", which collapses training).
@@ -49,6 +60,16 @@ func _do_spawn() -> void:
 	var env := get_node_or_null(env_path)
 	if env != null and level_scene != null:
 		env.add_child(level_scene.instantiate())
+	_grab()
+	# Reverse-curriculum start: place the rocket _spawn_dist from the Moon, at rest,
+	# oriented so thrust points away from it (ready to retro for a soft touchdown).
+	if _rocket != null and is_instance_valid(_rocket) and _target != null and is_instance_valid(_target):
+		var ang := randf_range(-0.7, 0.7)
+		var away := Vector2(sin(ang), -cos(ang))
+		_rocket.global_position = _target.global_position + away * _spawn_dist
+		_rocket.linear_velocity = Vector2.ZERO
+		_rocket.angular_velocity = 0.0
+		_rocket.rotation = ang
 	_grace = 6  # frames to let the fresh level settle before scoring
 
 
@@ -106,7 +127,7 @@ func get_obs() -> Dictionary:
 	if _rocket == null or not is_instance_valid(_rocket):
 		_grab()
 	if _rocket == null or _target == null or not is_instance_valid(_target):
-		return {"obs": [0.0, 0.0, 0.0, 1.0, 0.0, 1.0, 0.0, 0.0, 1.0, 0.0, 0.0]}
+		return {"obs": [0.0, 0.0, 0.0, 1.0, 0.0, 1.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0]}
 	var pos: Vector2 = _rocket.global_position
 	var vel: Vector2 = _rocket.linear_velocity
 	var to_t: Vector2 = _target.global_position - pos
@@ -116,6 +137,9 @@ func get_obs() -> Dictionary:
 	# was missing), tangential = sideways drift.
 	var radial_vel := vel.dot(dir)
 	var tangential_vel := vel.dot(Vector2(-dir.y, dir.x))
+	# landing tilt: rotation RELATIVE to the Moon. 0 = upright for landing; the win
+	# requires |tilt| < TILT_DEATH_ANGLE, so the policy MUST be able to see this.
+	var landing_tilt := wrapf(_rocket.rotation - (to_t.angle() - PI / 2.0), -PI, PI)
 	var fuel := float(_rocket.get("fuel")) / maxf(float(_rocket.get("max_fuel")), 1.0)
 	return {"obs": [
 		clampf(vel.x / 300.0, -3.0, 3.0), clampf(vel.y / 300.0, -3.0, 3.0),
@@ -126,6 +150,7 @@ func get_obs() -> Dictionary:
 		clampf(dist / 1800.0, 0.0, 3.0),
 		clampf(radial_vel / 300.0, -3.0, 3.0),       # descent rate toward the pad
 		clampf(tangential_vel / 300.0, -3.0, 3.0),   # sideways drift
+		sin(landing_tilt), cos(landing_tilt),        # orientation relative to the Moon
 	]}
 
 
@@ -196,7 +221,10 @@ func _physics_process(delta: float) -> void:
 			# any per-step proximity penalty (which caused pad-avoidance).
 			var prox := 1.0 - clampf(_min_dist / 600.0, 0.0, 1.0)  # 1 = crashed on the pad
 			var slow := 1.0 - clampf(spd / 150.0, 0.0, 1.0)        # 1 = very slow impact
-			reward += -10.0 + prox * (5.0 + slow * 7.0)
+			var tilt := wrapf(_rocket.rotation - ((_target.global_position - _rocket.global_position).angle() - PI / 2.0), -PI, PI)
+			var upright := 1.0 - clampf(absf(tilt) / (PI / 2.0), 0.0, 1.0)  # 1 = upright for landing
+			# win needs close + slow + UPRIGHT; reward how close the crash got to all three
+			reward += -10.0 + prox * (slow * 5.0 + upright * 5.0)
 			done = true
 			needs_reset = true
 			_episodes += 1
@@ -205,6 +233,16 @@ func _physics_process(delta: float) -> void:
 
 
 func _log_progress() -> void:
+	# Curriculum: every CURRICULUM_WINDOW episodes, if the landing rate over that
+	# window is high enough, push the start farther from the Moon (harder).
+	if _episodes - _last_ep_check >= CURRICULUM_WINDOW:
+		var e := _episodes - _last_ep_check
+		var w := _wins - _last_win_check
+		if e > 0 and float(w) / float(e) >= CURRICULUM_PROMOTE:
+			_spawn_dist = minf(_spawn_dist + SPAWN_DIST_STEP, SPAWN_DIST_MAX)
+		_last_ep_check = _episodes
+		_last_win_check = _wins
 	if _episodes % 25 == 0:
-		print("[RL] episodes=%d wins=%d win_rate=%.1f%% closest_ever=%.0f ts=%.1f" % [
-			_episodes, _wins, 100.0 * _wins / maxf(_episodes, 1), _best_min, Engine.time_scale])
+		var recent := 100.0 * float(_wins - _last_win_check) / maxf(float(_episodes - _last_ep_check), 1.0)
+		print("[RL] episodes=%d wins=%d closest_ever=%.0f spawn_dist=%.0f recent_land=%.0f%% ts=%.1f" % [
+			_episodes, _wins, _best_min, _spawn_dist, recent, Engine.time_scale])
