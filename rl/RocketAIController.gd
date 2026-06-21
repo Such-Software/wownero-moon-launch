@@ -169,7 +169,7 @@ func _physics_process(delta: float) -> void:
 	if _prev_dist > 0.0:
 		reward += (_prev_dist - dist) * 0.01   # dense: progress toward the pad
 	_prev_dist = dist
-	reward -= 0.01                             # time pressure (discourage hovering)
+	reward -= 0.005                            # mild time pressure
 	if dist < 250.0:                           # near the pad, going fast is bad
 		reward -= clampf((spd - 40.0) / 300.0, 0.0, 1.0) * 0.03
 	if _rocket.get("landattemptnow") == true or _rocket.get("flagplaced") == true:
@@ -183,9 +183,9 @@ func _physics_process(delta: float) -> void:
 	else:
 		var skull := _rocket.get_node_or_null("SkullSprite")
 		if (skull != null and skull.visible) or _hazard_death:
-			# Lower death penalty (less risk-averse, so it dares the final descent)
-			# plus proximity credit (gradient toward the pad).
-			reward += -3.0 + (1.0 - clampf(_min_dist / 600.0, 0.0, 1.0)) * 3.0
+			# v2 death penalty (teaches survival + travel; the -10 matters) plus
+			# proximity credit. Hovering is handled by the timeout penalty above.
+			reward += -10.0 + (1.0 - clampf(_min_dist / 600.0, 0.0, 1.0)) * 9.0
 			done = true
 			needs_reset = true
 			_episodes += 1
