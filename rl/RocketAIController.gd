@@ -134,6 +134,15 @@ func reset() -> void:
 func _physics_process(delta: float) -> void:
 	super._physics_process(delta)  # n_steps++, sets needs_reset after reset_after
 	if needs_reset:
+		if not done:
+			# timeout (hit reset_after with no win/death). Count it as a failure with
+			# proximity credit, so HOVERING near the pad is not a free safe outcome.
+			reward += -3.0 + (1.0 - clampf(_min_dist / 600.0, 0.0, 1.0)) * 4.0
+			done = true
+			_episodes += 1
+			_best_min = minf(_best_min, _min_dist)
+			_log_progress()
+			return  # let the Sync read done=true; respawn next frame
 		reset()
 		return
 	if _pending_spawn:
@@ -156,7 +165,7 @@ func _physics_process(delta: float) -> void:
 	if _prev_dist > 0.0:
 		reward += (_prev_dist - dist) * 0.01   # dense: progress toward the pad
 	_prev_dist = dist
-	reward -= 0.005                            # mild time pressure
+	reward -= 0.01                             # time pressure (discourage hovering)
 	if dist < 250.0:                           # near the pad, going fast is bad
 		reward -= clampf((spd - 40.0) / 300.0, 0.0, 1.0) * 0.03
 	if _rocket.get("landattemptnow") == true or _rocket.get("flagplaced") == true:
@@ -170,9 +179,9 @@ func _physics_process(delta: float) -> void:
 	else:
 		var skull := _rocket.get_node_or_null("SkullSprite")
 		if (skull != null and skull.visible) or _hazard_death:
-			# partial credit for how close it got: a gradient toward the pad so the
-			# policy learns to APPROACH before it can learn to land softly.
-			reward += -10.0 + (1.0 - clampf(_min_dist / 600.0, 0.0, 1.0)) * 9.0
+			# Lower death penalty (less risk-averse, so it dares the final descent)
+			# plus proximity credit (gradient toward the pad).
+			reward += -3.0 + (1.0 - clampf(_min_dist / 600.0, 0.0, 1.0)) * 3.0
 			done = true
 			needs_reset = true
 			_episodes += 1

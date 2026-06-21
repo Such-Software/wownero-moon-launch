@@ -13,7 +13,7 @@ speed_up = 8.0
 
 [node name="Agent" type="Node2D" parent="."]
 script = ExtResource("2_agent")
-reset_after = 3000
+reset_after = 1500
 env_path = NodePath("../Env")
 level_scene = ExtResource("3_level")
 
