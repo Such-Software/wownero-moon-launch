@@ -11,6 +11,8 @@ extends AIController2D
 var _rocket: RigidBody2D = null
 var _target: Node2D = null
 var _prev_dist := 0.0
+var _min_dist := 1.0e9   # closest the rocket got to the pad this episode
+var _best_min := 1.0e9   # closest ever achieved (learning-to-approach signal)
 var _hazard_death := false
 var _episodes := 0
 var _wins := 0
@@ -37,6 +39,7 @@ func _begin_respawn() -> void:
 	_rocket = null
 	_target = null
 	_prev_dist = 0.0
+	_min_dist = 1.0e9
 	_hazard_death = false
 	_pending_spawn = true
 	_grace = 0
@@ -147,28 +150,37 @@ func _physics_process(delta: float) -> void:
 		_grab()
 	if _rocket == null or _target == null or not is_instance_valid(_target):
 		return
+	var spd := _rocket.linear_velocity.length()
 	var dist := (_target.global_position - _rocket.global_position).length()
+	_min_dist = minf(_min_dist, dist)
 	if _prev_dist > 0.0:
-		reward += (_prev_dist - dist) * 0.01   # progress toward the pad
+		reward += (_prev_dist - dist) * 0.01   # dense: progress toward the pad
 	_prev_dist = dist
 	reward -= 0.005                            # mild time pressure
+	if dist < 250.0:                           # near the pad, going fast is bad
+		reward -= clampf((spd - 40.0) / 300.0, 0.0, 1.0) * 0.03
 	if _rocket.get("landattemptnow") == true or _rocket.get("flagplaced") == true:
-		reward += 10.0 + float(_rocket.get("fuel")) / 100.0
+		reward += 12.0 + float(_rocket.get("fuel")) / 100.0
 		done = true
 		needs_reset = true   # self-reset: respawn the level next frame
 		_episodes += 1
 		_wins += 1
+		_best_min = minf(_best_min, _min_dist)
 		_log_progress()
 	else:
 		var skull := _rocket.get_node_or_null("SkullSprite")
 		if (skull != null and skull.visible) or _hazard_death:
-			reward -= 10.0
+			# partial credit for how close it got: a gradient toward the pad so the
+			# policy learns to APPROACH before it can learn to land softly.
+			reward += -10.0 + (1.0 - clampf(_min_dist / 600.0, 0.0, 1.0)) * 9.0
 			done = true
 			needs_reset = true
 			_episodes += 1
+			_best_min = minf(_best_min, _min_dist)
 			_log_progress()
 
 
 func _log_progress() -> void:
 	if _episodes % 25 == 0:
-		print("[RL] episodes=%d wins=%d win_rate=%.1f%%" % [_episodes, _wins, 100.0 * _wins / maxf(_episodes, 1)])
+		print("[RL] episodes=%d wins=%d win_rate=%.1f%% closest_ever=%.0f" % [
+			_episodes, _wins, 100.0 * _wins / maxf(_episodes, 1), _best_min])
