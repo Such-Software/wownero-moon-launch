@@ -9,6 +9,16 @@ Reliable **landing SOLVED** (~70% from rest near the Moon). The **full natural L
 parallel-env compute, then a *task-preserving* curriculum on the natural start. Then
 hazard levels (L2+), then ONNX export to run the pilot in-game (race mode + B-roll).
 
+## LATEST experiment (live, 2026-06-21)
+Full-L1 attempt: **natural Earth start** (`RL_EVAL=1`) + **landing-tolerance curriculum**
+(`_land_tol` 110→40 as land-rate climbs) + upright obs. **Reward fix this run: proximity
+must be rewarded INDEPENDENTLY** — `-10 + prox*(6 + slow*3 + upright*3)`. (Gating prox
+behind slow+upright — `prox*(slow*5+upright*5)` — removed the approach gradient, so on
+the natural start `closest_ever` stayed ~540 / never escaped Earth.) Running a SHORT
+150k validation: **watch `closest_ever` drop from ~540 → ~47 (= learned the Earth-escape
+slingshot)**, then `wins` climb + `land_tol` tighten. If `closest_ever` stays ~540 by
+~100k, the approach still isn't being learned → dig into reward/obs again.
+
 ## What works — keep these (the recipe)
 - **Upright obs + terminal reward = THE breakthrough.** Obs (13-dim) includes **tilt
   relative to the Moon** (sin/cos) + **descent rate** (radial vel) — the win needs touch
