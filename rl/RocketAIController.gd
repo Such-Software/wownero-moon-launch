@@ -27,7 +27,12 @@ const CURRICULUM_WINDOW := 50      # episodes per evaluation
 const CURRICULUM_PROMOTE := 0.45   # land-rate over the window to move the start outward
 var _last_ep_check := 0
 var _last_win_check := 0
-var _eval_mode := false   # RL_EVAL=1: spawn at the level's NATURAL start (no curriculum)
+var _eval_mode := false   # RL_EVAL=1: spawn at the level's NATURAL start (no reposition)
+# Natural-L1 landing-tolerance curriculum: relax the landing speed limit early so the
+# full task (Earth-escape + transit + land) is learnable, then tighten to the real spec.
+var _land_tol := 110.0
+const LAND_TOL_MIN := 40.0
+const LAND_TOL_STEP := 8.0
 
 # Robust reset: free the old level one frame, spawn the new the next, then a short
 # grace before detecting outcomes (so a freed dead rocket can't trigger an instant
@@ -199,6 +204,8 @@ func _physics_process(delta: float) -> void:
 		_grab()
 	if _rocket == null or _target == null or not is_instance_valid(_target):
 		return
+	if _eval_mode:
+		_rocket.set("landingspeed", _land_tol)   # tolerance curriculum on natural L1
 	var spd := _rocket.linear_velocity.length()
 	var dist := (_target.global_position - _rocket.global_position).length()
 	_min_dist = minf(_min_dist, dist)
@@ -242,10 +249,13 @@ func _log_progress() -> void:
 		var e := _episodes - _last_ep_check
 		var w := _wins - _last_win_check
 		if e > 0 and float(w) / float(e) >= CURRICULUM_PROMOTE:
-			_spawn_dist = minf(_spawn_dist + SPAWN_DIST_STEP, SPAWN_DIST_MAX)
+			if _eval_mode:
+				_land_tol = maxf(_land_tol - LAND_TOL_STEP, LAND_TOL_MIN)   # tighten landing
+			else:
+				_spawn_dist = minf(_spawn_dist + SPAWN_DIST_STEP, SPAWN_DIST_MAX)
 		_last_ep_check = _episodes
 		_last_win_check = _wins
 	if _episodes % 25 == 0:
 		var recent := 100.0 * float(_wins - _last_win_check) / maxf(float(_episodes - _last_ep_check), 1.0)
-		print("[RL] episodes=%d wins=%d closest_ever=%.0f spawn_dist=%.0f recent_land=%.0f%% ts=%.1f" % [
-			_episodes, _wins, _best_min, _spawn_dist, recent, Engine.time_scale])
+		print("[RL] episodes=%d wins=%d closest_ever=%.0f spawn_dist=%.0f land_tol=%.0f recent_land=%.0f%% ts=%.1f" % [
+			_episodes, _wins, _best_min, _spawn_dist, _land_tol, recent, Engine.time_scale])
