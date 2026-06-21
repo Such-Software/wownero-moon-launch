@@ -106,10 +106,16 @@ func get_obs() -> Dictionary:
 	if _rocket == null or not is_instance_valid(_rocket):
 		_grab()
 	if _rocket == null or _target == null or not is_instance_valid(_target):
-		return {"obs": [0.0, 0.0, 0.0, 1.0, 0.0, 1.0, 0.0, 0.0, 1.0]}
+		return {"obs": [0.0, 0.0, 0.0, 1.0, 0.0, 1.0, 0.0, 0.0, 1.0, 0.0, 0.0]}
 	var pos: Vector2 = _rocket.global_position
 	var vel: Vector2 = _rocket.linear_velocity
 	var to_t: Vector2 = _target.global_position - pos
+	var dist := to_t.length()
+	var dir := to_t / dist if dist > 1.0 else Vector2.RIGHT
+	# pad-relative velocity: radial = descent rate (the finishing info the policy
+	# was missing), tangential = sideways drift.
+	var radial_vel := vel.dot(dir)
+	var tangential_vel := vel.dot(Vector2(-dir.y, dir.x))
 	var fuel := float(_rocket.get("fuel")) / maxf(float(_rocket.get("max_fuel")), 1.0)
 	return {"obs": [
 		clampf(vel.x / 300.0, -3.0, 3.0), clampf(vel.y / 300.0, -3.0, 3.0),
@@ -117,7 +123,9 @@ func get_obs() -> Dictionary:
 		clampf(_rocket.angular_velocity / 5.0, -3.0, 3.0),
 		fuel,
 		clampf(to_t.x / 1800.0, -3.0, 3.0), clampf(to_t.y / 1800.0, -3.0, 3.0),
-		clampf(to_t.length() / 1800.0, 0.0, 3.0),
+		clampf(dist / 1800.0, 0.0, 3.0),
+		clampf(radial_vel / 300.0, -3.0, 3.0),       # descent rate toward the pad
+		clampf(tangential_vel / 300.0, -3.0, 3.0),   # sideways drift
 	]}
 
 
@@ -170,12 +178,8 @@ func _physics_process(delta: float) -> void:
 		reward += (_prev_dist - dist) * 0.01   # dense: progress toward the pad
 	_prev_dist = dist
 	reward -= 0.005                            # mild time pressure
-	# Touchdown shaping: near the pad, going fast is STRONGLY penalized, ramping up
-	# as it gets closer -> a hard gradient toward a slow final descent. (The lone
-	# fluke landing meant this gradient was far too weak before.)
-	if dist < 300.0:
-		var closeness := 1.0 - dist / 300.0
-		reward -= clampf((spd - 30.0) / 200.0, 0.0, 1.0) * 0.15 * closeness
+	# NOTE: no per-step proximity-speed penalty here on purpose — that taught the
+	# agent to AVOID the pad. Arriving slow is rewarded in the TERMINAL reward below.
 	if _rocket.get("landattemptnow") == true or _rocket.get("flagplaced") == true:
 		reward += 12.0 + float(_rocket.get("fuel")) / 100.0
 		done = true
@@ -187,9 +191,12 @@ func _physics_process(delta: float) -> void:
 	else:
 		var skull := _rocket.get_node_or_null("SkullSprite")
 		if (skull != null and skull.visible) or _hazard_death:
-			# v2 death penalty (teaches survival + travel; the -10 matters) plus
-			# proximity credit. Hovering is handled by the timeout penalty above.
-			reward += -10.0 + (1.0 - clampf(_min_dist / 600.0, 0.0, 1.0)) * 9.0
+			# Terminal-speed shaping: a crash that is BOTH close AND slow scores
+			# almost like a landing -> rewards arriving slow for the descent without
+			# any per-step proximity penalty (which caused pad-avoidance).
+			var prox := 1.0 - clampf(_min_dist / 600.0, 0.0, 1.0)  # 1 = crashed on the pad
+			var slow := 1.0 - clampf(spd / 150.0, 0.0, 1.0)        # 1 = very slow impact
+			reward += -10.0 + prox * (5.0 + slow * 7.0)
 			done = true
 			needs_reset = true
 			_episodes += 1
