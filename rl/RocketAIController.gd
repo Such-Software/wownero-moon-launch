@@ -27,6 +27,7 @@ const CURRICULUM_WINDOW := 50      # episodes per evaluation
 const CURRICULUM_PROMOTE := 0.45   # land-rate over the window to move the start outward
 var _last_ep_check := 0
 var _last_win_check := 0
+var _eval_mode := false   # RL_EVAL=1: spawn at the level's NATURAL start (no curriculum)
 
 # Robust reset: free the old level one frame, spawn the new the next, then a short
 # grace before detecting outcomes (so a freed dead rocket can't trigger an instant
@@ -37,6 +38,7 @@ var _grace := 0
 
 func _ready() -> void:
 	super._ready()  # AIController2D._ready adds us to group "AGENT"
+	_eval_mode = OS.get_environment("RL_EVAL") != ""
 	if globalvar.has_signal("sendDeath"):
 		globalvar.sendDeath.connect(func(): _hazard_death = true)
 	_begin_respawn()
@@ -63,7 +65,8 @@ func _do_spawn() -> void:
 	_grab()
 	# Reverse-curriculum start: place the rocket _spawn_dist from the Moon, at rest,
 	# oriented so thrust points away from it (ready to retro for a soft touchdown).
-	if _rocket != null and is_instance_valid(_rocket) and _target != null and is_instance_valid(_target):
+	# Skipped in eval mode -> the rocket spawns at the level's NATURAL Level-1 start.
+	if not _eval_mode and _rocket != null and is_instance_valid(_rocket) and _target != null and is_instance_valid(_target):
 		var ang := randf_range(-0.7, 0.7)
 		var away := Vector2(sin(ang), -cos(ang))
 		_rocket.global_position = _target.global_position + away * _spawn_dist
