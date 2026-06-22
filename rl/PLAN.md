@@ -34,9 +34,17 @@ or a heavier upright term). The approach policy backup is safe regardless.
 *increase* in `near*slow*upright` within 220px of the Moon (`(readiness-_prev)*3`).
 Potential-based so it can't be hover-farmed; positive so no avoidance. This is the
 descent gradient the terminal-only reward lacked (teaches "slow + straighten as you
-near the Moon"). Running with this + land_tol 260→40 + restored approach policy. If THIS
-doesn't get landings, the recipe pieces are all present and it's a compute/time problem
-→ do parallel envs and a long run.
+near the Moon"). Running with this + land_tol 260→40 + restored approach policy.
+
+**THE LANDING BUG (found 06-22): the crashspeed gate.** 1M run = 0 wins despite
+land_tol=260 + readiness shaping. Cause: rocket.gd collision checks **crash-death
+(`crash_speed > crashspeed`, crashspeed=100) BEFORE moonland** — the fast slingshot
+arrival died on the crash check every time, so relaxing only `landingspeed` was inert.
+Worse, `crash_speed = max(current, _recent_max_speed)` so the *peak* transit speed counts.
+**Fix:** the curriculum now relaxes **both** `landingspeed` AND `crashspeed` (260→40).
+Run restored from approach policy. **Watch wins finally climb.** LESSON: read the full
+terminal-logic ORDER — a death check that fires before the win check makes the win
+structurally unreachable; relaxing the win threshold alone does nothing.
 
 ## What works — keep these (the recipe)
 - **Upright obs + terminal reward = THE breakthrough.** Obs (13-dim) includes **tilt
