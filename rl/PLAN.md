@@ -30,6 +30,14 @@ land_tol, the blocker is the un-relaxable TILT (35°) requirement, not speed →
 must learn to arrive upright (it has the tilt obs + upright reward; may need more training
 or a heavier upright term). The approach policy backup is safe regardless.
 
+**+ Added (key lever): dense POTENTIAL-based landing-readiness shaping** — reward the
+*increase* in `near*slow*upright` within 220px of the Moon (`(readiness-_prev)*3`).
+Potential-based so it can't be hover-farmed; positive so no avoidance. This is the
+descent gradient the terminal-only reward lacked (teaches "slow + straighten as you
+near the Moon"). Running with this + land_tol 260→40 + restored approach policy. If THIS
+doesn't get landings, the recipe pieces are all present and it's a compute/time problem
+→ do parallel envs and a long run.
+
 ## What works — keep these (the recipe)
 - **Upright obs + terminal reward = THE breakthrough.** Obs (13-dim) includes **tilt
   relative to the Moon** (sin/cos) + **descent rate** (radial vel) — the win needs touch
