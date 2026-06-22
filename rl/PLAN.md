@@ -72,7 +72,13 @@ Run restored from approach policy. **Watch wins finally climb.** LESSON: read th
 terminal-logic ORDER — a death check that fires before the win check makes the win
 structurally unreachable; relaxing the win threshold alone does nothing.
 
-**UPDATE: crashspeed fix still = 0 wins at 382k → the last gate is TILT.** Win also needs
+**DONE (06-22): all 3 win-gates now relax→tighten in the curriculum.** crashspeed +
+landingspeed + TILT (made `TILT_DEATH_ANGLE` a var, agent relaxes ~80°→35°). Run going
+from the approach policy. **Watch `wins` climb + `land_tol` drop 260→40.** If STILL 0,
+the agent genuinely can't decelerate-AND-orient off the fast arrival → heavier upright
+reward, or parallel-env compute + much more time. Background below.
+
+**UPDATE: crashspeed fix still = 0 wins at 382k → the last gate was TILT.** Win also needs
 `|tilt rel. Moon| < TILT_DEATH_ANGLE (35°)` else rollover-death — and that's a `const` in
 rocket.gd, NOT relaxed by the curriculum. The fast slingshot arrival lands *tipped*. Next
 levers (pick one): (a) heavily weight the upright term in the reward/readiness so it
