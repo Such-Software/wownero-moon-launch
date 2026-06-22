@@ -30,9 +30,9 @@ var _last_win_check := 0
 var _eval_mode := false   # RL_EVAL=1: spawn at the level's NATURAL start (no reposition)
 # Natural-L1 landing-tolerance curriculum: relax the landing speed limit early so the
 # full task (Earth-escape + transit + land) is learnable, then tighten to the real spec.
-var _land_tol := 110.0
-const LAND_TOL_MIN := 40.0
-const LAND_TOL_STEP := 8.0
+var _land_tol := 260.0   # start very lenient (reach Moon upright = win) to bootstrap the
+const LAND_TOL_MIN := 40.0   # win signal off a fast transit arrival, then tighten to spec
+const LAND_TOL_STEP := 12.0
 
 # Robust reset: free the old level one frame, spawn the new the next, then a short
 # grace before detecting outcomes (so a freed dead rocket can't trigger an instant
