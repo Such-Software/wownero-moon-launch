@@ -46,6 +46,19 @@ Run restored from approach policy. **Watch wins finally climb.** LESSON: read th
 terminal-logic ORDER — a death check that fires before the win check makes the win
 structurally unreachable; relaxing the win threshold alone does nothing.
 
+**UPDATE: crashspeed fix still = 0 wins at 382k → the last gate is TILT.** Win also needs
+`|tilt rel. Moon| < TILT_DEATH_ANGLE (35°)` else rollover-death — and that's a `const` in
+rocket.gd, NOT relaxed by the curriculum. The fast slingshot arrival lands *tipped*. Next
+levers (pick one): (a) heavily weight the upright term in the reward/readiness so it
+learns to arrive upright; (b) make TILT_DEATH_ANGLE relaxable under `--capture` (needs it
+as a var, not const) and add it to the curriculum (tilt-tol 90°→35°); (c) **pragmatic:
+we already have TWO solved skills — the Earth-slingshot approach AND landing-from-rest
+(~70%, reverse curriculum). Consider composing them (heuristic/approach to get near+slow,
+RL or scripted for the upright touchdown) rather than forcing one policy to do the whole
+fast-arrival-then-upright-land, which is a deep stack of mechanical gates.** Compute
+(parallel envs) + time would also help. Two real wins banked; the full end-to-end combo
+is the hard last mile.
+
 ## What works — keep these (the recipe)
 - **Upright obs + terminal reward = THE breakthrough.** Obs (13-dim) includes **tilt
   relative to the Moon** (sin/cos) + **descent rate** (radial vel) — the win needs touch
