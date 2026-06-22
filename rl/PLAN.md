@@ -20,9 +20,15 @@ worked. Remaining: it reaches the Moon but isn't landing yet (`wins=0` even at
 `land_tol=110`) — needs to learn the *landing-from-transit* (harder than from rest, it
 arrives fast). Now running a **longer 1M run, restored from the approach policy**
 (`rl/moonlaunch_ppo_approach.zip`) to learn the touchdown. Watch `wins` climb +
-`land_tol` drop 110→40. If `wins` stays 0 with `closest_ever`~46 for a long stretch, the
-landing-from-transit is its own narrow-goal problem → may need a descent-speed curriculum
-(cap approach speed near the Moon, relax over training) or more obs.
+`land_tol` drop 110→40. CONFIRMED: it reaches the Moon reliably (closest~47) but did NOT land even at
+`land_tol=110` over 100k — landing-from-transit IS its own narrow-goal problem (arrives
+fast off the slingshot, never stumbles into a win → no signal). **Current move:** start
+`_land_tol` very high (**260** = "reach Moon upright = win") to seed the win signal, then
+ratchet to 40 (`LAND_TOL_STEP=12`). Run restored from `moonlaunch_ppo_approach.zip`,
+natural start. **Watch `wins` climb + `land_tol` drop 260→40.** If wins still 0 at high
+land_tol, the blocker is the un-relaxable TILT (35°) requirement, not speed → the agent
+must learn to arrive upright (it has the tilt obs + upright reward; may need more training
+or a heavier upright term). The approach policy backup is safe regardless.
 
 ## What works — keep these (the recipe)
 - **Upright obs + terminal reward = THE breakthrough.** Obs (13-dim) includes **tilt
