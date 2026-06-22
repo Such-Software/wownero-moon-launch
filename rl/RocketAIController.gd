@@ -11,6 +11,7 @@ extends AIController2D
 var _rocket: RigidBody2D = null
 var _target: Node2D = null
 var _prev_dist := 0.0
+var _prev_readiness := 0.0   # potential-based landing-readiness shaping (near*slow*upright)
 var _min_dist := 1.0e9   # closest the rocket got to the pad this episode
 var _best_min := 1.0e9   # closest ever achieved (learning-to-approach signal)
 var _hazard_death := false
@@ -57,6 +58,7 @@ func _begin_respawn() -> void:
 	_rocket = null
 	_target = null
 	_prev_dist = 0.0
+	_prev_readiness = 0.0
 	_min_dist = 1.0e9
 	_hazard_death = false
 	_pending_spawn = true
@@ -213,8 +215,17 @@ func _physics_process(delta: float) -> void:
 		reward += (_prev_dist - dist) * 0.01   # dense: progress toward the pad
 	_prev_dist = dist
 	reward -= 0.005                            # mild time pressure
-	# NOTE: no per-step proximity-speed penalty here on purpose — that taught the
-	# agent to AVOID the pad. Arriving slow is rewarded in the TERMINAL reward below.
+	# Dense landing-readiness shaping (POTENTIAL-based): reward the *increase* in
+	# near*slow*upright, not the state itself — so it can't be farmed by hovering, and
+	# being positive it can't cause avoidance like a per-step penalty would. This is the
+	# gradient that teaches "slow down + straighten up as you near the Moon".
+	if dist < 220.0:
+		var ltilt := wrapf(_rocket.rotation - ((_target.global_position - _rocket.global_position).angle() - PI / 2.0), -PI, PI)
+		var readiness := clampf(1.0 - dist / 220.0, 0.0, 1.0) * (1.0 - clampf(spd / 120.0, 0.0, 1.0)) * (1.0 - clampf(absf(ltilt) / 0.6, 0.0, 1.0))
+		reward += (readiness - _prev_readiness) * 3.0
+		_prev_readiness = readiness
+	else:
+		_prev_readiness = 0.0
 	if _rocket.get("landattemptnow") == true or _rocket.get("flagplaced") == true:
 		reward += 12.0 + float(_rocket.get("fuel")) / 100.0
 		done = true
