@@ -14,10 +14,15 @@ Full-L1 attempt: **natural Earth start** (`RL_EVAL=1`) + **landing-tolerance cur
 (`_land_tol` 110→40 as land-rate climbs) + upright obs. **Reward fix this run: proximity
 must be rewarded INDEPENDENTLY** — `-10 + prox*(6 + slow*3 + upright*3)`. (Gating prox
 behind slow+upright — `prox*(slow*5+upright*5)` — removed the approach gradient, so on
-the natural start `closest_ever` stayed ~540 / never escaped Earth.) Running a SHORT
-150k validation: **watch `closest_ever` drop from ~540 → ~47 (= learned the Earth-escape
-slingshot)**, then `wins` climb + `land_tol` tighten. If `closest_ever` stays ~540 by
-~100k, the approach still isn't being learned → dig into reward/obs again.
+the natural start `closest_ever` stayed ~540 / never escaped Earth.) **STATUS: the Earth-escape/slingshot is SOLVED on natural L1** — 150k validation dropped
+`closest_ever` 542 → **46** (reaches the Moon from the real start). The decoupling fix
+worked. Remaining: it reaches the Moon but isn't landing yet (`wins=0` even at
+`land_tol=110`) — needs to learn the *landing-from-transit* (harder than from rest, it
+arrives fast). Now running a **longer 1M run, restored from the approach policy**
+(`rl/moonlaunch_ppo_approach.zip`) to learn the touchdown. Watch `wins` climb +
+`land_tol` drop 110→40. If `wins` stays 0 with `closest_ever`~46 for a long stretch, the
+landing-from-transit is its own narrow-goal problem → may need a descent-speed curriculum
+(cap approach speed near the Moon, relax over training) or more obs.
 
 ## What works — keep these (the recipe)
 - **Upright obs + terminal reward = THE breakthrough.** Obs (13-dim) includes **tilt
