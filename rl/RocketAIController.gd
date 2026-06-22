@@ -34,6 +34,9 @@ var _eval_mode := false   # RL_EVAL=1: spawn at the level's NATURAL start (no re
 var _land_tol := 260.0   # start very lenient (reach Moon upright = win) to bootstrap the
 const LAND_TOL_MIN := 40.0   # win signal off a fast transit arrival, then tighten to spec
 const LAND_TOL_STEP := 12.0
+var _tilt_tol := 1.4     # tilt curriculum: ~80° lenient (land tipped early) -> 35° spec
+const TILT_TOL_MIN := 0.6109
+const TILT_TOL_STEP := 0.05
 
 # Robust reset: free the old level one frame, spawn the new the next, then a short
 # grace before detecting outcomes (so a freed dead rocket can't trigger an instant
@@ -212,6 +215,7 @@ func _physics_process(delta: float) -> void:
 		# arrival died on the crash check every time. Tighten both to spec together.
 		_rocket.set("landingspeed", _land_tol)
 		_rocket.set("crashspeed", _land_tol)
+		_rocket.set("TILT_DEATH_ANGLE", _tilt_tol)   # relax the rollover gate too (curriculum)
 	var spd := _rocket.linear_velocity.length()
 	var dist := (_target.global_position - _rocket.global_position).length()
 	_min_dist = minf(_min_dist, dist)
@@ -268,7 +272,8 @@ func _log_progress() -> void:
 		var w := _wins - _last_win_check
 		if e > 0 and float(w) / float(e) >= CURRICULUM_PROMOTE:
 			if _eval_mode:
-				_land_tol = maxf(_land_tol - LAND_TOL_STEP, LAND_TOL_MIN)   # tighten landing
+				_land_tol = maxf(_land_tol - LAND_TOL_STEP, LAND_TOL_MIN)   # tighten speed
+				_tilt_tol = maxf(_tilt_tol - TILT_TOL_STEP, TILT_TOL_MIN)   # tighten upright
 			else:
 				_spawn_dist = minf(_spawn_dist + SPAWN_DIST_STEP, SPAWN_DIST_MAX)
 		_last_ep_check = _episodes

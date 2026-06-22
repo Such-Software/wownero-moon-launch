@@ -52,7 +52,7 @@ var _landing_active_range: float = 0.0      # the trigger range used at activati
 const LANDING_MODE_MIN_RANGE := 80.0   # minimum trigger distance (small bodies)
 const LANDING_MODE_MARGIN := 60.0      # pixels above collision surface to trigger
 const LANDING_MODE_EXIT_HYSTERESIS := 1.25  # multiplier on range for deactivation (anti-flicker)
-const TILT_DEATH_ANGLE := 0.6109  # ~35 degrees
+var TILT_DEATH_ANGLE := 0.6109  # ~35 degrees (var, not const, so RL training can relax it under --capture)
 # Easy-mode second-chance bounce
 const BOUNCE_SPEED := 220.0  # px/s away from crash body
 const BOUNCE_FUEL_PCT := 0.15  # max_fuel fraction restored on bounce
