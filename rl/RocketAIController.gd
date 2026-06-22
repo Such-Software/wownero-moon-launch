@@ -207,7 +207,11 @@ func _physics_process(delta: float) -> void:
 	if _rocket == null or _target == null or not is_instance_valid(_target):
 		return
 	if _eval_mode:
-		_rocket.set("landingspeed", _land_tol)   # tolerance curriculum on natural L1
+		# Relax BOTH thresholds: the crash-death check (crashspeed) fires BEFORE the
+		# moonland check, so relaxing only landingspeed was inert — the fast slingshot
+		# arrival died on the crash check every time. Tighten both to spec together.
+		_rocket.set("landingspeed", _land_tol)
+		_rocket.set("crashspeed", _land_tol)
 	var spd := _rocket.linear_velocity.length()
 	var dist := (_target.global_position - _rocket.global_position).length()
 	_min_dist = minf(_min_dist, dist)
