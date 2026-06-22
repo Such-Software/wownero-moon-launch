@@ -3,6 +3,32 @@
 Durable handoff doc (written 2026-06-21, context-limit safe). Company lessons live in
 `~/src/docs/ml-pipeline-learnings.md` + `~/src/docs/harnesses/reinforcement-learning-game-agent.md`.
 
+## BOT STRATEGY — 4 goals, the RL path (user-confirmed 2026-06-22)
+**Make RL WORK. The opponent is the trained RL policy running LIVE in-game — NOT a fixed
+ghost** (ghosts repeat = boring). Stochastic action sampling → it varies every run AND
+reacts to live state (hazards' current positions, the player in a race) = genuinely
+adaptive. Goals: (1) RL plays all levels, (2) optional in-game live adaptive opponent,
+(3) gameplay videos, (4) balance tester. Fastest RL path, IN ORDER:
+1. **PARALLEL ENVS — do FIRST (the compute unlock).** Export a headless macOS binary
+   (run scene = `rl/train.tscn`) → `train_sb3.py` with `env_path` + `n_parallel=8-16`
+   (per-env port = base+p). 5-10×+ throughput turns the per-level grind from weeks → days.
+   Everything else depends on this.
+2. **Finish end-to-end L1.** Blocker = the **TILT gate** (arrives tipped off the slingshot).
+   Add tilt to the relaxed-threshold curriculum: make `TILT_DEATH_ANGLE` a var, relax
+   90°→35° under `--capture` (same pattern as crashspeed/landingspeed) + keep the upright
+   reward. That clears the last mechanical gate.
+3. **Curriculum to the hazard levels (L2+).** Add hazard positions/velocities to the obs;
+   per-level (or one multi-level) training with the parallel compute. Martian (chaser)
+   first, then wormhole/solarwind/blackhole/mothership.
+4. **ONNX in-game = the deliverable for all 3 uses.** Install the onnxruntime GDExtension
+   (plugin `onnx/` has only stubs now), export policy→ONNX, run via Sync
+   `control_mode=ONNX_INFERENCE` (`deterministic_inference=FALSE` → stochastic = varied
+   opponent). Same policy: **in-game = the live opponent**, **Movie Maker = B-roll**,
+   **headless = the per-level balance tester** (cross-ref real-player telemetry; bot ≠
+   human difficulty, so it's a competent-pilot lower bound + new-content beatability check).
+The heuristic bot + headless SimHarness stay only as the interim tester + fallback WHILE
+RL trains. **RL is the opponent. Next build: parallel envs.**
+
 ## TL;DR
 Reliable **landing SOLVED** (~70% from rest near the Moon). The **full natural Level 1**
 (start near Earth → slingshot/escape → transit → land) is **NOT solved yet**. Next:
