@@ -19,12 +19,17 @@ extends Node
 var _start_frame := 0
 var _max_frames := 0
 var _done := false
+var _hazard_death := false  # set if a hazard (Martian/black hole/etc.) killed us
 
 
 func _ready() -> void:
 	if not ("--sim" in OS.get_cmdline_args()):
 		set_physics_process(false)
 		return
+	# Hazards kill via globalvar.sendDeath; collisions kill via the rocket's own
+	# crash path. Listening here lets us report which one happened.
+	if globalvar.has_signal("sendDeath"):
+		globalvar.sendDeath.connect(func(): _hazard_death = true)
 	Engine.max_fps = 0
 	var ts := OS.get_environment("SIM_TIME_SCALE")
 	if ts != "":
@@ -67,5 +72,8 @@ func _report(outcome: String, rocket, frames: int) -> void:
 	var fuel := 0.0
 	if rocket != null and is_instance_valid(rocket):
 		fuel = float(rocket.get("fuel"))
-	print("SIM_RESULT outcome=%s level=%d t=%.2f fuel=%.1f frames=%d" % [outcome, globalvar.nowlevel, t, fuel, frames])
+	var cause := ""
+	if outcome == "DEATH":
+		cause = " cause=" + ("hazard" if _hazard_death else "crash")
+	print("SIM_RESULT outcome=%s level=%d t=%.2f fuel=%.1f frames=%d%s" % [outcome, globalvar.nowlevel, t, fuel, frames, cause])
 	get_tree().quit()
