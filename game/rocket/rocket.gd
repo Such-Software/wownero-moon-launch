@@ -52,7 +52,7 @@ var _landing_active_range: float = 0.0      # the trigger range used at activati
 const LANDING_MODE_MIN_RANGE := 80.0   # minimum trigger distance (small bodies)
 const LANDING_MODE_MARGIN := 60.0      # pixels above collision surface to trigger
 const LANDING_MODE_EXIT_HYSTERESIS := 1.25  # multiplier on range for deactivation (anti-flicker)
-const TILT_DEATH_ANGLE := 0.6109  # ~35 degrees
+var TILT_DEATH_ANGLE := 0.6109  # ~35 degrees (var, not const, so RL training can relax it under --capture)
 # Easy-mode second-chance bounce
 const BOUNCE_SPEED := 220.0  # px/s away from crash body
 const BOUNCE_FUEL_PCT := 0.15  # max_fuel fraction restored on bounce
@@ -615,6 +615,13 @@ func moonland():
 
 
 func _activate_landing_mode(landing_target: Node2D = null, trigger_range: float = 150.0) -> void:
+	# Skip the cosmetic 3D landing overlay during automated runs (RL training /
+	# Movie Maker capture, which pass --capture). It's visual-only — the 2D physics
+	# stays the source of truth — but it rebuilds a SubViewport + 3D scene every
+	# episode, adding render overhead and per-frame timing jitter right at the
+	# critical descent. Production/mobile never pass --capture, so they're unaffected.
+	if "--capture" in OS.get_cmdline_args():
+		return
 	if _landing_mode_active:
 		return
 	if landing_target == null:
