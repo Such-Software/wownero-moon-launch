@@ -18,7 +18,7 @@ RL_EVAL=1 "$GODOT" --headless --path . res://rl/train.tscn --capture --speedup=8
 GPID=$!
 
 wait "$EVALPID"
-kill "$GPID" 2>/dev/null; pkill -f "res://rl/train.tscn" 2>/dev/null
+kill "$GPID" 2>/dev/null || true
 
 echo ""; echo "=== eval.log ==="; tail -6 rl/logs/eval.log
 echo ""; echo "=== landings on NATURAL Level 1 ([RL] lines) ==="

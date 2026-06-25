@@ -15,13 +15,30 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--timesteps", type=int, default=30000)
     ap.add_argument("--speedup", type=int, default=8)
-    ap.add_argument("--env_path", default=None, help="exported binary; None = interactive")
+    ap.add_argument("--env_path", default=None, help="exported binary; None = interactive editor/client mode")
+    ap.add_argument("--n_parallel", type=int, default=1, help="number of exported game env processes")
+    ap.add_argument("--port", type=int, default=11008, help="base port; each env uses port+index")
+    ap.add_argument("--seed", type=int, default=1, help="base seed; each env uses seed+index")
     ap.add_argument("--save", default="rl/moonlaunch_ppo")
     ap.add_argument("--restore", default=None, help="path to a saved model .zip to continue")
     args = ap.parse_args()
 
-    print(f"[train] opening RL server (env_path={args.env_path}); waiting for Godot to connect...", flush=True)
-    env = StableBaselinesGodotEnv(env_path=args.env_path, show_window=False, speedup=args.speedup)
+    if args.n_parallel > 1 and not args.env_path:
+        raise ValueError("--n_parallel > 1 requires --env_path to an exported training binary")
+
+    print(
+        f"[train] opening RL env (env_path={args.env_path}, n_parallel={args.n_parallel}, "
+        f"speedup={args.speedup}, port={args.port})...",
+        flush=True,
+    )
+    env = StableBaselinesGodotEnv(
+        env_path=args.env_path,
+        n_parallel=args.n_parallel,
+        show_window=False,
+        speedup=args.speedup,
+        port=args.port,
+        seed=args.seed,
+    )
     print("[train] CONNECTED. obs:", env.observation_space, "| act:", env.action_space, flush=True)
 
     if args.restore:

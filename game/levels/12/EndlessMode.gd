@@ -111,7 +111,11 @@ func _show_wave_label() -> void:
 	label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	label.set_anchors_and_offsets_preset(Control.PRESET_CENTER)
 	label.position.y -= 80
-	get_node("CanvasLayer").add_child(label)
+	var layer = get_node_or_null("CanvasLayer")
+	if layer == null:
+		layer = get_node_or_null("UIOverLay")
+	if layer != null:
+		layer.add_child(label)
 	# Animate: pop in, hold, fade out
 	label.scale = Vector2(0.3, 0.3)
 	label.modulate = Color(1, 1, 1, 0)

@@ -39,7 +39,11 @@ func _show_tutorial() -> void:
 	_tutorial_label.set_anchors_preset(Control.PRESET_TOP_WIDE)
 	_tutorial_label.offset_top = 80
 	_tutorial_label.offset_bottom = 120
-	$CanvasLayer.add_child(_tutorial_label)
+	var layer = get_node_or_null("CanvasLayer")
+	if layer == null:
+		layer = get_node_or_null("UIOverLay")
+	if layer != null:
+		layer.add_child(_tutorial_label)
 	_next_tutorial_step()
 
 

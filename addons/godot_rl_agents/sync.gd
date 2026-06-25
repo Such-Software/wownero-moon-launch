@@ -498,6 +498,10 @@ func disconnect_from_server():
 func handle_message() -> bool:
 	# get json message: reset, step, close
 	var message = _get_dict_json_message()
+	if message == null or not (message is Dictionary) or not message.has("type"):
+		connected = false
+		get_tree().set_pause(false)
+		return false
 	if message["type"] == "close":
 		print("received close message, closing game")
 		get_tree().quit()

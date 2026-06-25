@@ -148,3 +148,27 @@ condition** (don't teleport to an unrealistic, easier start).
 - If headless run errors "class not declared" (AIController2D/Sync): rebuild the class
   cache with `godot --headless --editor --quit-after 80`.
 - All RL artifacts git- AND syncthing-ignored (`.venv`, `*.zip`, `*.onnx`, checkpoints).
+
+---
+
+## UPDATE: JUNE 25, 2026 — MECHANICAL ROADBLOCKS REMOVED & LOOP SOLVED
+
+### 1. Solved: The Gravity Well "Spawn Bug" (The Ugly Block)
+* **What Existed:** The reverse curriculum spawned the rocket at rest at a starting `_spawn_dist := 150.0` px from the Moon.
+* **Why it was Broken:** In `Moon.tscn`, the Moon's gravity Area2D collision radius is exactly `100.0` px. Spawning at 150px put the rocket completely outside the gravity well, where it floated inertly. Because the agent only drives main thrust (which points away from the Moon), firing engine thrust pushed it further away. To land, a random starting policy had to randomly rotate exactly 180°, thrust down, and rotate another 180° upright to land—an impossibly complex sequence for a bootstrap policy.
+* **The Change:** Changed `_spawn_dist` to start at `85.0` px (safely inside the 100px gravity well, but above the 40px Moon surface). Gravity now pulls the rocket down naturally, allowing the agent to easily learn to pulse engines and balance. When the curriculum pushes spawn distance beyond 95px, a seed velocity of `40.0` px/s toward the Moon is applied to slide it cleanly into the well.
+
+### 2. Solved: The CanvasLayer HUD Crash
+* **What Existed:** Headless Godot runs were crashing silently on boot because the Level 1 tutorial was trying to `add_child` onto `$CanvasLayer`, which does not exist in the bare-bones training scene.
+* **The Change:** Refactored `Level1.gd` and `EndlessMode.gd` to check `get_node_or_null` for both `CanvasLayer` and `UIOverLay`, safely skipping and running without HUD if neither is found.
+
+### 3. Solved: The Gate Curriculum Training Bug
+* **What Existed:** The curriculum only relaxed `landingspeed`, `crashspeed`, and `TILT_DEATH_ANGLE` in `_eval_mode == true` (which is only active during final verification). Normal training runs had to stick perfect 35° / under 40px/s touchdowns on day one.
+* **The Change:** Removed `_eval_mode` restrictions from the gate curriculum. Gates now properly relax to `260` early in training and tighten sequentially down to production standards as the win rate climbs.
+
+### 4. Roadmap to L2-11: The Hybrid Handoff Model
+Rather than forcing a neural network to learn complex multi-gravity-body slingshot orbits and orbital geometry (which is extremely fragile to train), the ultimate play is a **hybrid handoff**:
+1. **Autopilot Transit:** The phased PD `AutoPilot.gd` (already excellent at escape, slingshot, and transit) flies the rocket from the starting planet to the destination planet.
+2. **RL Touchdown (The 220px Bubble):** Once the rocket enters the final 220px pad-relative range, control is handed over to the stochastic ONNX policy to stick the upright soft landing.
+3. This single landing policy can be reused across all levels because landing mechanics near a landing pad are identical!
+

@@ -13,10 +13,11 @@ Stack: `godot_rl_agents` (Godot plugin) + `godot-rl` + Stable Baselines3 PPO, ON
 export for in-game inference. Reuses everything in `game/test/` (input-driving,
 state-reading, headless, outcome detection).
 
-## Status: SCAFFOLD (not yet trained)
+## Status: ACTIVE TRAINING PIPELINE
 
-Design + agent code ready. Not done yet: install plugin, build the train scene,
-run PPO, export ONNX. Those are hands-on against the installed plugin.
+`rl/train.tscn`, `rl/RocketAIController.gd`, `rl/train_sb3.py`, and orchestration
+scripts are wired and in use. The current active work is improving win rate on
+natural-start Level 1, then extending to hazard levels.
 
 ## Setup
 
@@ -140,11 +141,23 @@ func _physics_process(_delta: float) -> void:
 
 ```bash
 source rl/.venv/bin/activate
-gdrl --env_path=<exported_training_build> --experiment_name=moonlaunch_ppo --speedup=8
+
+# Interactive single-env mode (starts local headless Godot client)
+./rl/run_train.sh 300000 [optional_restore.zip]
+
+# Parallel exported-env mode (compute unlock: 8+ envs)
+./rl/run_train.sh 500000 "" <exported_training_binary_path> 8
+
+# Direct trainer usage (same two modes):
+python rl/train_sb3.py --timesteps 300000 --speedup 8
+python rl/train_sb3.py --timesteps 500000 --env_path <exported_training_binary_path> --n_parallel 8 --speedup 8
+
 # evaluate the policy with the EXISTING harness (same parseable SIM_RESULT):
 #   per level, load the ONNX policy instead of the heuristic and run --sim
+./rl/run_eval.sh 30000
+
 # export ONNX for in-game inference (race mode + B-roll, no Python at runtime):
-gdrl ... --onnx_export_path=rl/moonlaunch_policy.onnx
+gdrl --env_path <exported_training_binary_path> --experiment_name moonlaunch_ppo --onnx_export_path rl/moonlaunch_policy.onnx
 ```
 
 ## Curriculum

@@ -21,9 +21,9 @@ var _wins := 0
 # Reverse curriculum: start the rocket THIS far from the Moon. Begins close (learn
 # the touchdown in isolation, where a random policy can actually stumble into a soft
 # landing) and auto-grows toward the full Level-1 distance as the landing rate climbs.
-var _spawn_dist := 150.0
-const SPAWN_DIST_MAX := 650.0
-const SPAWN_DIST_STEP := 60.0
+var _spawn_dist := 85.0
+const SPAWN_DIST_MAX := 220.0
+const SPAWN_DIST_STEP := 15.0
 const CURRICULUM_WINDOW := 50      # episodes per evaluation
 const CURRICULUM_PROMOTE := 0.45   # land-rate over the window to move the start outward
 var _last_ep_check := 0
@@ -73,16 +73,22 @@ func _do_spawn() -> void:
 	if env != null and level_scene != null:
 		env.add_child(level_scene.instantiate())
 	_grab()
-	# Reverse-curriculum start: place the rocket _spawn_dist from the Moon, at rest,
-	# oriented so thrust points away from it (ready to retro for a soft touchdown).
+	# Reverse-curriculum start: place the rocket _spawn_dist from the Moon, oriented
+	# so thrust points away from it (ready to retro for a soft touchdown).
 	# Skipped in eval mode -> the rocket spawns at the level's NATURAL Level-1 start.
 	if not _eval_mode and _rocket != null and is_instance_valid(_rocket) and _target != null and is_instance_valid(_target):
 		var ang := randf_range(-0.7, 0.7)
 		var away := Vector2(sin(ang), -cos(ang))
 		_rocket.global_position = _target.global_position + away * _spawn_dist
-		_rocket.linear_velocity = Vector2.ZERO
 		_rocket.angular_velocity = 0.0
 		_rocket.rotation = ang
+		
+		# If we've grown the spawn distance beyond the gravity well (100.0 px),
+		# seed a gentle initial velocity towards the Moon so the rocket doesn't float inertly.
+		if _spawn_dist > 95.0:
+			_rocket.linear_velocity = -away * 40.0
+		else:
+			_rocket.linear_velocity = Vector2.ZERO
 	_grace = 6  # frames to let the fresh level settle before scoring
 
 
@@ -209,13 +215,13 @@ func _physics_process(delta: float) -> void:
 		_grab()
 	if _rocket == null or _target == null or not is_instance_valid(_target):
 		return
-	if _eval_mode:
-		# Relax BOTH thresholds: the crash-death check (crashspeed) fires BEFORE the
-		# moonland check, so relaxing only landingspeed was inert — the fast slingshot
-		# arrival died on the crash check every time. Tighten both to spec together.
-		_rocket.set("landingspeed", _land_tol)
-		_rocket.set("crashspeed", _land_tol)
-		_rocket.set("TILT_DEATH_ANGLE", _tilt_tol)   # relax the rollover gate too (curriculum)
+	# Relax BOTH thresholds in both training and eval modes so the agent
+	# has a bootstrapping gradient to start with, tightening as win-rate climbs.
+	# The crash-death check (crashspeed) fires BEFORE the moonland check,
+	# so relaxing only landingspeed is inert — the fast slingshot arrival dies on the crash.
+	_rocket.set("landingspeed", _land_tol)
+	_rocket.set("crashspeed", _land_tol)
+	_rocket.set("TILT_DEATH_ANGLE", _tilt_tol)
 	var spd := _rocket.linear_velocity.length()
 	var dist := (_target.global_position - _rocket.global_position).length()
 	_min_dist = minf(_min_dist, dist)
@@ -271,10 +277,10 @@ func _log_progress() -> void:
 		var e := _episodes - _last_ep_check
 		var w := _wins - _last_win_check
 		if e > 0 and float(w) / float(e) >= CURRICULUM_PROMOTE:
-			if _eval_mode:
-				_land_tol = maxf(_land_tol - LAND_TOL_STEP, LAND_TOL_MIN)   # tighten speed
-				_tilt_tol = maxf(_tilt_tol - TILT_TOL_STEP, TILT_TOL_MIN)   # tighten upright
-			else:
+			# Tighten gates (speed & tilt) in both training and eval
+			_land_tol = maxf(_land_tol - LAND_TOL_STEP, LAND_TOL_MIN)   # tighten speed
+			_tilt_tol = maxf(_tilt_tol - TILT_TOL_STEP, TILT_TOL_MIN)   # tighten upright
+			if not _eval_mode:
 				_spawn_dist = minf(_spawn_dist + SPAWN_DIST_STEP, SPAWN_DIST_MAX)
 		_last_ep_check = _episodes
 		_last_win_check = _wins
