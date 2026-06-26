@@ -51,10 +51,12 @@ rsync -az --delete --delete-excluded \
   "$PROJ/" "$HOST:$REMOTE_DIR/"
 
 echo "[remote-render] rendering Level $LEVEL ($FRAMES frames @ 60fps) under xvfb ..."
-ssh "$HOST" "cd '$REMOTE_DIR' && xvfb-run -a $GODOT_REMOTE $DRIVER_ARG \
+# Pass the hybrid-pilot env through so we can render the RL-piloted run (SML_RL_LAND=1).
+RL_ENV="SML_RL_LAND='${SML_RL_LAND:-}' SML_RL_DETERMINISTIC='${SML_RL_DETERMINISTIC:-}'"
+ssh "$HOST" "cd '$REMOTE_DIR' && $RL_ENV xvfb-run -a $GODOT_REMOTE $DRIVER_ARG \
   --path . --resolution 1280x720 --write-movie '$REMOTE_AVI' \
   --quit-after $FRAMES --capture --autopilot '$SCENE' 2>&1 \
-  | grep -E 'frames at|Done recording|SCRIPT ERROR' || true"
+  | grep -E 'frames at|Done recording|RL landing ENABLED|SCRIPT ERROR' || true"
 
 echo "[remote-render] pulling video back ..."
 mkdir -p "$PROJ/out"
