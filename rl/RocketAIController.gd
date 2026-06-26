@@ -12,8 +12,10 @@ var _rocket: RigidBody2D = null
 var _target: Node2D = null
 var _prev_dist := 0.0
 var _prev_readiness := 0.0   # potential-based landing-readiness shaping (near*slow*upright)
+var _prev_decel := 0.0       # potential-based deceleration shaping (near*slow, NOT gated on upright)
 var _min_dist := 1.0e9   # closest the rocket got to the pad this episode
 var _best_min := 1.0e9   # closest ever achieved (learning-to-approach signal)
+var _speed_at_min := 0.0   # rocket speed at closest approach (composition handoff metric)
 var _hazard_death := false
 var _episodes := 0
 var _wins := 0
@@ -62,6 +64,7 @@ func _begin_respawn() -> void:
 	_target = null
 	_prev_dist = 0.0
 	_prev_readiness = 0.0
+	_prev_decel = 0.0
 	_min_dist = 1.0e9
 	_hazard_death = false
 	_pending_spawn = true
@@ -224,7 +227,9 @@ func _physics_process(delta: float) -> void:
 	_rocket.set("TILT_DEATH_ANGLE", _tilt_tol)
 	var spd := _rocket.linear_velocity.length()
 	var dist := (_target.global_position - _rocket.global_position).length()
-	_min_dist = minf(_min_dist, dist)
+	if dist < _min_dist:
+		_min_dist = dist
+		_speed_at_min = spd   # arrival speed at closest approach (composition handoff metric)
 	if _prev_dist > 0.0:
 		reward += (_prev_dist - dist) * 0.01   # dense: progress toward the pad
 	_prev_dist = dist
@@ -238,8 +243,17 @@ func _physics_process(delta: float) -> void:
 		var readiness := clampf(1.0 - dist / 220.0, 0.0, 1.0) * (1.0 - clampf(spd / 120.0, 0.0, 1.0)) * (1.0 - clampf(absf(ltilt) / 0.6, 0.0, 1.0))
 		reward += (readiness - _prev_readiness) * 3.0
 		_prev_readiness = readiness
+		# Dedicated deceleration shaping: near*slow ONLY (not gated behind upright), so it
+		# gives a real gradient even on a hot arrival -> teaches "shed speed as you near the
+		# Moon". Potential-based (reward the increase) so no hover-farming or pad-avoidance.
+		# speed denom 300 (not 200) so there's a real gradient across the speeds we
+		# actually see (~40-200) instead of saturating to ~0 at a hot arrival.
+		var decel := clampf(1.0 - dist / 220.0, 0.0, 1.0) * (1.0 - clampf(spd / 300.0, 0.0, 1.0))
+		reward += (decel - _prev_decel) * 8.0
+		_prev_decel = decel
 	else:
 		_prev_readiness = 0.0
+		_prev_decel = 0.0
 	if _rocket.get("landattemptnow") == true or _rocket.get("flagplaced") == true:
 		reward += 12.0 + float(_rocket.get("fuel")) / 100.0
 		done = true
@@ -286,5 +300,5 @@ func _log_progress() -> void:
 		_last_win_check = _wins
 	if _episodes % 25 == 0:
 		var recent := 100.0 * float(_wins - _last_win_check) / maxf(float(_episodes - _last_ep_check), 1.0)
-		print("[RL] episodes=%d wins=%d closest_ever=%.0f spawn_dist=%.0f land_tol=%.0f recent_land=%.0f%% ts=%.1f" % [
-			_episodes, _wins, _best_min, _spawn_dist, _land_tol, recent, Engine.time_scale])
+		print("[RL] episodes=%d wins=%d closest_ever=%.0f speed@min=%.0f spawn_dist=%.0f land_tol=%.0f recent_land=%.0f%% ts=%.1f" % [
+			_episodes, _wins, _best_min, _speed_at_min, _spawn_dist, _land_tol, recent, Engine.time_scale])

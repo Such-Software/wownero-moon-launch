@@ -12,6 +12,7 @@ def main():
     ap.add_argument("--model", default="rl/moonlaunch_ppo")
     ap.add_argument("--steps", type=int, default=30000)
     ap.add_argument("--speedup", type=int, default=8)
+    ap.add_argument("--deterministic", type=int, default=1, help="1=greedy, 0=stochastic (matches the in-game opponent)")
     args = ap.parse_args()
 
     print(f"[eval] opening env; waiting for Godot (RL_EVAL=1, natural L1 start)...", flush=True)
@@ -21,7 +22,7 @@ def main():
 
     obs = env.reset()
     for _ in range(args.steps):
-        action, _ = model.predict(obs, deterministic=True)
+        action, _ = model.predict(obs, deterministic=bool(args.deterministic))
         obs, _, _, _ = env.step(action)
     env.close()
     print("[eval] done", flush=True)

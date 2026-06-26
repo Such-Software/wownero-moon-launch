@@ -91,8 +91,10 @@ func screen(name: String) -> void:
 func set_user_property(name: String, value: Variant) -> void:
 	if not _enabled or _analytics == null:
 		return
+	# GA4 user-property values are capped at 36 chars (vs 100 for event params) --
+	# trim so a long id isn't silently dropped.
 	if _analytics.has_method("set_user_property"):
-		_analytics.call("set_user_property", _safe_name(name), str(_safe_value(value)))
+		_analytics.call("set_user_property", _safe_name(name).substr(0, 24), _trim(str(_safe_value(value)), 36))
 
 
 # --- Such Moon Launch app-specific events (APP_ANALYTICS.md §3.3 + v1.1.0 forensics) ---
@@ -175,7 +177,7 @@ func nonfatal(area: String, message: String, params: Dictionary = {}) -> void:
 	event("nonfatal_error", safe_params)
 	crash_log("%s: %s" % [area, message], safe_params)
 	if _crash and _crash.has_method("record_exception"):
-		_crash.call("record_exception", message)
+		_crash.call("record_exception", _safe_name(area), message)
 
 
 # --- Internal ---
