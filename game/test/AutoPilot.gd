@@ -59,6 +59,19 @@ const RL_POLICY_PATH := "res://game/ai/landing_policy.json"
 var _policy = null
 var _rl_land := false           # SML_RL_LAND=1 -> RL lander does the touchdown
 var _rl_deterministic := false  # default stochastic = a varied opponent (different every run)
+var _rl_temp := 1.0             # landing sampling temperature (higher = riskier/varied)
+
+# Named opponent archetypes (SML_PERSONALITY=ace|cowboy|rookie|steady). The landing
+# policy is SHARED; a personality is purely HOW it flies the transit (AP_* knobs) plus
+# how risky the touchdown sampling is (temp). temp<=0 => clean deterministic landing.
+## Transit stays near the proven handoff-safe values (faster arrival breaks the 220px
+## handoff for the lander); character comes mostly from landing temperature + mild speed.
+const PERSONALITIES := {
+	"ace":    {"seek_speed": 120.0, "land_speed": 22.0, "turn_gain": 4.0, "approach_radius": 420.0, "temp": 0.0},  # flawless, deterministic touchdown
+	"steady": {"seek_speed": 120.0, "land_speed": 22.0, "turn_gain": 4.0, "approach_radius": 420.0, "temp": 1.0},  # solid baseline
+	"rookie": {"seek_speed": 105.0, "land_speed": 22.0, "turn_gain": 3.2, "approach_radius": 450.0, "temp": 1.7},  # slower, shakier touchdown
+	"cowboy": {"seek_speed": 132.0, "land_speed": 24.0, "turn_gain": 4.5, "approach_radius": 400.0, "temp": 2.0},  # a bit faster, wild touchdowns (lands ~half the time)
+}
 
 
 func _f(name: String, def: float) -> float:
@@ -93,6 +106,15 @@ func _ready() -> void:
 	# global class cache isn't registered (headless --capture/--autopilot runs).
 	_rl_land = OS.get_environment("SML_RL_LAND") not in ["", "0"]
 	_rl_deterministic = OS.get_environment("SML_RL_DETERMINISTIC") not in ["", "0"]
+	# Named personality preset: overrides transit knobs + landing temperature, implies RL land.
+	var pname := OS.get_environment("SML_PERSONALITY")
+	if pname != "" and PERSONALITIES.has(pname):
+		var pp: Dictionary = PERSONALITIES[pname]
+		seek_speed = pp["seek_speed"]; land_speed = pp["land_speed"]
+		turn_gain = pp["turn_gain"]; approach_radius = pp["approach_radius"]
+		_rl_temp = float(pp["temp"]); _rl_deterministic = _rl_temp <= 0.0
+		_rl_land = true
+		print("[AutoPilot] personality=%s (temp=%.1f)" % [pname, _rl_temp])
 	if _rl_land:
 		var p = load("res://game/ai/RLPolicy.gd").new()
 		if p.load_json(RL_POLICY_PATH):
@@ -292,7 +314,7 @@ func _rl_obs(tgt: Node2D) -> Array:
 # Drive the rocket from the RL policy. Action mapping mirrors RocketAIController.set_action:
 # act[0]=rotate (0=left,1=none,2=right), act[1]=thrust (0=off,1=on).
 func _rl_drive(tgt: Node2D) -> void:
-	var act = _policy.predict(_rl_obs(tgt), _rl_deterministic)
+	var act = _policy.predict(_rl_obs(tgt), _rl_deterministic, _rl_temp)
 	Input.action_release("ui_left"); Input.action_release("ui_right")
 	if int(act[0]) == 0:
 		Input.action_press("ui_left")

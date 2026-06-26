@@ -63,13 +63,13 @@ func forward_logits(obs: Array) -> Array:
 ## Returns one int per MultiDiscrete dim: [rotate(0..2), thrust(0..1)].
 ## deterministic -> argmax (matches SB3 deterministic=True); else softmax-sample
 ## (the stochastic mode = a varied opponent, never the same run twice).
-func predict(obs: Array, deterministic: bool = false) -> Array:
+func predict(obs: Array, deterministic: bool = false, temperature: float = 1.0) -> Array:
 	var logits := forward_logits(obs)
 	var out := []
 	var i := 0
 	for n in _nvec:
 		var seg: Array = logits.slice(i, i + int(n))
-		out.append(_argmax(seg) if deterministic else _sample(seg))
+		out.append(_argmax(seg) if deterministic else _sample(seg, temperature))
 		i += int(n)
 	return out
 
@@ -82,15 +82,17 @@ func _argmax(a: Array) -> int:
 	return best
 
 
-func _sample(logits: Array) -> int:
-	# numerically stable softmax sample
-	var mx: float = logits[0]
+func _sample(logits: Array, temperature: float = 1.0) -> int:
+	# temperature-scaled softmax sample: higher temp = flatter = more varied / riskier
+	# landing; temp -> 0 approaches argmax (clean/precise). This is the personality knob.
+	var t: float = maxf(temperature, 0.01)
+	var mx: float = float(logits[0])
 	for v in logits:
-		mx = maxf(mx, v)
+		mx = maxf(mx, float(v))
 	var probs := []
 	var tot := 0.0
 	for v in logits:
-		var e := exp(float(v) - mx)
+		var e := exp((float(v) - mx) / t)
 		probs.append(e); tot += e
 	var r := randf() * tot
 	var acc := 0.0
