@@ -50,6 +50,16 @@ var evade_hazards := false # AP_EVADE=1 to enable chaser evasion (WIP; see READM
 var _hazards: Array = []  # cached CharacterBody2D hazards in the current level
 var _haz_for: Object = null
 
+# Hybrid handoff: inside HANDOFF_DIST of the pad, hand the touchdown to the RL lander
+# (validated pure-GDScript inference of the SB3 policy -- no ONNX/native deps, runs on
+# every export platform). The autopilot flies the transit OUTSIDE the bubble. This is
+# the PLAN.md "Hybrid Handoff Model": heuristic transit + RL touchdown.
+const HANDOFF_DIST := 220.0
+const RL_POLICY_PATH := "res://game/ai/landing_policy.json"
+var _policy = null
+var _rl_land := false           # SML_RL_LAND=1 -> RL lander does the touchdown
+var _rl_deterministic := false  # default stochastic = a varied opponent (different every run)
+
 
 func _f(name: String, def: float) -> float:
 	var v := OS.get_environment(name)
@@ -79,6 +89,18 @@ func _ready() -> void:
 	safe_zone = _f("AP_SAFE_ZONE", safe_zone)
 	var ev := OS.get_environment("AP_EVADE")
 	evade_hazards = ev != "" and ev != "0"
+	# Hybrid RL landing (opt-in). load() the class directly so it works even when the
+	# global class cache isn't registered (headless --capture/--autopilot runs).
+	_rl_land = OS.get_environment("SML_RL_LAND") not in ["", "0"]
+	_rl_deterministic = OS.get_environment("SML_RL_DETERMINISTIC") not in ["", "0"]
+	if _rl_land:
+		var p = load("res://game/ai/RLPolicy.gd").new()
+		if p.load_json(RL_POLICY_PATH):
+			_policy = p
+			print("[AutoPilot] RL landing ENABLED (handoff < %dpx, %s)" % [int(HANDOFF_DIST), "deterministic" if _rl_deterministic else "stochastic"])
+		else:
+			push_warning("AutoPilot: RL landing requested but policy failed to load; heuristic landing")
+			_rl_land = false
 	if "--autopilot" in OS.get_cmdline_args():
 		active = true
 
@@ -118,6 +140,11 @@ func _drive(tgt: Node2D) -> void:
 	var to_tgt: Vector2 = tgt.global_position - pos
 	var dist := to_tgt.length()
 	var dir_tgt := to_tgt.normalized()
+
+	# HYBRID HANDOFF: inside the pad bubble, the RL lander sticks the upright touchdown.
+	if _rl_land and _policy != null and dist < HANDOFF_DIST:
+		_rl_drive(tgt)
+		return
 
 	# Dominant non-target gravity body we must climb out of / arc around.
 	var dominant: Node2D = null
@@ -232,6 +259,46 @@ func _drive(tgt: Node2D) -> void:
 	# accelerate-toward OR brake-retrograde) whenever it's meaningful.
 	var fire := absf(err) < angle_tol and (phase == "ESC" or dv.length() > 6.0)
 	if fire:
+		Input.action_press("thrust")
+	else:
+		Input.action_release("thrust")
+
+
+# EXACT 13-dim observation the lander was trained on (mirrors RocketAIController.get_obs).
+# Any drift here makes the policy see a different world than it trained in.
+func _rl_obs(tgt: Node2D) -> Array:
+	var pos: Vector2 = _rocket.global_position
+	var vel: Vector2 = _rocket.linear_velocity
+	var to_t: Vector2 = tgt.global_position - pos
+	var dist := to_t.length()
+	var dir := (to_t / dist) if dist > 1.0 else Vector2.RIGHT
+	var radial_vel := vel.dot(dir)
+	var tangential_vel := vel.dot(Vector2(-dir.y, dir.x))
+	var landing_tilt := wrapf(_rocket.rotation - (to_t.angle() - PI / 2.0), -PI, PI)
+	var fuel := float(_rocket.get("fuel")) / maxf(float(_rocket.get("max_fuel")), 1.0)
+	return [
+		clampf(vel.x / 300.0, -3.0, 3.0), clampf(vel.y / 300.0, -3.0, 3.0),
+		sin(_rocket.rotation), cos(_rocket.rotation),
+		clampf(_rocket.angular_velocity / 5.0, -3.0, 3.0),
+		fuel,
+		clampf(to_t.x / 1800.0, -3.0, 3.0), clampf(to_t.y / 1800.0, -3.0, 3.0),
+		clampf(dist / 1800.0, 0.0, 3.0),
+		clampf(radial_vel / 300.0, -3.0, 3.0),
+		clampf(tangential_vel / 300.0, -3.0, 3.0),
+		sin(landing_tilt), cos(landing_tilt),
+	]
+
+
+# Drive the rocket from the RL policy. Action mapping mirrors RocketAIController.set_action:
+# act[0]=rotate (0=left,1=none,2=right), act[1]=thrust (0=off,1=on).
+func _rl_drive(tgt: Node2D) -> void:
+	var act = _policy.predict(_rl_obs(tgt), _rl_deterministic)
+	Input.action_release("ui_left"); Input.action_release("ui_right")
+	if int(act[0]) == 0:
+		Input.action_press("ui_left")
+	elif int(act[0]) == 2:
+		Input.action_press("ui_right")
+	if int(act[1]) == 1:
 		Input.action_press("thrust")
 	else:
 		Input.action_release("thrust")
