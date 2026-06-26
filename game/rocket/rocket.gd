@@ -36,6 +36,8 @@ var _landing_grace: float = 0.0  # grace period for orbiting planets
 const LANDING_GRACE_TIME := 1.0  # seconds of no-contact before cancelling
 
 var target = null
+var _level_start_ms: int = 0            # death-forensics: time_into_level
+var _initial_target_dist: float = -1.0  # death-forensics: pct_through baseline
 
 # Screen shake state
 var _shake_intensity: float = 0.0
@@ -134,6 +136,9 @@ func _ready():
 		"level": globalvar.nowlevel,
 		"difficulty": globalvar.difficulty,
 	})
+	Analytics.launch_attempt(globalvar.nowlevel, str(globalvar.difficulty))
+	_level_start_ms = Time.get_ticks_msec()
+	call_deferred("_capture_initial_dist")
 	# Apply upgrades from globalvar
 	thrust = Vector2(0, globalvar.get_thrust_force())
 	reverse_thrust = Vector2(0, globalvar.get_reverse_thrust_force())
@@ -506,6 +511,12 @@ func _process(_delta):
 				landattemptnow = false
 				_landing_grace = 0.0
 
+func _capture_initial_dist() -> void:
+	# Baseline distance to the pad at level start, for death-forensics pct_through.
+	if target and is_instance_valid(target):
+		_initial_target_dist = (target.global_position - global_position).length()
+
+
 func death(crash_body: Node2D = null):
 	# Easy-mode second-chance bounce: if the player is about to crash into a
 	# planet/moon/asteroid and they haven't used their bounce this attempt, kick
@@ -516,10 +527,42 @@ func death(crash_body: Node2D = null):
 		globalvar.level_easy_bounce_used = true
 		_do_bounce(crash_body)
 		return
+	# Death forensics (the dimensions the AI play-tester validated as load-bearing).
+	var _spd: float = linear_velocity.length()
+	var _fuel_frac: float = fuel / maxf(max_fuel, 1.0)
+	var _dist: float = -1.0
+	if target and is_instance_valid(target):
+		_dist = (target.global_position - global_position).length()
+	var _t_into: float = (float(Time.get_ticks_msec() - _level_start_ms) / 1000.0) if _level_start_ms > 0 else 0.0
+	var _hazard_name: String = ""
+	var _cause_type: String = "hazard"
+	if crash_body and is_instance_valid(crash_body):
+		var _bn: String = crash_body.get_name()
+		if crash_body.is_in_group("hazard") or _bn in ["Martian", "BlackHole", "Wormhole", "SolarWind", "Mothership"]:
+			_cause_type = "hazard"; _hazard_name = _bn
+		else:
+			_cause_type = "crash"
+	elif fuel <= 0.0:
+		_cause_type = "out_of_fuel"
+	var _pct: float = 0.0
+	if _initial_target_dist > 0.0 and _dist >= 0.0:
+		_pct = clampf(1.0 - _dist / _initial_target_dist, 0.0, 1.0)
+	# Raw, full-resolution row -> our own /v1/events backend (no cardinality limits).
 	Telemetry.log_event(Telemetry.EVENT_LEVEL_DEATH, {
 		"level": globalvar.nowlevel,
 		"cause": crash_body.get_name() if (crash_body and is_instance_valid(crash_body)) else "hazard",
+		"cause_type": _cause_type,
+		"hazard_name": _hazard_name,
+		"speed": _spd,
+		"fuel_frac": _fuel_frac,
+		"dist_to_target": _dist,
+		"time_into_level": _t_into,
+		"attempt": globalvar.level_attempt,
+		"pct_through": _pct,
 	})
+	# Bucketed funnel row -> Firebase/GA4.
+	Analytics.level_death(globalvar.nowlevel, _cause_type, _hazard_name, _pct,
+		maxf(_dist, 0.0), _spd, _fuel_frac, _t_into, globalvar.level_attempt)
 	# Restore normal time if in slow-mo
 	if _in_slowmo:
 		_in_slowmo = false
@@ -708,6 +751,8 @@ func flagplanted():
 	# Capture fuel remaining as a percentage
 	globalvar.level_fuel_remaining = (fuel / max_fuel) * 100.0
 	flagplaced = true
+	Analytics.launch_complete(globalvar.nowlevel, int(globalvar.finaltime * 1000.0), 0, "win")
+	Analytics.activation("first_launch")  # one-time (deduped): first successful launch = activation
 	# Landing dust burst
 	_spawn_landing_dust()
 	# Haptic feedback on successful landing

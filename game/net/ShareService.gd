@@ -21,6 +21,7 @@ func share_score(level_name: String, stars: int, time_s: float) -> void:
 		"level": level_name,
 		"stars": stars,
 	})
+	Analytics.share("score_card", "level_result", level_name)
 	var star_str := "★".repeat(stars) + "☆".repeat(3 - stars)
 	var text := "I just landed on %s with %s in %.2fs — beat my time!\n%s\n%s" % [
 		level_name, star_str, time_s, ITCH_URL, HASHTAGS,

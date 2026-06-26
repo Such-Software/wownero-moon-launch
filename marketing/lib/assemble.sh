@@ -96,7 +96,8 @@ ffmpeg -y -loglevel error -i "$MASTER" \
   -vf "crop=720:720:280:0,scale=1080:1080" -c:v libx264 -pix_fmt yuv420p -crf 20 \
   -movflags +faststart -c:a aac "${OUT}_1x1.mp4"
 ffmpeg -y -loglevel error -i "$MASTER" \
-  -vf "crop=405:720:437:0,scale=1080:1920" -c:v libx264 -pix_fmt yuv420p -crf 20 \
+  -vf "crop=720:720:280:0,scale=1080:1080,pad=1080:1920:(ow-iw)/2:(oh-ih)/2:color=black" \
+  -c:v libx264 -pix_fmt yuv420p -crf 20 \
   -movflags +faststart -c:a aac "${OUT}_9x16.mp4"
 
 rm -rf "$TMP"

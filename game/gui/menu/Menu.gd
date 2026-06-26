@@ -947,6 +947,11 @@ func _build_styled_popup(border_color: Color) -> PanelContainer:
 
 func _show_first_time_nickname_prompt() -> void:
 	## First-launch welcome popup. Custom-styled to match the rest of the menu.
+	# Skip during automated capture/autopilot/sim runs so video renders and headless
+	# bots never stall here waiting on nickname input.
+	var _argv := OS.get_cmdline_args()
+	if "--capture" in _argv or "--autopilot" in _argv or "--sim" in _argv:
+		return
 	var popup := _build_styled_popup(Color(0.5, 0.85, 1.0, 0.7))
 	popup.name = "WelcomePopup"
 	add_child(popup)

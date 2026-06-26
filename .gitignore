@@ -85,3 +85,12 @@ rl/train_logs/
 rl/logs/
 rl/checkpoints/
 rl/*.zip
+
+# transient capture window-mode override (marketing/lib/capture.sh)
+override.cfg
+
+# rendered video outputs (regenerable via render_level.sh / render_remote.sh)
+out/
+
+# agent memory / session state (not part of the game)
+.claude/

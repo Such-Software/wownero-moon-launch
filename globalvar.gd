@@ -482,8 +482,18 @@ func record_level_result(level: int, time_s: float, fuel_pct: float, crypto: int
 	GameCenterManager.on_level_completed(level, maxi(stars, int(best_stars.get(key, 0))))
 	return stars
 
+var level_attempt: int = 1        # which attempt on the current level (death forensics)
+var _last_attempt_level: int = -1
+
+
 func reset_level_stats() -> void:
 	## Call at the start of each level to reset per-run tracking.
+	# Per-level attempt count: same level again = retry (+1), new level = attempt 1.
+	if nowlevel == _last_attempt_level:
+		level_attempt += 1
+	else:
+		level_attempt = 1
+		_last_attempt_level = nowlevel
 	level_crypto_collected = 0
 	level_fuel_remaining = 0.0
 	level_easy_bounce_used = false
