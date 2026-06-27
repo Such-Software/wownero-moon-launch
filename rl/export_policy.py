@@ -12,6 +12,7 @@ ap.add_argument("--out", default="rl/landing_policy.json")
 args = ap.parse_args()
 
 m = PPO.load(args.model)
+obs_dim = m.observation_space["obs"].shape[0]
 sd = m.policy.state_dict()
 def W(k): return sd[k].cpu().numpy().astype(np.float64)
 w0,b0 = W("mlp_extractor.policy_net.0.weight"), W("mlp_extractor.policy_net.0.bias")
@@ -29,7 +30,7 @@ def np_predict(obs):
 
 rng = np.random.default_rng(0); mism=0; N=3000
 for _ in range(N):
-    obs = rng.uniform(-1,1,size=13).astype(np.float32)
+    obs = rng.uniform(-1,1,size=obs_dim).astype(np.float32)
     a_sb,_ = m.predict({"obs": obs[None]}, deterministic=True)
     if np_predict(obs.astype(np.float64)) != a_sb[0].tolist():
         mism+=1

@@ -298,6 +298,9 @@ func _rl_obs(tgt: Node2D) -> Array:
 	var tangential_vel := vel.dot(Vector2(-dir.y, dir.x))
 	var landing_tilt := wrapf(_rocket.rotation - (to_t.angle() - PI / 2.0), -PI, PI)
 	var fuel := float(_rocket.get("fuel")) / maxf(float(_rocket.get("max_fuel")), 1.0)
+	var _br = tgt.get("_body_radius"); var _wr = tgt.get("_gravity_radius")
+	var body_r: float = float(_br) if _br != null and float(_br) > 0.0 else 40.0
+	var well_r: float = float(_wr) if _wr != null and float(_wr) > 0.0 else 100.0
 	return [
 		clampf(vel.x / 300.0, -3.0, 3.0), clampf(vel.y / 300.0, -3.0, 3.0),
 		sin(_rocket.rotation), cos(_rocket.rotation),
@@ -308,6 +311,8 @@ func _rl_obs(tgt: Node2D) -> Array:
 		clampf(radial_vel / 300.0, -3.0, 3.0),
 		clampf(tangential_vel / 300.0, -3.0, 3.0),
 		sin(landing_tilt), cos(landing_tilt),
+		clampf(body_r / 80.0, 0.0, 2.0),         # target body (surface) radius
+		clampf(well_r / 250.0, 0.0, 2.0),        # target gravity-well radius
 	]
 
 

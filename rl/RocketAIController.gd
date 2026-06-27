@@ -40,6 +40,12 @@ var _tilt_tol := 1.4     # tilt curriculum: ~80° lenient (land tipped early) ->
 const TILT_TOL_MIN := 0.6109
 const TILT_TOL_STEP := 0.05
 
+# Domain randomization: vary the target body's size + gravity-well radius each episode so
+# ONE lander generalizes to every level's body (Moon 40/100, Mars 57/180, ...). Both are
+# fed into the obs so the policy can adapt its descent to whatever body it faces.
+var _tgt_body_r := 40.0
+var _tgt_well_r := 100.0
+
 # Robust reset: free the old level one frame, spawn the new the next, then a short
 # grace before detecting outcomes (so a freed dead rocket can't trigger an instant
 # 1-frame "death", which collapses training).
@@ -76,6 +82,12 @@ func _do_spawn() -> void:
 	if env != null and level_scene != null:
 		env.add_child(level_scene.instantiate())
 	_grab()
+	# Randomize the target body during training (so the lander generalizes); read the
+	# real body during eval / natural-start so the obs reflects the actual level.
+	if _eval_mode:
+		_read_target_body()
+	else:
+		_randomize_target_body()
 	# Reverse-curriculum start: place the rocket _spawn_dist from the Moon, oriented
 	# so thrust points away from it (ready to retro for a soft touchdown).
 	# Skipped in eval mode -> the rocket spawns at the level's NATURAL Level-1 start.
@@ -93,6 +105,38 @@ func _do_spawn() -> void:
 		else:
 			_rocket.linear_velocity = Vector2.ZERO
 	_grace = 6  # frames to let the fresh level settle before scoring
+
+
+func _read_target_body() -> void:
+	# Read the target body's actual surface + gravity-well radius (Moon 40/100, Mars 57/180).
+	if _target == null or not is_instance_valid(_target):
+		return
+	var br = _target.get("_body_radius")
+	var wr = _target.get("_gravity_radius")
+	_tgt_body_r = float(br) if br != null and float(br) > 0.0 else 40.0
+	_tgt_well_r = float(wr) if wr != null and float(wr) > 0.0 else 100.0
+
+
+func _randomize_target_body() -> void:
+	# Training only: set the target's body-collision radius + gravity-well radius to random
+	# values so the policy MUST learn to land on any body. Shapes are duplicated (unshared)
+	# before resizing so we never mutate a shared resource. Gravity = state.total_gravity
+	# from the Area2D, so resizing the well genuinely changes the rocket's approach.
+	if _target == null or not is_instance_valid(_target):
+		return
+	_tgt_body_r = randf_range(35.0, 72.0)
+	_tgt_well_r = randf_range(90.0, 220.0)
+	for c in _target.get_children():
+		if c is CollisionShape2D and c.shape is CircleShape2D:
+			c.shape = c.shape.duplicate()
+			c.shape.radius = _tgt_body_r
+		elif c is Area2D:
+			for ac in c.get_children():
+				if ac is CollisionShape2D and ac.shape is CircleShape2D:
+					ac.shape = ac.shape.duplicate()
+					ac.shape.radius = _tgt_well_r
+	_target.set("_body_radius", _tgt_body_r)
+	_target.set("_gravity_radius", _tgt_well_r)
 
 
 func _grab() -> void:
@@ -149,7 +193,7 @@ func get_obs() -> Dictionary:
 	if _rocket == null or not is_instance_valid(_rocket):
 		_grab()
 	if _rocket == null or _target == null or not is_instance_valid(_target):
-		return {"obs": [0.0, 0.0, 0.0, 1.0, 0.0, 1.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0]}
+		return {"obs": [0.0, 0.0, 0.0, 1.0, 0.0, 1.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0, 0.5, 0.4]}
 	var pos: Vector2 = _rocket.global_position
 	var vel: Vector2 = _rocket.linear_velocity
 	var to_t: Vector2 = _target.global_position - pos
@@ -173,6 +217,8 @@ func get_obs() -> Dictionary:
 		clampf(radial_vel / 300.0, -3.0, 3.0),       # descent rate toward the pad
 		clampf(tangential_vel / 300.0, -3.0, 3.0),   # sideways drift
 		sin(landing_tilt), cos(landing_tilt),        # orientation relative to the Moon
+		clampf(_tgt_body_r / 80.0, 0.0, 2.0),        # target body (surface) radius
+		clampf(_tgt_well_r / 250.0, 0.0, 2.0),       # target gravity-well radius
 	]}
 
 

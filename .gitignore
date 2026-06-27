@@ -94,3 +94,6 @@ out/
 
 # agent memory / session state (not part of the game)
 .claude/
+
+# RL dev artifacts (exported policy source + test cases; shipped copy is game/ai/)
+rl/*.json
