@@ -525,6 +525,14 @@ func get_platform_string() -> String:
 
 # --- Save / Load ---
 func _ready():
+	# Mobile: force sensorLandscape so the game flips between BOTH landscape
+	# orientations regardless of the device's auto-rotate lock. The project's
+	# "sensor_landscape" setting only emits Android "userLandscape" (which honors
+	# the lock); this runtime call upgrades Android to true sensorLandscape.
+	# Harmless on desktop/web.
+	if OS.get_name() == "Android" or OS.get_name() == "iOS":
+		DisplayServer.screen_set_orientation(DisplayServer.SCREEN_SENSOR_LANDSCAPE)
+
 	# WEB-ONLY: point the global fallback font at the pixel UI font (whose
 	# import declares Symbols2 + Emoji fallbacks) so symbol/emoji glyphs
 	# (★ ☆ 🪨 💰 🔒) render in-browser. The browser runtime has no system

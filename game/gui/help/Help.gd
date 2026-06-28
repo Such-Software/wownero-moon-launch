@@ -19,7 +19,12 @@ const PAGE_TITLES: Array[String] = [
 	"Ship Skins",
 ]
 
+const ACCENT := Color(0.44, 0.85, 1.0)
+const ACCENT_HEX := "6fd8ff"
+
 var _current_page: int = 0
+var _root: MarginContainer = null
+var _scroll: ScrollContainer = null
 var _page_label: RichTextLabel = null
 var _title_label: Label = null
 var _page_counter: Label = null
@@ -33,117 +38,122 @@ const SWIPE_THRESHOLD := 60.0
 
 
 func _ready() -> void:
+	# This screen is built entirely in code; drop the leftover static scene nodes.
+	if has_node("Label"):
+		$Label.queue_free()
+	if has_node("Button"):
+		$Button.queue_free()
 	_build_ui()
+	_apply_layout()
+	get_viewport().size_changed.connect(_apply_layout)
 	_show_page(0)
 
 
 func _build_ui() -> void:
-	# Background — reuse starfield from scene
-	# Title
+	# Responsive frame: a full-rect margin (recomputed in _apply_layout) wrapping
+	# a vertical column — header, a semi-transparent content card, and nav.
+	_root = MarginContainer.new()
+	_root.name = "Frame"
+	_root.set_anchors_preset(Control.PRESET_FULL_RECT)
+	add_child(_root)
+
+	var col := VBoxContainer.new()
+	col.add_theme_constant_override("separation", 8)
+	_root.add_child(col)
+
+	# --- Header: title + page counter + accent divider (no overlap) ---
 	_title_label = Label.new()
-	_title_label.name = "Title"
 	_title_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	_title_label.set_anchors_preset(Control.PRESET_TOP_WIDE)
-	_title_label.offset_top = 16
-	_title_label.offset_bottom = 56
-	_title_label.add_theme_font_size_override("font_size", 30)
-	_title_label.add_theme_color_override("font_color", Color.CYAN)
-	if has_node("Label"):
-		$Label.queue_free()
-	add_child(_title_label)
+	_title_label.add_theme_font_size_override("font_size", 32)
+	_title_label.add_theme_color_override("font_color", ACCENT)
+	col.add_child(_title_label)
 
-	# Page counter "3 / 12"
 	_page_counter = Label.new()
-	_page_counter.name = "PageCounter"
 	_page_counter.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	_page_counter.set_anchors_preset(Control.PRESET_TOP_WIDE)
-	_page_counter.offset_top = 50
-	_page_counter.offset_bottom = 70
-	_page_counter.add_theme_font_size_override("font_size", 14)
-	_page_counter.add_theme_color_override("font_color", Color(0.5, 0.5, 0.6))
-	add_child(_page_counter)
+	_page_counter.add_theme_font_size_override("font_size", 15)
+	_page_counter.add_theme_color_override("font_color", Color(0.55, 0.6, 0.72))
+	col.add_child(_page_counter)
 
-	# Scrollable content area
-	var scroll := ScrollContainer.new()
-	scroll.name = "Scroll"
-	scroll.set_anchors_preset(Control.PRESET_FULL_RECT)
-	scroll.offset_top = 72
-	scroll.offset_bottom = -60
-	scroll.offset_left = 30
-	scroll.offset_right = -30
-	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
-	add_child(scroll)
+	var divider := HSeparator.new()
+	var line_style := StyleBoxLine.new()
+	line_style.color = Color(ACCENT.r, ACCENT.g, ACCENT.b, 0.35)
+	line_style.thickness = 2
+	divider.add_theme_stylebox_override("separator", line_style)
+	col.add_child(divider)
+
+	# --- Content card: dark translucent panel for readability over starfield ---
+	var card := PanelContainer.new()
+	card.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	var card_style := StyleBoxFlat.new()
+	card_style.bg_color = Color(0.04, 0.05, 0.10, 0.82)
+	card_style.set_corner_radius_all(14)
+	card_style.set_border_width_all(1)
+	card_style.border_color = Color(ACCENT.r, ACCENT.g, ACCENT.b, 0.25)
+	card.add_theme_stylebox_override("panel", card_style)
+	col.add_child(card)
+
+	var pad := MarginContainer.new()
+	for side in ["margin_left", "margin_right", "margin_top", "margin_bottom"]:
+		pad.add_theme_constant_override(side, 18)
+	card.add_child(pad)
+
+	_scroll = ScrollContainer.new()
+	_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	pad.add_child(_scroll)
 
 	_page_label = RichTextLabel.new()
-	_page_label.name = "Content"
 	_page_label.bbcode_enabled = true
 	_page_label.fit_content = true
 	_page_label.scroll_active = false
 	_page_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	_page_label.custom_minimum_size = Vector2(964, 0)
-	_page_label.add_theme_font_size_override("normal_font_size", 18)
+	_page_label.add_theme_font_size_override("normal_font_size", 19)
 	_page_label.add_theme_font_size_override("bold_font_size", 20)
-	_page_label.add_theme_color_override("default_color", Color(0.85, 0.9, 0.95))
-	scroll.add_child(_page_label)
+	_page_label.add_theme_color_override("default_color", Color(0.86, 0.91, 0.97))
+	_page_label.add_theme_constant_override("line_separation", 4)
+	_scroll.add_child(_page_label)
 
-	# Bottom bar with nav buttons
-	var bottom := HBoxContainer.new()
-	bottom.name = "BottomBar"
-	bottom.set_anchors_preset(Control.PRESET_BOTTOM_WIDE)
-	bottom.offset_top = -52
-	bottom.offset_left = 20
-	bottom.offset_right = -20
-	bottom.add_theme_constant_override("separation", 12)
-	bottom.alignment = BoxContainer.ALIGNMENT_CENTER
-	add_child(bottom)
+	# --- Nav: Menu (left) | Prev | Next, touch-sized ---
+	var footer := HBoxContainer.new()
+	footer.add_theme_constant_override("separation", 12)
+	col.add_child(footer)
 
-	# Back to Menu
 	var menu_btn := Button.new()
 	menu_btn.text = "Menu"
-	menu_btn.custom_minimum_size = Vector2(100, 38)
-	menu_btn.add_theme_font_size_override("font_size", 16)
+	menu_btn.custom_minimum_size = Vector2(120, 52)
+	menu_btn.add_theme_font_size_override("font_size", 18)
 	BS.apply_space_style(menu_btn, Color.RED)
 	menu_btn.pressed.connect(_on_menu_pressed)
-	bottom.add_child(menu_btn)
+	footer.add_child(menu_btn)
 
-	# Spacer
 	var spacer := Control.new()
 	spacer.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	bottom.add_child(spacer)
+	footer.add_child(spacer)
 
-	# Prev
 	_prev_btn = Button.new()
-	_prev_btn.text = "< Prev"
-	_prev_btn.custom_minimum_size = Vector2(110, 38)
-	_prev_btn.add_theme_font_size_override("font_size", 16)
+	_prev_btn.text = "‹ Prev"
+	_prev_btn.custom_minimum_size = Vector2(120, 52)
+	_prev_btn.add_theme_font_size_override("font_size", 18)
 	BS.apply_space_style(_prev_btn, Color(0.5, 0.8, 1.0))
 	_prev_btn.pressed.connect(_on_prev)
-	bottom.add_child(_prev_btn)
+	footer.add_child(_prev_btn)
 
-	# Next
 	_next_btn = Button.new()
-	_next_btn.text = "Next >"
-	_next_btn.custom_minimum_size = Vector2(110, 38)
-	_next_btn.add_theme_font_size_override("font_size", 16)
+	_next_btn.text = "Next ›"
+	_next_btn.custom_minimum_size = Vector2(120, 52)
+	_next_btn.add_theme_font_size_override("font_size", 18)
 	BS.apply_space_style(_next_btn, Color.GREEN)
 	_next_btn.pressed.connect(_on_next)
-	bottom.add_child(_next_btn)
-
-	# Remove the old scene button if it exists
-	if has_node("Button"):
-		$Button.queue_free()
+	footer.add_child(_next_btn)
 
 
 func _show_page(index: int) -> void:
 	_current_page = clampi(index, 0, PAGE_TITLES.size() - 1)
 	_title_label.text = PAGE_TITLES[_current_page]
 	_page_counter.text = "%d / %d" % [_current_page + 1, PAGE_TITLES.size()]
-	_page_label.text = _get_page_content(_current_page)
+	_page_label.text = _style(_get_page_content(_current_page))
 	_prev_btn.disabled = _current_page == 0
 	_next_btn.disabled = _current_page == PAGE_TITLES.size() - 1
-	# Reset scroll to top
-	var scroll: ScrollContainer = get_node("Scroll")
-	scroll.scroll_vertical = 0
+	_scroll.scroll_vertical = 0
 
 
 func _on_prev() -> void:
@@ -154,6 +164,35 @@ func _on_next() -> void:
 
 func _on_menu_pressed() -> void:
 	get_tree().change_scene_to_file("res://game/gui/menu/Menu.tscn")
+
+
+## Center the content with a comfortable max line length: wide screens (tablets)
+## get larger side gutters that cap width ~880px; narrow phones fill to a min
+## gutter. Recomputed whenever the viewport resizes (orientation flip, etc.).
+func _apply_layout() -> void:
+	if _root == null:
+		return
+	var vw: float = get_viewport_rect().size.x
+	var side: int = int(clampf((vw - 880.0) * 0.5, 26.0, vw * 0.5))
+	_root.add_theme_constant_override("margin_left", side)
+	_root.add_theme_constant_override("margin_right", side)
+	_root.add_theme_constant_override("margin_top", 16)
+	_root.add_theme_constant_override("margin_bottom", 16)
+
+
+## Style [b]Section[/b] headers consistently — accent color, larger, bold — so
+## each page scans top-to-bottom. Inline [color] tags in the body are untouched.
+func _style(raw: String) -> String:
+	var out := ""
+	for line in raw.split("\n"):
+		if line.begins_with("[b]") and line.find("[/b]") != -1:
+			var end := line.find("[/b]")
+			var head := line.substr(3, end - 3)
+			var rest := line.substr(end + 4)
+			out += "[font_size=23][color=#%s][b]%s[/b][/color][/font_size]%s\n" % [ACCENT_HEX, head, rest]
+		else:
+			out += line + "\n"
+	return out
 
 
 func _unhandled_input(event: InputEvent) -> void:

@@ -1,11 +1,7 @@
-[gd_scene load_steps=5 format=3]
+[gd_scene load_steps=3 format=3]
 
 [ext_resource type="Script" path="res://game/gui/help/Help.gd" id="1"]
 [ext_resource type="Texture2D" path="res://art/backgrounds/starfield.jpg" id="2"]
-[ext_resource type="FontFile" path="res://fonts/Computer Speak v0.3.ttf" id="4"]
-
-[sub_resource type="FontVariation" id="FontVar_1"]
-base_font = ExtResource("4")
 
 [node name="Help" type="Control"]
 layout_mode = 3
@@ -16,40 +12,13 @@ grow_horizontal = 2
 grow_vertical = 2
 script = ExtResource("1")
 
-[node name="Sprite_spacefield" type="Sprite2D" parent="."]
-position = Vector2(513, 245)
-scale = Vector2(1.18066, 1)
+[node name="Background" type="TextureRect" parent="."]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
 texture = ExtResource("2")
-
-[node name="Label" type="Label" parent="."]
-layout_mode = 0
-offset_left = 30.0
-offset_top = 30.0
-offset_right = 994.0
-offset_bottom = 420.0
-theme_override_fonts/font = SubResource("FontVar_1")
-theme_override_font_sizes/font_size = 26
-text = "Use Up Arrow to activate forward boosters.
-Use Down Arrow to activate reverse boosters.
-Left Arrow and Right Arrow to adjust bearing.
-
-Objective: Land your rocket gently on the target!
-
-On mobile: use the virtual joystick and thrust buttons."
-horizontal_alignment = 1
-vertical_alignment = 1
-autowrap_mode = 2
-
-[node name="Button" type="Button" parent="."]
-offset_left = 300.0
-offset_top = 460.0
-offset_right = 724.0
-offset_bottom = 530.0
-theme_override_colors/font_focus_color = Color(1, 0.972549, 0, 1)
-theme_override_colors/font_color = Color(0.909804, 0, 1, 1)
-theme_override_fonts/font = SubResource("FontVar_1")
-theme_override_font_sizes/font_size = 28
-text = "Return to Main Menu"
-flat = true
-
-[connection signal="pressed" from="Button" to="." method="_on_Button_pressed"]
+expand_mode = 1
+stretch_mode = 6
