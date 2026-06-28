@@ -455,6 +455,19 @@ func compute_stars(level: int, time_s: float, fuel_pct: float, _crypto: int) -> 
 		stars += 1
 	return stars
 
+
+## Unified run score — ONE coherent number combining speed, fuel, and Moonrocks.
+## Speed vs the 3★ target time is the main lever (2000 at target, up to 6000 for a
+## blazing run, fading toward 0 if slow); fuel remaining and Moonrocks both add in.
+## The backend recomputes this server-side from the same inputs (anti-cheat) and
+## the leaderboard ranks by it. Keep this formula in sync with the backend.
+func compute_score(level: int, time_s: float, fuel_pct: float, moonrocks: int) -> int:
+	var target: float = STAR_3_TIME.get(level, 30.0)
+	var speed_pts := int(round(clampf(target / maxf(time_s, 1.0), 0.0, 3.0) * 2000.0))
+	var fuel_pts := int(round(clampf(fuel_pct, 0.0, 100.0) * 25.0))
+	var rock_pts := maxi(moonrocks, 0) * 50
+	return 1000 + speed_pts + fuel_pts + rock_pts
+
 func get_best_time(level: int) -> float:
 	## Returns best time for a level, or -1.0 if no record.
 	return float(best_times.get(str(level), -1.0))

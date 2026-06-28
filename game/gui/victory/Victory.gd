@@ -25,6 +25,8 @@ var _star_labels: Array[Label] = []
 var _time_label: Label = null
 var _fuel_label: Label = null
 var _crypto_label: Label = null
+var _score_headline: Label = null
+var _final_score: int = 0
 var _best_label: Label = null
 var _stats_group: Node2D = null
 var _rewarded_btn: Button = null
@@ -148,6 +150,16 @@ func labelanim():
 	_crypto_label.scale = base_scale
 	_crypto_label.modulate = Color(1, 1, 1, 0)
 	_stats_group.add_child(_crypto_label)
+
+	# Unified score headline — the one coherent number (gold), counts up above the stats
+	_final_score = globalvar.compute_score(nowlevel, finaltime, _fuel_pct, _crypto_collected)
+	_score_headline = Label.new()
+	_score_headline.text = "Score: 0"
+	_score_headline.add_theme_color_override("font_color", Color(1.0, 0.85, 0.2))
+	_score_headline.add_theme_font_size_override("font_size", 28)
+	_score_headline.position = base_pos + Vector2(0, -52) * base_scale
+	_score_headline.scale = base_scale
+	_stats_group.add_child(_score_headline)
 
 	# NEW BEST flash label
 	if is_new_best:
@@ -360,6 +372,10 @@ func _process(delta):
 		# Time counts up
 		var displayed_time := lerpf(0.0, finaltime, eased)
 		_time_label.text = "Time: %.2f s" % displayed_time
+
+		# Score counts up alongside the time (the headline number)
+		if _score_headline:
+			_score_headline.text = "Score: %d" % roundi(lerpf(0.0, float(_final_score), eased))
 
 		# Fuel fades in at 30% progress and counts up
 		if t > 0.3:
