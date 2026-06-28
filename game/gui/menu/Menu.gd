@@ -1317,13 +1317,25 @@ func _show_leaderboard_popup() -> void:
 	_lb_content.add_theme_color_override("default_color", Color(0.8, 0.85, 0.9))
 	scroll.add_child(_lb_content)
 
-	# Close button
+	# Bottom row: open the full web leaderboard + close
+	var btn_row := HBoxContainer.new()
+	btn_row.add_theme_constant_override("separation", 8)
+	btn_row.alignment = BoxContainer.ALIGNMENT_CENTER
+	vbox.add_child(btn_row)
+
+	var web_btn := Button.new()
+	web_btn.text = "🌐 Full Board"
+	web_btn.custom_minimum_size = Vector2(180, 34)
+	BS.apply_space_style(web_btn, Color(1.0, 0.85, 0.2))
+	web_btn.pressed.connect(func(): OS.shell_open("https://such.software/products/such-moon-launch/leaderboard"))
+	btn_row.add_child(web_btn)
+
 	var close := Button.new()
 	close.text = "Close"
 	close.custom_minimum_size = Vector2(120, 34)
 	BS.apply_space_style(close, Color.RED)
 	close.pressed.connect(func(): _lb_popup.queue_free())
-	vbox.add_child(close)
+	btn_row.add_child(close)
 
 	_lb_level = globalvar.nowlevel
 	_lb_board = "time"
