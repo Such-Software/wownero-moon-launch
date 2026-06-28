@@ -119,6 +119,9 @@ var _tilt_baseline: Vector3 = Vector3.ZERO
 # intentional tilts (canonical mobile pattern — beats baseline drift).
 var _tilt_filtered: Vector3 = Vector3.ZERO
 var _tilt_calibrated: bool = false
+# Screen orientation captured at calibration. With sensor_landscape the device
+# can be in either landscape; when this changes we re-calibrate + flip the sign.
+var _tilt_orientation: int = -1
 # Self-destruct button — shown on the HUD when fuel is dangerously low so
 # the player can bail out of an unrecoverable drift.
 var _self_destruct_btn: Button = null
@@ -271,6 +274,7 @@ func _calibrate_tilt() -> void:
 	_tilt_baseline = raw
 	_tilt_filtered = raw
 	_tilt_calibrated = true
+	_tilt_orientation = DisplayServer.screen_get_orientation()
 
 
 func _integrate_forces(state):
@@ -331,20 +335,27 @@ func _integrate_forces(state):
 		# classes — which is why a single hardcoded sign was correct on iPad
 		# but inverted on iPhone. Read the actual screen orientation and flip
 		# the sign for the reverse landscape so steering is correct on both.
+		# With sensor_landscape the device can sit in EITHER landscape, so the
+		# steering sign must follow the LIVE screen orientation, not the device
+		# class. Re-calibrate the neutral baseline when orientation changes so a
+		# mid-game flip stays sane (and zero the stale delta that frame).
+		var ori := DisplayServer.screen_get_orientation()
+		if ori != _tilt_orientation:
+			_calibrate_tilt()
+			delta = Vector3.ZERO
+		var ori_sign := -1.0 if ori == DisplayServer.SCREEN_REVERSE_LANDSCAPE else 1.0
 		var tilt: float
 		if OS.get_name() == "iOS":
-			# Key the sign off the DEVICE CLASS, which determines the locked
-			# landscape orientation: the generated Info.plist locks iPad to
-			# LandscapeRight and iPhone to LandscapeLeft (180° apart). iPad's
-			# orientation steers correctly with -delta.y (verified on iPad Pro
-			# 12.9); iPhone, being the opposite landscape, needs +delta.y.
-			# OS.get_model_name() returns the hardware id ("iPad13,1" /
-			# "iPhone15,2"), so begins_with("iPad") reliably selects the class.
-			var is_ipad: bool = OS.get_model_name().begins_with("iPad")
-			var sign_y: float = -1.0 if is_ipad else 1.0
-			tilt = sign_y * delta.y / 9.81
+			# iOS roll reads on delta.y. Verified signs from the old per-device
+			# locks: LandscapeLeft (iPhone) steered with +delta.y, LandscapeRight
+			# (iPad) with -delta.y -- opposite landscapes, opposite signs. Driving
+			# off SCREEN_LANDSCAPE(+) / SCREEN_REVERSE_LANDSCAPE(-) reproduces both
+			# on either device. If device testing shows BOTH landscapes inverted,
+			# the Godot<->iOS landscape enum mapping is opposite: negate ori_sign.
+			tilt = ori_sign * delta.y / 9.81
 		else:
-			tilt = delta.x / 9.81
+			# Android roll reads on delta.x; same orientation-driven flip.
+			tilt = ori_sign * delta.x / 9.81
 		if absf(tilt) < globalvar.TILT_DEADZONE:
 			tilt = 0.0
 		var ctrl := clampf(tilt * globalvar.TILT_SENSITIVITY, -1.0, 1.0)

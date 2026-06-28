@@ -97,3 +97,6 @@ out/
 
 # RL dev artifacts (exported policy source + test cases; shipped copy is game/ai/)
 rl/*.json
+
+# Firebase config bundled by the iOS plugin (API keys)
+ios/plugins/GoogleService-Info.plist

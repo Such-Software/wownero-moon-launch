@@ -11,6 +11,7 @@ config_version=5
 [application]
 
 config/name="Such Moon Launch"
+config/version="1.1.0"
 run/main_scene="res://game/gui/menu/Menu.tscn"
 config/features=PackedStringArray("4.6")
 boot_splash/bg_color=Color(0.05, 0.05, 0.1, 1)
@@ -44,6 +45,7 @@ window/size/window_width_override=1280
 window/size/window_height_override=720
 window/stretch/mode="canvas_items"
 window/stretch/aspect="expand"
+window/handheld/orientation=4
 
 [dotnet]
 
@@ -51,7 +53,7 @@ project/assembly_name="Such Moon Launch"
 
 [editor_plugins]
 
-enabled=PackedStringArray("res://addons/AdmobPlugin/plugin.cfg", "res://addons/GodotPlayGameServices/plugin.cfg", "res://addons/GodotGooglePlayBilling/plugin.cfg")
+enabled=PackedStringArray("res://addons/AdmobPlugin/plugin.cfg", "res://addons/BloomwordFirebase/plugin.cfg", "res://addons/GodotPlayGameServices/plugin.cfg", "res://addons/GodotGooglePlayBilling/plugin.cfg")
 
 [input]
 
