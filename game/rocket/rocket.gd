@@ -377,15 +377,17 @@ func _integrate_forces(state):
 			# sign (single source of truth — flip it if BOTH landscapes invert).
 			tilt = globalvar.IOS_TILT_POLARITY * land * delta.y / 9.81
 		else:
-			# Android resolves the orientation correctly, so drive the flip off the
-			# reported orientation and re-calibrate the baseline when it changes.
-			var ori := DisplayServer.screen_get_orientation()
-			if ori != _tilt_orientation:
+			# Android's screen_get_orientation() ALSO returns the sensor MODE (not the
+			# resolved landscape), so detect the landscape from gravity like iOS. The
+			# Android sensor frame is transposed from iOS: roll/steer reads on delta.x
+			# and the dominant in-plane "down" axis is gravity.y, so gravity.y's sign
+			# is the stable discriminator. Re-neutralize the baseline on a flip.
+			var land := signf(_tilt_filtered.y)
+			if int(land) != _tilt_orientation:
 				_calibrate_tilt()
 				delta = Vector3.ZERO
-				_tilt_orientation = ori
-			var ori_sign := -1.0 if ori == DisplayServer.SCREEN_REVERSE_LANDSCAPE else 1.0
-			tilt = ori_sign * delta.x / 9.81
+				_tilt_orientation = int(land)
+			tilt = globalvar.ANDROID_TILT_POLARITY * land * delta.x / 9.81
 		if absf(tilt) < globalvar.TILT_DEADZONE:
 			tilt = 0.0
 		var ctrl := clampf(tilt * globalvar.TILT_SENSITIVITY, -1.0, 1.0)
