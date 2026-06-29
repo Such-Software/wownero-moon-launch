@@ -258,7 +258,34 @@ func _update_self_destruct_button() -> void:
 		_self_destruct_btn = null
 
 
+# --- AI control (race opponent) ---
+# When ai_controlled is true the rocket IGNORES global Input and is driven by
+# these vars instead, so a second AutoPilot-flown rocket doesn't fight the
+# player's input. Defaults false -> zero change for the player's rocket.
+var ai_controlled := false
+var ai_thrust := false
+var ai_revthrust := false
+var ai_left := false
+var ai_right := false
+
+
+func _thrust_held() -> bool:
+	return ai_thrust if ai_controlled else Input.is_action_pressed("thrust")
+
+
+func _revthrust_held() -> bool:
+	return ai_revthrust if ai_controlled else Input.is_action_pressed("revthrust")
+
+
+func _steer_axis() -> float:
+	if ai_controlled:
+		return float(int(ai_right) - int(ai_left))
+	return float(int(Input.is_action_pressed("ui_right")) - int(Input.is_action_pressed("ui_left")))
+
+
 func _is_tilt_mode() -> bool:
+	if ai_controlled:
+		return false
 	if globalvar.control_scheme != globalvar.ControlScheme.TILT:
 		return false
 	var os := OS.get_name()
@@ -283,14 +310,14 @@ func _integrate_forces(state):
 	# Track recent peak speed BEFORE the solver may have damped this frame.
 	_recent_max_speed = maxf(_recent_max_speed * _RECENT_SPEED_DECAY, state.linear_velocity.length())
 
-	if has_fuel and Input.is_action_pressed("thrust"):
+	if has_fuel and _thrust_held():
 		constant_force = state.total_gravity - thrust.rotated(rotation)
 		get_node("RearThrust").show()
 		get_node("RevThrust").hide()
 		fuel -= fuel_drain * dt
 		if not $ThrustSound.playing:
 			$ThrustSound.play()
-	elif has_fuel and Input.is_action_pressed("revthrust"):
+	elif has_fuel and _revthrust_held():
 		constant_force = state.total_gravity + reverse_thrust.rotated(rotation)
 		get_node("RearThrust").hide()
 		get_node("RevThrust").show()
@@ -308,9 +335,10 @@ func _integrate_forces(state):
 	# Self-destruct: emergency escape when stuck (e.g. drifting out of fuel
 	# with no way to recover). Keyboard binding 'X' / on-screen button when
 	# fuel is low. Triggers normal death flow → DeathScreen offers retry.
-	if Input.is_action_just_pressed("self_destruct"):
+	if not ai_controlled and Input.is_action_just_pressed("self_destruct"):
 		death(null)
-	_update_self_destruct_button()
+	if not ai_controlled:
+		_update_self_destruct_button()
 
 	# Steering input — branches by control scheme.
 	if _is_tilt_mode() and _tilt_calibrated:
@@ -365,8 +393,8 @@ func _integrate_forces(state):
 			state.angular_velocity = ctrl * globalvar.TILT_MAX_ANGULAR_VELOCITY
 			constant_torque = 0
 	else:
-		# Keyboard / joystick — torque-based (original behavior).
-		var t: float = float(int(Input.is_action_pressed("ui_right")) - int(Input.is_action_pressed("ui_left")))
+		# Keyboard / joystick / AI — torque-based (original behavior).
+		var t := _steer_axis()
 		constant_torque = torque * t
 
 func _process(_delta):
@@ -381,8 +409,10 @@ func _process(_delta):
 		)
 		if _shake_intensity <= 0.0:
 			$Camera2D.offset = Vector2.ZERO
-	# Slow-motion & proximity beeps near any landing target (waypoints + final)
-	if target and is_instance_valid(target) and flagplaced == false:
+	# Slow-motion & proximity beeps near any landing target (waypoints + final).
+	# Skipped for the AI rival: these are GLOBAL / player-facing (Engine.time_scale,
+	# the 3D landing camera, beeps) and would hijack the player's race.
+	if target and is_instance_valid(target) and flagplaced == false and not ai_controlled:
 		# Find the nearest body in the targets group
 		var nearest_target: Node2D = target
 		var dist_to_target := global_position.distance_to(target.global_position)
@@ -758,6 +788,17 @@ func flagplanted():
 	Engine.time_scale = 1.0
 	# Clean up 3D landing mode
 	_deactivate_landing_mode()
+	# Race mode: first to land wins. The controller decides the winner + shows the
+	# result; skip the normal level-completion (finaltime / analytics / Victory).
+	if globalvar.race_mode and RaceController.active:
+		flagplaced = true
+		_spawn_landing_dust()
+		$CosmonautSprite.show()
+		if not ai_controlled:
+			globalvar.finaltime = get_node("../CanvasLayer").get_node("TimeLabel").time
+			globalvar.level_fuel_remaining = (fuel / max_fuel) * 100.0
+		RaceController.on_rocket_landed(self)
+		return
 	globalvar.finaltime = get_node("../CanvasLayer").get_node("TimeLabel").time
 	# Capture fuel remaining as a percentage
 	globalvar.level_fuel_remaining = (fuel / max_fuel) * 100.0

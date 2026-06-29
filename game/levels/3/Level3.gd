@@ -8,6 +8,10 @@ func _ready():
 	PhysicsServer2D.area_set_param(space, PhysicsServer2D.AREA_PARAM_GRAVITY, 0)
 	PhysicsServer2D.area_set_param(space, PhysicsServer2D.AREA_PARAM_GRAVITY_VECTOR, Vector2(0,1))
 	set_process(true)
+	if OS.get_environment("SML_RACE") != "":
+		globalvar.race_mode = true   # dev/test hook for a direct scene load
+	if globalvar.race_mode:
+		RaceController.call_deferred("setup", self)
 
 func add_laser():
 	var g_ray = gammaray.instantiate()

@@ -22,6 +22,10 @@ var endless_best_wave: int = 0
 # --- Difficulty ---
 enum Difficulty { EASY, NORMAL, HARD }
 var difficulty: int = Difficulty.NORMAL
+# Race/opponent mode (transient, NOT persisted): set by the menu before launching
+# a race-enabled level. race_won is filled in when the race is decided.
+var race_mode := false
+var race_won := false
 
 const DIFFICULTY_NAMES := { 0: "Easy", 1: "Normal", 2: "Hard" }
 

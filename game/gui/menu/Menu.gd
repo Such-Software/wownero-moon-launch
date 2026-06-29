@@ -114,6 +114,16 @@ func _ready():
 	BS.apply_space_style($VButtonArray/LevelsButton, Color.ORANGE)
 	BS.apply_space_style($VButtonArray/LeaderboardButton, Color(1.0, 0.85, 0.2))
 	BS.apply_space_style($VButtonArray/QuitButton, Color.RED)
+	# Race mode is transient — clear it on entering the menu; the Race button re-arms it.
+	globalvar.race_mode = false
+	if globalvar.nowlevel == 1:   # L1 only for now — the bot doesn't yet land L3 in race time
+		var race_btn := Button.new()
+		race_btn.name = "RaceButton"
+		race_btn.text = "🏁 Race the CPU"
+		BS.apply_space_style(race_btn, Color(1.0, 0.5, 0.5))
+		race_btn.pressed.connect(_on_race_pressed)
+		$VButtonArray.add_child(race_btn)
+		$VButtonArray.move_child(race_btn, $VButtonArray/PlayButton.get_index() + 1)
 	_build_help_options_buttons()
 	_build_level_select()
 	_build_cloud_restore_button()
@@ -1215,6 +1225,14 @@ func _on_PlayButton_pressed():
 		return
 	var scene := globalvar.get_level_scene(globalvar.nowlevel)
 	WarpTransition.warp_to(scene)
+
+
+func _on_race_pressed():
+	if not globalvar.is_level_unlocked(globalvar.nowlevel):
+		_show_lock_popup()
+		return
+	globalvar.race_mode = true
+	WarpTransition.warp_to(globalvar.get_level_scene(globalvar.nowlevel))
 
 func _on_LevelsButton_pressed():
 	_toggle_level_select()

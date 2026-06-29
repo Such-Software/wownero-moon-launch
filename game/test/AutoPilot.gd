@@ -28,6 +28,8 @@ extends Node
 ## Docs:    game/test/README.md  (architecture, how to run sims, capture video).
 
 var active := false
+var bound_rocket: RigidBody2D = null   # race mode: the specific rocket this pilot drives
+var direct_control := false            # race mode: write ai_* on bound_rocket vs global Input
 var _rocket: RigidBody2D = null
 
 # tuning knobs (defaults; override per-run via AP_* env vars for sweeps)
@@ -137,8 +139,11 @@ func _unhandled_input(e: InputEvent) -> void:
 func _physics_process(_dt: float) -> void:
 	if not active:
 		return
-	var arr := get_tree().get_nodes_in_group("rocket")
-	_rocket = arr[0] if arr.size() > 0 else null
+	if direct_control:
+		_rocket = bound_rocket
+	else:
+		var arr := get_tree().get_nodes_in_group("rocket")
+		_rocket = arr[0] if arr.size() > 0 else null
 	if _rocket == null or not is_instance_valid(_rocket):
 		return
 	# Keep the body awake: a sleeping RigidBody2D stops calling _integrate_forces,
@@ -266,11 +271,11 @@ func _drive(tgt: Node2D) -> void:
 	var desired_w := clampf(err * turn_gain, -max_turn_rate, max_turn_rate)
 	var w_err := desired_w - _rocket.angular_velocity
 	if w_err > 0.05:
-		Input.action_press("ui_right"); Input.action_release("ui_left")
+		_press("ui_right"); _release("ui_left")
 	elif w_err < -0.05:
-		Input.action_press("ui_left"); Input.action_release("ui_right")
+		_press("ui_left"); _release("ui_right")
 	else:
-		Input.action_release("ui_left"); Input.action_release("ui_right")
+		_release("ui_left"); _release("ui_right")
 
 	if Engine.get_physics_frames() % 30 == 0:
 		print("AP %s r_dom=%.0f dist=%.0f spd=%.0f rot=%.2f want=%.2f err=%.2f w=%.2f fuel=%.0f"
@@ -281,9 +286,9 @@ func _drive(tgt: Node2D) -> void:
 	# accelerate-toward OR brake-retrograde) whenever it's meaningful.
 	var fire := absf(err) < angle_tol and (phase == "ESC" or dv.length() > 6.0)
 	if fire:
-		Input.action_press("thrust")
+		_press("thrust")
 	else:
-		Input.action_release("thrust")
+		_release("thrust")
 
 
 # EXACT 13-dim observation the lander was trained on (mirrors RocketAIController.get_obs).
@@ -320,21 +325,79 @@ func _rl_obs(tgt: Node2D) -> Array:
 # act[0]=rotate (0=left,1=none,2=right), act[1]=thrust (0=off,1=on).
 func _rl_drive(tgt: Node2D) -> void:
 	var act = _policy.predict(_rl_obs(tgt), _rl_deterministic, _rl_temp)
-	Input.action_release("ui_left"); Input.action_release("ui_right")
+	_release("ui_left"); _release("ui_right")
 	if int(act[0]) == 0:
-		Input.action_press("ui_left")
+		_press("ui_left")
 	elif int(act[0]) == 2:
-		Input.action_press("ui_right")
+		_press("ui_right")
 	if int(act[1]) == 1:
-		Input.action_press("thrust")
+		_press("thrust")
 	else:
-		Input.action_release("thrust")
+		_release("thrust")
 
 
 func _release_all() -> void:
 	for a in ["thrust", "revthrust", "ui_left", "ui_right"]:
-		if Input.is_action_pressed(a):
-			Input.action_release(a)
+		_release(a)
+
+
+# ── Control routing ───────────────────────────────────────────────────
+# In race mode (direct_control), drive the BOUND rocket via its ai_* vars so the
+# player's global Input is untouched. Otherwise fall back to global Input actions
+# (the legacy single-rocket bot-tester / --autopilot path).
+func _press(action: String) -> void:
+	if direct_control and _rocket != null and is_instance_valid(_rocket):
+		_set_ai(action, true)
+	else:
+		Input.action_press(action)
+
+
+func _release(action: String) -> void:
+	if direct_control and _rocket != null and is_instance_valid(_rocket):
+		_set_ai(action, false)
+	else:
+		Input.action_release(action)
+
+
+func _set_ai(action: String, val: bool) -> void:
+	match action:
+		"thrust": _rocket.ai_thrust = val
+		"revthrust": _rocket.ai_revthrust = val
+		"ui_left": _rocket.ai_left = val
+		"ui_right": _rocket.ai_right = val
+
+
+# ── Race mode ─────────────────────────────────────────────────────────
+# Bind this (singleton) pilot to the rival rocket and drive it directly. The
+# player keeps normal input on their own rocket.
+func start_race(rocket: RigidBody2D, personality: String) -> void:
+	bound_rocket = rocket
+	direct_control = true
+	rocket.ai_controlled = true
+	rocket.can_sleep = false
+	if PERSONALITIES.has(personality):
+		var pp: Dictionary = PERSONALITIES[personality]
+		seek_speed = pp["seek_speed"]; land_speed = pp["land_speed"]
+		turn_gain = pp["turn_gain"]; approach_radius = pp["approach_radius"]
+		_rl_temp = float(pp["temp"]); _rl_deterministic = _rl_temp <= 0.0
+		_rl_land = true
+	if _rl_land and _policy == null:
+		var p = load("res://game/ai/RLPolicy.gd").new()
+		if p.load_json(RL_POLICY_PATH):
+			_policy = p
+		else:
+			_rl_land = false
+	set_physics_process(true)
+	set_process_unhandled_input(false)  # no F8 toggle during a race
+	active = true
+
+
+func stop_race() -> void:
+	active = false
+	_release_all()
+	bound_rocket = null
+	direct_control = false
+	set_physics_process(false)
 
 
 func _refresh_hazards() -> void:
