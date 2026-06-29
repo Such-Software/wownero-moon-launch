@@ -69,9 +69,9 @@ const IOS_TILT_POLARITY := 1.0
 ## Android tilt-steer polarity (see IOS_TILT_POLARITY). Android reports gravity in
 ## a frame transposed from iOS: roll/steer reads on delta.x and the dominant in-plane
 ## "down" axis is gravity.y, so gravity.y's sign is the live landscape discriminator.
-## +1 keeps the device-verified power-cord-on-right hold; flip to -1.0 if BOTH Android
-## landscapes steer inverted.
-const ANDROID_TILT_POLARITY := 1.0
+## Device-verified on a moto g (2025): -1.0 is correct (gravity.y the discriminator,
+## delta.x the steer). +1.0 inverts BOTH landscapes.
+const ANDROID_TILT_POLARITY := -1.0
 
 ## Spawn interval multiplier (higher = slower spawns = easier)
 func get_spawn_interval_mult() -> float:
