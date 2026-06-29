@@ -301,7 +301,6 @@ func _calibrate_tilt() -> void:
 	_tilt_baseline = raw
 	_tilt_filtered = raw
 	_tilt_calibrated = true
-	_tilt_orientation = DisplayServer.screen_get_orientation()
 
 
 func _integrate_forces(state):
@@ -354,33 +353,38 @@ func _integrate_forces(state):
 		var delta := _tilt_filtered - _tilt_baseline
 		# In landscape the device's long axis is horizontal; rolling left/right
 		# is rotation about that long axis. On iOS that roll reads on delta.y;
-		# on Android it reads on delta.x.
-		#
-		# CRITICAL: iPhone and iPad lock to OPPOSITE landscape orientations
-		# (Info.plist: iPhone=LandscapeLeft, iPad=LandscapeRight, 180° apart).
-		# Godot reports gravity in the device's physical frame, so the same
-		# physical roll yields opposite-sign delta.y between the two device
-		# classes — which is why a single hardcoded sign was correct on iPad
-		# but inverted on iPhone. Read the actual screen orientation and flip
-		# the sign for the reverse landscape so steering is correct on both.
-		# With sensor_landscape the device can sit in EITHER landscape, so the
-		# steering sign must follow the LIVE screen orientation, not the device
-		# class. Re-calibrate the neutral baseline when orientation changes so a
-		# mid-game flip stays sane (and zero the stale delta that frame).
-		var ori := DisplayServer.screen_get_orientation()
-		if ori != _tilt_orientation:
-			_calibrate_tilt()
-			delta = Vector3.ZERO
-		var ori_sign := -1.0 if ori == DisplayServer.SCREEN_REVERSE_LANDSCAPE else 1.0
+		# on Android it reads on delta.x. The correct steering sign is ABSOLUTE —
+		# tied to the physical landscape, the SAME rule for iPhone and iPad: one
+		# landscape needs -delta.y, the 180°-flipped one needs +delta.y. (The old
+		# per-device-class sign worked only because each device was locked to one
+		# landscape; with sensor_landscape either device sits in either.)
 		var tilt: float
 		if OS.get_name() == "iOS":
-			# iOS roll reads on delta.y. Device-verified (iPad Pro): the iPad's
-			# landscape reports as SCREEN_LANDSCAPE but needs -delta.y, so the iOS
-			# sign is the NEGATION of ori_sign. By symmetry this gives the reverse
-			# landscape (and the iPhone, held in the opposite landscape) +delta.y.
-			tilt = -ori_sign * delta.y / 9.81
+			# iOS DisplayServer.screen_get_orientation() returns the sensor MODE
+			# (SENSOR_LANDSCAPE) we set, NOT the resolved landscape, so it can't
+			# tell the two 180°-apart landscapes apart. Read the landscape from
+			# gravity instead: in landscape the device's in-plane "down" is
+			# dominant on the X axis and its sign is opposite between the two
+			# landscapes. Steering reads on delta.y, so gravity.x is the stable
+			# discriminator (steering barely perturbs the ~±9.8 dominant axis).
+			# Re-neutralize the baseline on a flip so a mid-game flip stays sane.
+			var land := signf(_tilt_filtered.x)
+			if int(land) != _tilt_orientation:
+				_calibrate_tilt()
+				delta = Vector3.ZERO
+				_tilt_orientation = int(land)
+			# IOS_TILT_POLARITY anchors which gravity.x sign maps to which steering
+			# sign (single source of truth — flip it if BOTH landscapes invert).
+			tilt = globalvar.IOS_TILT_POLARITY * land * delta.y / 9.81
 		else:
-			# Android roll reads on delta.x; same orientation-driven flip.
+			# Android resolves the orientation correctly, so drive the flip off the
+			# reported orientation and re-calibrate the baseline when it changes.
+			var ori := DisplayServer.screen_get_orientation()
+			if ori != _tilt_orientation:
+				_calibrate_tilt()
+				delta = Vector3.ZERO
+				_tilt_orientation = ori
+			var ori_sign := -1.0 if ori == DisplayServer.SCREEN_REVERSE_LANDSCAPE else 1.0
 			tilt = ori_sign * delta.x / 9.81
 		if absf(tilt) < globalvar.TILT_DEADZONE:
 			tilt = 0.0

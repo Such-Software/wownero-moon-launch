@@ -57,6 +57,15 @@ const TILT_USE_TORQUE := false
 ## This is what lets us avoid drift logic without losing input to jitter.
 const TILT_FILTER_ALPHA := 0.35
 
+## iOS tilt-steer polarity. The correct steering sign is ABSOLUTE (tied to the
+## physical landscape, same for iPhone and iPad): one landscape needs -delta.y,
+## the 180°-flipped landscape needs +delta.y. We read the live landscape from
+## gravity.x's sign (see rocket.gd) and this constant anchors which sign maps to
+## which. +1 reproduces the device-verified "cable-on-right = -delta.y" hold. If
+## BOTH landscapes steer inverted on a real device, flip this to -1.0 — that is
+## the single source of truth for the whole mapping.
+const IOS_TILT_POLARITY := 1.0
+
 ## Spawn interval multiplier (higher = slower spawns = easier)
 func get_spawn_interval_mult() -> float:
 	match difficulty:
