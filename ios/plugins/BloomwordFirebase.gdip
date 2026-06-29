@@ -1,0 +1,20 @@
+[config]
+name="BloomwordFirebase"
+binary="BloomwordFirebase.xcframework"
+use_swift_runtime=true
+
+initialization="bloomword_firebase_init"
+deinitialization="bloomword_firebase_deinit"
+
+[dependencies]
+linked=["../framework/FirebaseAnalytics.xcframework", "../framework/FirebaseCore.xcframework", "../framework/FirebaseCoreExtension.xcframework", "../framework/FirebaseCoreInternal.xcframework", "../framework/FirebaseCrashlytics.xcframework", "../framework/FirebaseInstallations.xcframework", "../framework/FirebaseSessions.xcframework", "../framework/GoogleAppMeasurement.xcframework", "../framework/GoogleDataTransport.xcframework", "../framework/GoogleUtilities.xcframework", "../framework/Promises.xcframework", "../framework/FBLPromises.xcframework", "../framework/nanopb.xcframework", "../framework/FirebaseRemoteConfigInterop.xcframework", "../framework/GoogleAdsOnDeviceConversion.xcframework"]
+embedded=[]
+system=["AdSupport.framework", "AppTrackingTransparency.framework", "CoreTelephony.framework", "Foundation.framework", "Security.framework", "StoreKit.framework", "SystemConfiguration.framework", "UIKit.framework"]
+
+capabilities=[]
+
+files=["GoogleService-Info.plist"]
+
+linker_flags=["-ObjC", "-lc++", "-lsqlite3", "-lz", "-Wl,-undefined,dynamic_lookup"]
+
+[plist]

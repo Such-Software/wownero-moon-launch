@@ -374,13 +374,11 @@ func _integrate_forces(state):
 		var ori_sign := -1.0 if ori == DisplayServer.SCREEN_REVERSE_LANDSCAPE else 1.0
 		var tilt: float
 		if OS.get_name() == "iOS":
-			# iOS roll reads on delta.y. Verified signs from the old per-device
-			# locks: LandscapeLeft (iPhone) steered with +delta.y, LandscapeRight
-			# (iPad) with -delta.y -- opposite landscapes, opposite signs. Driving
-			# off SCREEN_LANDSCAPE(+) / SCREEN_REVERSE_LANDSCAPE(-) reproduces both
-			# on either device. If device testing shows BOTH landscapes inverted,
-			# the Godot<->iOS landscape enum mapping is opposite: negate ori_sign.
-			tilt = ori_sign * delta.y / 9.81
+			# iOS roll reads on delta.y. Device-verified (iPad Pro): the iPad's
+			# landscape reports as SCREEN_LANDSCAPE but needs -delta.y, so the iOS
+			# sign is the NEGATION of ori_sign. By symmetry this gives the reverse
+			# landscape (and the iPhone, held in the opposite landscape) +delta.y.
+			tilt = -ori_sign * delta.y / 9.81
 		else:
 			# Android roll reads on delta.x; same orientation-driven flip.
 			tilt = ori_sign * delta.x / 9.81
