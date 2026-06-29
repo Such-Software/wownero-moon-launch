@@ -1,6 +1,7 @@
 extends Control
 
 const BS = preload("res://game/gui/ButtonStyles.gd")
+const MENU_FONT := preload("res://fonts/Computer Speak v0.3.ttf")
 
 var _level_select_visible := false
 var _level_select_container: VBoxContainer = null
@@ -116,18 +117,21 @@ func _ready():
 	BS.apply_space_style($VButtonArray/QuitButton, Color.RED)
 	# Race mode is transient — clear it on entering the menu; the Race button re-arms it.
 	globalvar.race_mode = false
-	if globalvar.nowlevel == 1:   # L1 only for now — the bot doesn't yet land L3 in race time
-		var race_btn := Button.new()
-		race_btn.name = "RaceButton"
-		race_btn.text = "🏁 Race the CPU"
-		BS.apply_space_style(race_btn, Color(1.0, 0.5, 0.5))
-		race_btn.pressed.connect(_on_race_pressed)
-		$VButtonArray.add_child(race_btn)
-		$VButtonArray.move_child(race_btn, $VButtonArray/PlayButton.get_index() + 1)
+	# Race is always available (it always races Level 1 — the only level the CPU
+	# reliably lands in race time for now), shown right under Play.
+	var race_btn := Button.new()
+	race_btn.name = "RaceButton"
+	race_btn.text = "🏁 Race the CPU"
+	BS.apply_space_style(race_btn, Color(1.0, 0.5, 0.5))
+	race_btn.pressed.connect(_on_race_pressed)
+	$VButtonArray.add_child(race_btn)
+	$VButtonArray.move_child(race_btn, $VButtonArray/PlayButton.get_index() + 1)
 	_build_help_options_buttons()
 	_build_level_select()
 	_build_cloud_restore_button()
 	_build_pgs_buttons()
+	_layout_menu()
+	get_viewport().size_changed.connect(_fit_menu_buttons)
 
 	# Show nickname prompt on first launch only (independent of Level 1 tutorial)
 	if not globalvar.welcome_shown:
@@ -146,6 +150,115 @@ func _ready():
 func _set_title_glow(size: int) -> void:
 	if has_node("Label"):
 		$Label.add_theme_constant_override("shadow_outline_size", size)
+
+
+func _is_mobile_ui() -> bool:
+	return OS.get_name() == "Android" or OS.get_name() == "iOS"
+
+
+func _layout_menu() -> void:
+	## Group the menu into rows that use the horizontal space and fit any viewport
+	## (phone/tablet/desktop). Done once on load; _fit_menu_buttons() re-sizes the
+	## rows on every resize/rotation. Final shape:
+	##   [ PLAY ]            (full width)
+	##   [ Race the CPU ]    (full width)
+	##   [ Levels | Leaderboard | Achievements(mobile) ]
+	##   [ Help | Options | Store(mobile/web) | Quit(desktop) ]
+	if not has_node("VButtonArray"):
+		return
+	var arr: VBoxContainer = $VButtonArray
+	var mobile := _is_mobile_ui()
+	var utility := arr.get_node_or_null("HelpOptionsRow")  # HBox: Help/Options/Store
+	var quit := arr.get_node_or_null("QuitButton")
+
+	# Quit is meaningless on mobile (the OS owns the app lifecycle) — drop it there;
+	# on desktop fold it into the utility row so it isn't a lonely full-width button.
+	if quit:
+		if mobile:
+			quit.queue_free()
+		elif utility:
+			arr.remove_child(quit)
+			utility.add_child(quit)
+
+	# Secondary row: Levels | Leaderboard | Achievements(mobile).
+	var secondary := HBoxContainer.new()
+	secondary.name = "SecondaryRow"
+	secondary.alignment = BoxContainer.ALIGNMENT_CENTER
+	secondary.add_theme_constant_override("separation", 8)
+	for bn in ["LevelsButton", "LeaderboardButton", "AchievementsButton"]:
+		var b := arr.get_node_or_null(bn)
+		if b:
+			arr.remove_child(b)
+			secondary.add_child(b)
+	arr.add_child(secondary)
+
+	# Order: Play, Race, Secondary, Utility.
+	var idx := 0
+	for n in [arr.get_node_or_null("PlayButton"), arr.get_node_or_null("RaceButton"), secondary, utility]:
+		if n and n.get_parent() == arr:
+			arr.move_child(n, idx)
+			idx += 1
+
+	_fit_menu_buttons()
+
+
+func _menu_font_size(h: float, in_row: bool) -> int:
+	if in_row:
+		return 16 if h >= 36.0 else 13
+	if h < 38.0:
+		return 18
+	elif h < 46.0:
+		return 22
+	return 26
+
+
+func _fit_menu_buttons() -> void:
+	## Size the rows to fit ANY viewport (phone/tablet/desktop) and give every button
+	## the .tscn pixel font (code-built buttons were missing it). Full-width buttons
+	## (Play/Race) take the design width; grouped-row buttons share their row.
+	if not has_node("VButtonArray"):
+		return
+	var arr: VBoxContainer = $VButtonArray
+	var rows := arr.get_child_count()
+	if rows == 0:
+		return
+	var vp := get_viewport_rect().size
+	var top := 120.0
+	var bottom := vp.y - 12.0
+	var band := maxf(bottom - top, 120.0)
+	var sep := 10
+	# Row height that fits every row in the band, capped so buttons don't balloon
+	# on tall tablet/desktop viewports.
+	var row_h := clampf((band - float(sep) * float(rows - 1)) / float(rows), 30.0, 56.0)
+	arr.add_theme_constant_override("separation", sep)
+	arr.alignment = BoxContainer.ALIGNMENT_CENTER
+	arr.anchor_left = 0.5
+	arr.anchor_right = 0.5
+	arr.offset_left = -255
+	arr.offset_right = 255
+	arr.offset_top = top
+	arr.offset_bottom = bottom
+	for c in arr.get_children():
+		if c is Button:
+			c.custom_minimum_size = Vector2(510, row_h)
+			c.add_theme_font_override("font", MENU_FONT)
+			c.add_theme_font_size_override("font_size", _menu_font_size(row_h, false))
+		elif c is HBoxContainer:
+			var rh := minf(row_h, 46.0)
+			for sub in c.get_children():
+				if sub is Button:
+					sub.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+					sub.custom_minimum_size = Vector2(0, rh)
+					sub.add_theme_font_override("font", MENU_FONT)
+					sub.add_theme_font_size_override("font_size", _menu_font_size(rh, true))
+
+	# Keep the button block in front of the décor planets, and push Earth toward
+	# the corner on narrow (tablet) viewports so it never covers the left buttons.
+	arr.z_index = 5
+	if has_node("Earth") and $Earth.texture:
+		var e: Sprite2D = $Earth
+		var ehw := e.texture.get_width() * e.scale.x * 0.5
+		e.position.x = minf(124.0, (vp.x / 2.0 - 255.0) - 22.0 - ehw)
 
 
 func _adapt_rocket_animation(vp: Vector2) -> void:
@@ -484,8 +597,9 @@ func _store_should_show() -> bool:
 	## Always show in screenshot-debug mode so we can capture the popup.
 	if IAPManager.DEBUG_FAKE_IAP_FOR_SCREENSHOTS and OS.is_debug_build():
 		return true
-	var name := OS.get_name()
-	return name == "Android" or name == "iOS" or name == "Web"
+	if _is_mobile_ui():
+		return true
+	return OS.get_name() == "Web"
 
 
 func _show_options_popup() -> void:
@@ -1228,11 +1342,10 @@ func _on_PlayButton_pressed():
 
 
 func _on_race_pressed():
-	if not globalvar.is_level_unlocked(globalvar.nowlevel):
-		_show_lock_popup()
-		return
+	# Race always uses Level 1 (the only level the CPU reliably lands in race time).
+	globalvar.nowlevel = 1
 	globalvar.race_mode = true
-	WarpTransition.warp_to(globalvar.get_level_scene(globalvar.nowlevel))
+	WarpTransition.warp_to(globalvar.get_level_scene(1))
 
 func _on_LevelsButton_pressed():
 	_toggle_level_select()
@@ -1579,7 +1692,7 @@ func _show_lock_popup() -> void:
 
 func _build_pgs_buttons() -> void:
 	## Add platform achievements button (Android: PGS, iOS: Game Center).
-	if OS.get_name() != "Android" and OS.get_name() != "iOS":
+	if not _is_mobile_ui():
 		return
 	var ach_btn := Button.new()
 	ach_btn.name = "AchievementsButton"
