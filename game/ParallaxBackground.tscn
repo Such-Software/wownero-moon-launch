@@ -10,22 +10,9 @@ shader_parameter/brightness = 1.7
 shader_parameter/scroll_offset = Vector2(0, 0)
 
 [node name="ParallaxBackground" type="ParallaxBackground" unique_id=451481121]
-; follow_viewport_enabled was misleading us: it follows the camera's screen-offset
-; (drag jitter), NOT the camera's world position. With it on, the canvas stayed
-; at fixed world coords and the rocket flying past ~3000px from origin escaped
-; the Starfield rect entirely — "flying through a black abyss". With it off, the
-; canvas renders purely in screen space, so the shader starfield (SCREEN_UV) is
-; always painted across the viewport regardless of how far the camera roams.
-follow_viewport_enabled = false
 
 [node name="Starfield" type="ColorRect" parent="." unique_id=13292578]
 material = SubResource("1")
-; Massively over-sized rect that covers any expanded viewport. With Godot's
-; canvas_items stretch + expand aspect, FULL_RECT anchors only cover the
-; 1024x600 design area — the extra screen space on phones falls outside.
-; Explicit large offsets guarantee coverage on any aspect ratio. The
-; starfield shader uses SCREEN_UV so its star density looks the same
-; regardless of the underlying rect size.
 offset_left = -3000.0
 offset_top = -3000.0
 offset_right = 3000.0

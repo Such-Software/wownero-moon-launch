@@ -27,7 +27,8 @@ DRIVER="${GODOT_DRIVER:-}"
 
 LEVEL="${1:-1}"; DURATION="${2:-15}"; OUT_BASE="${3:-out/remote_level_${LEVEL}}"
 FRAMES=$((DURATION * 60))
-SCENE="res://game/levels/${LEVEL}/Level${LEVEL}.tscn"
+SCENE="${SML_SCENE:-res://game/levels/${LEVEL}/Level${LEVEL}.tscn}"   # SML_SCENE overrides for menu/warp/etc.
+AUTOPILOT_FLAG="--autopilot"; [ -n "${SML_NO_AUTOPILOT:-}" ] && AUTOPILOT_FLAG=""   # SML_NO_AUTOPILOT=1 for non-gameplay scenes
 DRIVER_ARG=""; [ -n "$DRIVER" ] && DRIVER_ARG="--rendering-driver $DRIVER"
 REMOTE_AVI="/tmp/ml_render_${LEVEL}.avi"
 
@@ -55,7 +56,7 @@ echo "[remote-render] rendering Level $LEVEL ($FRAMES frames @ 60fps) under xvfb
 RL_ENV="SML_RL_LAND='${SML_RL_LAND:-}' SML_RL_DETERMINISTIC='${SML_RL_DETERMINISTIC:-}'"
 ssh "$HOST" "cd '$REMOTE_DIR' && $RL_ENV xvfb-run -a $GODOT_REMOTE $DRIVER_ARG \
   --path . --resolution 1280x720 --write-movie '$REMOTE_AVI' \
-  --quit-after $FRAMES --capture --autopilot '$SCENE' 2>&1 \
+  --quit-after $FRAMES --capture $AUTOPILOT_FLAG '$SCENE' 2>&1 \
   | grep -E 'frames at|Done recording|RL landing ENABLED|SCRIPT ERROR' || true"
 
 echo "[remote-render] pulling video back ..."
