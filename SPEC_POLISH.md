@@ -35,8 +35,15 @@ Run WPs in the waves listed at the bottom (they're grouped to avoid same-file co
 7. **Engine**: Godot 4.6.x, typed GDScript, tabs. Match surrounding style.
 
 **Key shared state (for reference):**
-- Control scheme: `globalvar.gd:36-38` — `enum ControlScheme { TILT, JOYSTICK }`,
+- Control scheme (mobile): `globalvar.gd:36-38` — `enum ControlScheme { TILT, JOYSTICK }`,
   `control_scheme` (default TILT), persisted key `control_scheme`.
+- Desktop control (NEW, added by WP-A1/A4): `enum DesktopControl { KEYBOARD, GAMEPAD }`,
+  persisted `desktop_control` (default KEYBOARD). On desktop BOTH keyboard and gamepad
+  inputs stay live at once; this setting only chooses which control HINTS/glyphs to show.
+- Input-hint helper (NEW, added by WP-A1, used by B1/B6): `globalvar.active_input_hint()`
+  returns one of `{KEYBOARD, GAMEPAD, TILT, TOUCH_JOYSTICK}` from platform + the two
+  settings above. Every place that branches control-instruction text must use this
+  helper instead of re-deriving `is_mobile`/`control_scheme` inline.
 - First-run flags: `globalvar.gd:14-15` — `tutorial_shown` (L1 tutorial, set on first L1
   win in `game/gui/victory/Victory.gd:54-56`), `welcome_shown` (menu welcome popup).
 - Tilt tuning consts: `globalvar.gd:40-74` (`TILT_SENSITIVITY 2.0`, `TILT_DEADZONE`,
@@ -49,35 +56,51 @@ Run WPs in the waves listed at the bottom (they're grouped to avoid same-file co
 
 ## WS-A — Controls & Settings
 
-### WP-A1: First-run control-scheme picker  (S, high priority)
+### WP-A1: First-run control picker (platform/device-adaptive)  (S, high priority)
 
 **Problem:** tilt is the silent default; the existing toggle is buried in the Options
 popup (`Menu.gd:678-714`). Players who hate tilt churn before finding it.
 
 **Change:** extend the existing first-launch welcome popup
 (`Menu.gd:_show_first_time_nickname_prompt`, lines 1072-1150, gated by
-`globalvar.welcome_shown`):
+`globalvar.welcome_shown`). Add a control section whose CONTENT adapts to platform +
+connected devices. Also add the `desktop_control` setting + `active_input_hint()` helper
+described in the shared-state notes (persist `desktop_control`, convention #1). This WP
+depends on WP-A4 for gamepad bindings to be *functional*, but A1 can land first — the
+picker only sets the hint preference; both input paths work regardless.
 
-- **Mobile only** (`OS.get_name() == "Android" or "iOS"`): add a "How do you want to
-  steer?" section between the nickname field and the Start button — two large tappable
-  option cards side by side:
-  - **🕹 Joystick** — "On-screen stick, bottom-left"
-  - **📱 Tilt** — "Roll your phone to turn"
-  - Equal visual weight, no default selection, no skip: **Start Game stays disabled
-    until one is picked** (both are one tap; nickname can still be blank).
-  - Selecting sets `globalvar.control_scheme`, highlight the selected card.
-  - Footer hint: "Change anytime in Options or Pause."
-- Desktop: popup unchanged (nickname only).
+**Two large tappable option cards, EQUAL visual weight — NO nudging one over the other**
+(decision from John, 2026-07-16: do not bias the player). Selecting highlights the
+chosen card and sets the relevant setting.
+
+- **Mobile** (`OS.get_name() == "Android" or "iOS"`): "How do you want to steer?"
+  - **📱 Tilt** — "Roll your phone to turn"   ·   **🕹 Joystick** — "On-screen stick"
+  - No default selection, no skip: **Start Game stays disabled until one is picked**
+    (both are one tap; nickname can still be blank). This is the anti-churn point —
+    tilt must not be a silent default. Present them in a neutral order, equal styling,
+    no "recommended" badge.
+  - Sets `globalvar.control_scheme`.
+- **Desktop WITH a gamepad connected** (`Input.get_connected_joypads().size() > 0` at
+  popup time): "Choose your controls"
+  - **⌨ Keyboard** — "Arrow keys + Space"   ·   **🎮 Gamepad** — "Stick + buttons"
+  - Here keyboard IS a safe default (unlike tilt on mobile), so **pre-select Keyboard
+    and leave Start enabled** — the player may just hit Start. Equal styling, no nudge;
+    the pre-selection is a safe default, not a recommendation badge.
+  - Sets `globalvar.desktop_control`. (Both inputs stay live; this picks hint glyphs.)
+- **Desktop with NO gamepad**: popup unchanged — nickname only, no control section.
+- Footer hint under any control section: "Change anytime in Options or Pause."
 - On commit: existing behavior (`welcome_shown = true`, `save_game()`) plus fire a new
-  analytics event `control_scheme_chosen` with the scheme name — this is how we learn
-  the real preference split.
+  analytics event `control_scheme_chosen` with the chosen style name
+  (`tilt`/`joystick`/`keyboard`/`gamepad`) — this is how we learn the real split.
 - Existing players (`welcome_shown` already true) are never shown this; their saved
-  scheme is untouched.
+  settings are untouched.
 - Popup is already capture-gated (Menu.gd:1076-1078) — keep that.
 
-**Acceptance:** fresh install (delete `user://savegame.json`) on mobile shows the
-picker; Start disabled until a scheme is chosen; choice persists across restart;
-desktop flow unchanged; `--capture` runs never see the popup.
+**Acceptance:** fresh install (delete `user://savegame.json`) — mobile shows Tilt|Joystick
+with Start disabled until one is picked and neither visually favored; desktop with a pad
+plugged in shows Keyboard|Gamepad (Keyboard pre-selected, Start enabled); desktop with no
+pad shows nickname-only; choice persists across restart; `--capture` runs never see the
+popup.
 
 ### WP-A2: Live scheme hot-swap + pause-menu toggle  (S, high priority)
 
@@ -93,13 +116,21 @@ the moment of tilt frustration is mid-level, where there's no toggle at all.
 3. `game/rocket/rocket.gd` — verify `_is_tilt_mode()` (lines 286-292) is evaluated per
    frame (it is, via `_integrate_forces`); trigger `_calibrate_tilt()` when switching
    *into* TILT mid-level so the baseline is fresh.
-4. Add a **Controls: Tilt/Joystick** row to the in-game pause popup (`popupMenu` in
+4. Add a **Controls** row to the in-game pause popup (`popupMenu` in
    `game/TextsIngame.tscn:75-106`, logic in `MobileUI.gd` — pause handling near lines
-   216-220). Mobile only. Same cycle-button pattern as the Options popup, calls
-   `save_game()`.
+   216-220). Same cycle-button pattern as the Options popup, calls `save_game()`.
+   Platform-aware: **mobile** cycles Tilt/Joystick (`control_scheme`); **desktop** cycles
+   Keyboard/Gamepad (`desktop_control`) — show the desktop row only when
+   `Input.get_connected_joypads()` is non-empty.
+5. **Gamepad hotplug (desktop):** connect `Input.joy_connection_changed`; when a pad is
+   first connected mid-session and `desktop_control` is still KEYBOARD, fire a one-time
+   `HintService.show_hint("gamepad_detected", "Controller detected — switch to gamepad in Pause/Options")`
+   (WP-B0 provides HintService). Refresh any visible control hints on the signal.
 
 **Acceptance:** toggling in pause mid-Level-1 shows/hides the joystick immediately and
-steering switches without a level reload; tilt baseline re-calibrates (no stuck turn).
+steering switches without a level reload; tilt baseline re-calibrates (no stuck turn);
+on desktop, plugging in a controller surfaces the one-time hint and the pause Controls
+row appears.
 
 ### WP-A3: Options expansion — tilt sensitivity + audio toggles  (M, medium priority)
 
@@ -117,10 +148,56 @@ steering switches without a level reload; tilt baseline re-calibrates (no stuck 
    rest on Master and mute SFX by muting Master-minus-music is NOT possible — instead
    assign SFX bus explicitly to the rocket/UI/pickup players; if that sprawls, limit v1
    to a Music toggle only and note it). Two checkboxes in Options.
+3. **Desktop control display**: in the Options popup, on desktop, add a
+   Keyboard/Gamepad cycle row bound to `desktop_control` (same pattern as the mobile
+   Controls row at `Menu.gd:678-714`), shown only when `Input.get_connected_joypads()`
+   is non-empty. Hint: "Keyboard and controller both work — this picks which button
+   hints you see."
 
 **Acceptance:** sensitivity slider changes steering response in-level immediately and
-persists; music toggle silences/restores BGM at menu and in-level; old saves load with
-defaults.
+persists; music toggle silences/restores BGM at menu and in-level; desktop
+Keyboard/Gamepad row appears only with a pad connected and drives the hint style; old
+saves load with defaults.
+
+### WP-A4: Gamepad input bindings (desktop)  (S, high priority — pairs with A1)
+
+**Problem:** a controller can only *rotate* today — `ui_left`/`ui_right` keep Godot's
+default joypad bindings, but every custom action (`thrust`, `revthrust`, `fire`,
+`missile`, `laser`, `emp`, `self_destruct`, `quit`) is keyboard-only (verified in
+`project.godot` `[input]`). So "Gamepad" in the A1 picker is meaningless until bindings
+exist.
+
+**Change (edit `project.godot` `[input]` section ONLY):** add `InputEventJoypadButton`
+(and where natural `InputEventJoypadMotion` for triggers) events alongside the existing
+keyboard events — do NOT remove the keyboard events (both stay live):
+- `thrust` → bottom face button (`JOY_BUTTON_A` = 0) and/or right trigger
+  (`JOY_AXIS_TRIGGER_RIGHT` = 5, positive).
+- `revthrust` → right face button (`JOY_BUTTON_B` = 1) and/or left trigger
+  (`JOY_AXIS_TRIGGER_LEFT` = 4).
+- `fire` → left face button (`JOY_BUTTON_X` = 2) or right shoulder (`JOY_BUTTON_RIGHT_SHOULDER` = 10).
+- `missile` → top face (`JOY_BUTTON_Y` = 3); `laser` → left shoulder
+  (`JOY_BUTTON_LEFT_SHOULDER` = 9); `emp` → click of a stick or a shoulder — pick
+  sensible distinct buttons, document the mapping in a comment block or in
+  `docs/` / the Help gamepad text.
+- Pause → `JOY_BUTTON_START` (6) (wire wherever Escape is handled, `MobileUI.gd:216-220`
+  — but that's a MobileUI edit; if it collides with the A-agent's MobileUI ownership,
+  hand it to the A-agent via cross_file_needs and keep A4 to project.godot only).
+- Leave `ui_left`/`ui_right` as-is (they already carry joypad defaults for rotate); if
+  you want an explicit left-stick-X binding, add it without removing the built-ins.
+- **Match the exact `Object(InputEventJoypadButton, ...)` serialization Godot 4.6 uses**
+  — the safest path is to open the project's Input Map in the editor mentally / copy the
+  field order from an existing `InputEventKey` block and swap the type; each action's
+  `"events"` array just gains another entry. Keep `"deadzone": 0.5`.
+
+**File-ownership note:** `project.godot` is edited by WP-B0 (`[autoload]`) in Wave 1;
+A4 edits a DIFFERENT section (`[input]`) and runs in Wave 2 after B0 merges — no overlap,
+but never run concurrently with B0.
+
+**Acceptance:** headless import is clean (`Godot --headless --path . --quit-after 2`);
+with a controller connected, thrust/reverse/fire map to buttons and rotate works on the
+stick. **Real feel requires a physical gamepad — flag for John's manual check**; static
+acceptance is: input map parses, all actions retain their keyboard events, new joypad
+events present.
 
 ---
 
@@ -156,17 +233,20 @@ once; toast queues don't overlap; no visual during `--capture` runs.
 **Problem:** the L1 tutorial (`game/levels/1/Level1.gd:32-116`) is a timer-driven
 message loop (4s hold → fade → next) that advances regardless of player behavior.
 
-**Change:** rewrite the step engine so each step **waits for the thing it teaches**:
+**Change:** rewrite the step engine so each step **waits for the thing it teaches**.
+Message text is chosen by `globalvar.active_input_hint()` (WP-A1) across FOUR styles —
+`TILT`, `TOUCH_JOYSTICK`, `KEYBOARD`, `GAMEPAD` — replacing the current two-way
+mobile/desktop branch in `_build_tutorial_messages` (`Level1.gd:55-80`):
 
-| # | Message (keep existing platform-aware text, `Level1.gd:55-80`) | Advance when |
+| # | Message per input-hint style | Advance when |
 |---|---|---|
-| 1 | "Welcome, Pilot!" | 2s timer (title beat) |
-| 2 | "Hold THRUST to fly up" / "Press UP to thrust" | `Input.is_action_pressed("thrust")` held ≥ 0.5s |
-| 3 | rotate hint (tilt/joystick/keys variant) | cumulative rotation input ≥ ~0.5 rad of turn |
-| 4 | "Tap REVERSE…" / "Press DOWN…" | `revthrust` pressed ≥ 0.3s |
-| 5 | "Slingshot! Swing around Earth…" | slingshot detected (see below) OR 20s fallback |
+| 1 | "Welcome, Pilot!" (all) | 2s timer (title beat) |
+| 2 | tilt/joystick: "Hold THRUST to fly up" · keyboard: "Press UP to thrust" · gamepad: "Press Ⓐ / right trigger to thrust" | `Input.is_action_pressed("thrust")` held ≥ 0.5s |
+| 3 | tilt: "Tilt phone LEFT / RIGHT to turn" · joystick: "Use the joystick to rotate" · keyboard: "LEFT / RIGHT to rotate" · gamepad: "Left stick to rotate" | cumulative rotation input ≥ ~0.5 rad of turn |
+| 4 | tilt/joystick: "Tap REVERSE to slow your descent" · keyboard: "Press DOWN for reverse thrust" · gamepad: "Press Ⓑ / left trigger for reverse" | `revthrust` pressed ≥ 0.3s |
+| 5 | "Slingshot! Swing around Earth…" (all) | slingshot detected (see below) OR 20s fallback |
 | 6 | "Don't fly straight at it…" | merged into 5's hold text — drop as separate step |
-| 7 | "Land slowly and upright on the Moon!" | shows when within ~600px of Moon; stays until landing mode activates |
+| 7 | "Land slowly and upright on the Moon!" (all) | shows when within ~600px of Moon; stays until landing mode activates |
 
 - **Slingshot hook:** rocket already detects a slingshot (gold `SLINGSHOT! +N` label,
   `game/rocket/rocket.gd:940-991`). Add a `slingshot_achieved` signal on the rocket (or
@@ -174,15 +254,17 @@ message loop (4s hold → fade → next) that advances regardless of player beha
 - Steps that wait on input should re-pulse the message (gentle alpha pulse) rather than
   fade out, and each waiting step gets a **stall nudge**: if no qualifying input for
   10s, re-show the message with a subtle shake.
-- **Coach marks:** while step 2/4 waits, pulse-scale the matching on-screen button
-  (`MobileUI.gd` — `_thrust_btn`/`_reverse_btn`, lines 99-115; add a getter or a
-  `highlight(btn_name, on)` method). Step 3 in JOYSTICK mode pulses the joystick;
-  in TILT mode show a small phone-tilt icon wobble (a Label with "📱↔" is acceptable v1).
+- **Coach marks** (adapt to `active_input_hint()`): while step 2/4 waits, pulse-scale
+  the matching on-screen button on touch (`MobileUI.gd` — `_thrust_btn`/`_reverse_btn`,
+  lines 99-115; add a getter or a `highlight(btn_name, on)` method). Step 3: `JOYSTICK`
+  pulses the joystick; `TILT` shows a small phone-tilt icon wobble (a Label with "📱↔"
+  is fine v1); `KEYBOARD`/`GAMEPAD` desktop styles need no on-screen button highlight
+  (skip coach marks, the text carries it).
 - Keep: only when `not globalvar.tutorial_shown` and not race mode (`Level1.gd:25-29`);
   flag still set on first L1 victory (`Victory.gd:54-56`).
 - Analytics: `tutorial_step(step_index)` on each advance — this gives the funnel.
-- The scheme can change mid-tutorial (WP-A2): rebuild the rotate hint text on
-  `control_scheme_changed`.
+- Input style can change mid-tutorial (WP-A2 scheme toggle, or a gamepad hotplug):
+  rebuild the message text on `control_scheme_changed` / `Input.joy_connection_changed`.
 
 **Acceptance:** on a fresh save, each step visibly waits for its action (verified by
 playing on desktop with keys); slingshot step advances on an actual slingshot; the whole
@@ -301,9 +383,15 @@ level progress.
   Difficulty, Stars/Scoring, Leaderboard, Skins).
 - No new systems; text-only change. Keep page count and swipe/keys/ESC navigation
   working (nav code at Help.gd:198-224).
+- **Controls page**: the existing page describes keyboard + mobile only. Add a
+  **Gamepad** subsection listing the WP-A4 button map, and where the page currently
+  hardcodes which controls to show, drive it off `globalvar.active_input_hint()` so the
+  *most relevant* scheme is shown first (Quick Start and Controls both lead with the
+  player's actual style, other styles below).
 
 **Acceptance:** Help opens on Quick Start; all pages reachable; counter shows the new
-order; no BBCode rendering glitches.
+order; gamepad controls documented; the active input style is surfaced first; no BBCode
+rendering glitches.
 
 ---
 
@@ -535,11 +623,12 @@ Acceptance criteria TBD when phase 2 starts — do not block A-E on this.
 
 **File-contention map (the reason for the waves):**
 - `Menu.gd`: A1, A3 (D2 touches Menu.tscn only — OK alongside with care)
-- `globalvar.gd`: A1 (signal), A2 (signal), A3 (vars), B0 (seen_hints), B3 (last_death) — all small; within a wave, ONE agent owns globalvar edits or they run in different waves
+- `globalvar.gd`: A1 (desktop_control + active_input_hint helper), A2 (signal), A3 (vars), B0 (seen_hints), B3 (last_death) — all small; within a wave, ONE agent owns globalvar edits or they run in different waves
+- `project.godot`: B0 (`[autoload]`, Wave 1), A4 (`[input]`, Wave 2) — DIFFERENT sections, DIFFERENT waves; never concurrent
 - `rocket.gd`: B3 (1 line), D3 (thrust particles) — different regions, but same wave only if agents coordinate
-- `MobileUI.gd`: A2, B1, B2
+- `MobileUI.gd`: A2 (hot-swap + pause row + hotplug), B1 (coach-mark `highlight()` method), B2 (TargetArrow mount) — the Wave-2 A-agent OWNS MobileUI.gd and pre-adds the `highlight(btn_name,on)` getter B1 needs; B2 mounts its arrow on the generic HUD `CanvasLayer`/`UIOverLay`, NOT via a MobileUI edit, to stay off the hot file
 - `AutoPilot.gd`: C1, B5, C3
-- `render_remote.sh`/`assemble.sh`: C1(one line), E1, E3 — bundle E1+E3 (+ C1's script line) into one agent
+- `render_remote.sh`/`assemble.sh`/`capture.sh`: C1(one line), E1, E3 — bundled into ONE Wave-1 agent (WP-E)
 - `Level1.gd`: B1 only
 
 **Wave 1 (independent, start immediately):**
@@ -551,11 +640,20 @@ Acceptance criteria TBD when phase 2 starts — do not block A-E on this.
 - B0 (HintService — owns globalvar `seen_hints` this wave)
 
 **Wave 2 (after wave 1 merges):**
-- A1+A2+A3 as ONE agent (Menu.gd + MobileUI.gd + globalvar settings surface)
-- B1 (Level1 tutorial; uses A2's `control_scheme_changed` if merged, else guards)
-- B2 (TargetArrow)
+- A1+A2+A3 as ONE agent (Menu.gd + MobileUI.gd + TextsIngame.tscn + globalvar settings
+  surface incl. `desktop_control` + `active_input_hint()` helper). Pre-adds the
+  `highlight(btn_name,on)` method B1 needs.
+- A4 (gamepad bindings — `project.godot` `[input]` ONLY; disjoint from the A-agent)
+- B1 (Level1 tutorial; uses `active_input_hint()` + `control_scheme_changed` from the
+  A-agent — sequence B1 to start after the A-agent lands the helper, or have B1 add a
+  safe fallback if the helper isn't present yet)
+- B2 (TargetArrow — new file, mounts on the generic HUD layer, no MobileUI edit)
 - B3 (death advice — owns `last_death` in globalvar + rocket.gd one-liner)
 - D2 (menu backgrounds — .tscn only)
+
+  Note: A-agent and B1 both read/derive control text; the A-agent owns the
+  `active_input_hint()` helper, so run the A-agent FIRST in Wave 2 (or as an earlier
+  sub-phase) and let B1/B3/B2 follow — a short two-phase pipeline, not a flat fan-out.
 
 **Wave 3:**
 - B4 (hazard banners), B5 (demo mode), B6 (help restructure)
@@ -568,9 +666,14 @@ Acceptance criteria TBD when phase 2 starts — do not block A-E on this.
 `tutorial_step` drop-off, L1 `level_death.attempt` distribution before first win,
 `demo_watched`, and the existing death forensics — compare 2 weeks pre/post.
 
-**Deliberately open decisions (owner: John):**
-1. Whether the picker should nudge Joystick (spec says equal weight; the
-   `control_scheme_chosen` split will answer it).
-2. Audio-toggle scope in A3 (Music-only v1 is acceptable).
-3. C4 go/no-go — decide after C3's matrix.
-4. Phase 2 kickoff timing.
+**Decisions (owner: John):**
+1. ~~Whether the picker should nudge Joystick~~ **RESOLVED 2026-07-16: NO nudge —
+   both options equal weight, no "recommended" badge. Desktop additionally offers
+   Keyboard vs Gamepad when a controller is connected (WP-A1 + WP-A4), keyboard
+   pre-selected as a safe default (not a nudge). The `control_scheme_chosen` split will
+   still tell us the real preference.**
+2. Audio-toggle scope in A3 (Music-only v1 is acceptable). — still open
+3. C4 go/no-go — decide after C3's matrix. — still open
+4. Phase 2 kickoff timing. — still open
+5. Gamepad button map (WP-A4) — proposed Ⓐ=thrust, Ⓑ=reverse, Ⓧ=fire, etc.; John to
+   confirm/adjust once tried on a real controller.
