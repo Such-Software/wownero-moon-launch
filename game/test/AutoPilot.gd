@@ -58,10 +58,17 @@ var _haz_for: Object = null
 # the PLAN.md "Hybrid Handoff Model": heuristic transit + RL touchdown.
 const HANDOFF_DIST := 220.0
 const RL_POLICY_PATH := "res://game/ai/landing_policy.json"
+# Mirror training's action_repeat=8 (rl/train.tscn:11): one action is held for 8
+# physics ticks. Deployment used to re-query (and re-sample) the policy EVERY physics
+# frame, so the thrust bit re-rolled at 60 Hz -> exhaust strobe + out-of-distribution.
+const RL_ACTION_REPEAT := 8
 var _policy = null
 var _rl_land := false           # SML_RL_LAND=1 -> RL lander does the touchdown
 var _rl_deterministic := false  # default stochastic = a varied opponent (different every run)
 var _rl_temp := 1.0             # landing sampling temperature (higher = riskier/varied)
+var _rl_frame := 0              # physics-frame counter driving the action_repeat cadence
+var _rl_act: Array = [1, 0]     # last policy action [rotate, thrust], HELD between decisions
+var _rl_in_handoff := false     # were we inside the touchdown bubble last frame? (reset on entry)
 
 # Named opponent archetypes (SML_PERSONALITY=ace|cowboy|rookie|steady). The landing
 # policy is SHARED; a personality is purely HOW it flies the transit (AP_* knobs) plus
@@ -170,8 +177,12 @@ func _drive(tgt: Node2D) -> void:
 
 	# HYBRID HANDOFF: inside the pad bubble, the RL lander sticks the upright touchdown.
 	if _rl_land and _policy != null and dist < HANDOFF_DIST:
+		if not _rl_in_handoff:
+			_rl_in_handoff = true
+			_rl_frame = 0   # first in-bubble frame decides immediately
 		_rl_drive(tgt)
 		return
+	_rl_in_handoff = false
 
 	# Dominant non-target gravity body we must climb out of / arc around.
 	var dominant: Node2D = null
@@ -324,13 +335,19 @@ func _rl_obs(tgt: Node2D) -> Array:
 # Drive the rocket from the RL policy. Action mapping mirrors RocketAIController.set_action:
 # act[0]=rotate (0=left,1=none,2=right), act[1]=thrust (0=off,1=on).
 func _rl_drive(tgt: Node2D) -> void:
-	var act = _policy.predict(_rl_obs(tgt), _rl_deterministic, _rl_temp)
+	# action_repeat=8: only re-query the policy every RL_ACTION_REPEAT physics frames
+	# and HOLD the pressed/released state in between (matches how the policy was trained,
+	# and stops the 60 Hz thrust flicker). The counter is reset to 0 on handoff entry, so
+	# the first in-bubble frame (_rl_frame % 8 == 0) always decides immediately.
+	if _rl_frame % RL_ACTION_REPEAT == 0:
+		_rl_act = _policy.predict(_rl_obs(tgt), _rl_deterministic, _rl_temp)
+	_rl_frame += 1
 	_release("ui_left"); _release("ui_right")
-	if int(act[0]) == 0:
+	if int(_rl_act[0]) == 0:
 		_press("ui_left")
-	elif int(act[0]) == 2:
+	elif int(_rl_act[0]) == 2:
 		_press("ui_right")
-	if int(act[1]) == 1:
+	if int(_rl_act[1]) == 1:
 		_press("thrust")
 	else:
 		_release("thrust")

@@ -68,11 +68,49 @@ marketing/
    `Stage3D` auto-frames the model, lights it, plays `MK_ANIM` (or the first
    animation), and shows the caption. Tune with `MK_CAM_DIST`, `MK_BG`, `MK_SPIN`.
 
+## Resolution, frame rate & determinism
+
+The pipeline renders **1080p / 60fps end-to-end** by default — no upscaling step.
+
+- **Capture** (`capture.sh`, `render_remote.sh`) grabs frames at `MK_RES` (default
+  `1920x1080`).
+- **Assemble** (`assemble.sh`) normalizes every segment to `MK_OUT_RES` (default
+  `1920x1080`) at `MK_FPS` (default `60`), then emits the three socials. The 1:1 and
+  9:16 crops pull a native `1080x1080` square straight out of the 1080p master
+  (`crop=1080:1080:420:0`) — no upscaling — with 9:16 letterboxing that square top and
+  bottom to `1080x1920`.
+- Codec is unchanged: `libx264 -crf 20 -movflags +faststart`, AAC audio.
+
+Env knobs:
+
+| var | default | where | effect |
+|-----|---------|-------|--------|
+| `MK_RES` | `1920x1080` | capture | capture resolution |
+| `MK_OUT_RES` | `1920x1080` | assemble | master + 16:9 resolution |
+| `MK_FPS` | `60` | assemble | master frame rate |
+| `SML_SEED` | `1337` (under `--capture`) | render_remote | RNG seed — **plumbed only; engine consumption pending (see below)** |
+| `SML_RL_DETERMINISTIC` | `1` (under capture) | render_remote | greedy RL policy; set `""` for variance |
+
+**Deterministic takes (PARTIAL today):** `render_remote.sh` always renders under
+`--capture` and runs the RL pilot greedily by default (`SML_RL_DETERMINISTIC=1`), which
+removes the biggest source of take-to-take variance. It also forwards `SML_SEED` (default
+`1337`) to the remote engine, **but the engine does not yet consume it** — the global /
+`globalvar` / `WarpTunnel` RNGs still randomize per run (`globalvar.gd:268,621`,
+`WarpTunnel.gd:246`), so takes are **not yet bit-reproducible**. Physics timing is already
+fixed by Movie Maker's fixed timestep. Full reproducibility lands when the engine-side seed
+consumption ships (WP-E3 wave 2); until then `SML_SEED=42` has no effect on output.
+
+**Render time:** 1080p60 under lavapipe is roughly **2–3× slower** than the old 720p30.
+If a remote render crawls or the Vulkan/lavapipe path misbehaves, fall back to
+`GODOT_DRIVER=opengl3` (llvmpipe).
+
 ## Notes / safety
 
-- `capture.sh` launches Godot **off-screen** (`--position 6000,6000`) so the
-  render window does not steal focus. It still has to render (Movie Maker can't be
-  headless), it just stays out of your way.
+- `capture.sh` launches Godot in a **minimized** window (a temporary `override.cfg`
+  sets `window/size/mode=1`, see `capture.sh:48-52`) so the render window lives in the
+  Dock — never on-screen, never steals focus. It still has to render (Movie Maker can't
+  be headless), it just stays out of your way. (It deliberately does **not** pass
+  `--position` — that forces the window back out of minimized mode and onto the screen.)
 - Telemetry and score submission are disabled under `--autopilot`, so gameplay
   captures never touch the live backend.
 - `marketing/` is a dev tool. Add it to the export-exclude filter before shipping

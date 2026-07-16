@@ -13,9 +13,21 @@
 #   - --vo                : voiceover on top; if --music too, bed sits under VO.
 #
 # Outputs: <out>_16x9.mp4, <out>_1x1.mp4, <out>_9x16.mp4
+#
+# Env:
+#   MK_OUT_RES  master/16:9 resolution   (default: 1920x1080 -- 1080p)
+#   MK_FPS      master frame rate        (default: 60)
+# The 1:1 and 9:16 socials crop a native centered square (side = master height) out of
+# the master with no upscaling. The square is derived from MK_OUT_RES, so overriding the
+# master resolution (e.g. a 720p take) keeps the crops valid -- nothing is hardcoded to 1080.
 set -euo pipefail
 
 OUT=""; MUSIC=""; VO=""; MUSIC_GAIN="0.25"
+OUT_RES="${MK_OUT_RES:-1920x1080}"; OUT_W="${OUT_RES%x*}"; OUT_H="${OUT_RES#*x}"
+FPS="${MK_FPS:-60}"
+# Social crops derived from the master so any MK_OUT_RES stays valid: a centered square
+# (side = master height) for 1:1, padded to 9:16 for vertical. V_H forced even for yuv420p.
+SQ="$OUT_H"; SQ_X=$(( (OUT_W - OUT_H) / 2 )); V_H=$(( (SQ * 16 / 9) / 2 * 2 ))
 CLIPS=()
 while [ "$#" -gt 0 ]; do
   case "$1" in
@@ -33,14 +45,14 @@ fi
 mkdir -p "$(dirname "$OUT")"
 TMP="$(dirname "$OUT")/.assemble_tmp"; mkdir -p "$TMP"
 
-# 1) normalize each clip to 1280x720 30fps, silent video track only
-echo "[assemble] normalizing ${#CLIPS[@]} segment(s)"
+# 1) normalize each clip to the master res/fps (1920x1080 60fps), silent video track only
+echo "[assemble] normalizing ${#CLIPS[@]} segment(s) at ${OUT_W}x${OUT_H} ${FPS}fps"
 LIST="$TMP/list.txt"; : > "$LIST"
 i=0
 for c in "${CLIPS[@]}"; do
   n="$TMP/norm_$(printf '%02d' "$i").mp4"
   ffmpeg -y -loglevel error -i "$c" \
-    -vf "scale=1280:720:force_original_aspect_ratio=decrease,pad=1280:720:(ow-iw)/2:(oh-ih)/2,setsar=1,fps=30" \
+    -vf "scale=${OUT_W}:${OUT_H}:force_original_aspect_ratio=decrease,pad=${OUT_W}:${OUT_H}:(ow-iw)/2:(oh-ih)/2,setsar=1,fps=${FPS}" \
     -an -c:v libx264 -pix_fmt yuv420p -crf 20 "$n"
   echo "file '$(basename "$n")'" >> "$LIST"
   i=$((i+1))
@@ -59,10 +71,10 @@ if [ -z "$MUSIC" ] && [ -z "$VO" ]; then
   for c in "${CLIPS[@]}"; do
     n="$TMP/na_$(printf '%02d' "$i").mp4"
     ffmpeg -y -loglevel error -i "$c" \
-      -vf "scale=1280:720:force_original_aspect_ratio=decrease,pad=1280:720:(ow-iw)/2:(oh-ih)/2,setsar=1,fps=30" \
+      -vf "scale=${OUT_W}:${OUT_H}:force_original_aspect_ratio=decrease,pad=${OUT_W}:${OUT_H}:(ow-iw)/2:(oh-ih)/2,setsar=1,fps=${FPS}" \
       -c:v libx264 -pix_fmt yuv420p -crf 20 -c:a aac -ar 48000 -ac 2 "$n" 2>/dev/null \
       || ffmpeg -y -loglevel error -i "$c" -f lavfi -t 0.1 -i anullsrc=r=48000:cl=stereo \
-         -vf "scale=1280:720:force_original_aspect_ratio=decrease,pad=1280:720:(ow-iw)/2:(oh-ih)/2,setsar=1,fps=30" \
+         -vf "scale=${OUT_W}:${OUT_H}:force_original_aspect_ratio=decrease,pad=${OUT_W}:${OUT_H}:(ow-iw)/2:(oh-ih)/2,setsar=1,fps=${FPS}" \
          -shortest -c:v libx264 -pix_fmt yuv420p -crf 20 -c:a aac "$n"
     echo "file '$(basename "$n")'" >> "$TMP/list_a.txt"
     i=$((i+1))
@@ -93,10 +105,10 @@ echo "[assemble] exporting formats"
 ffmpeg -y -loglevel error -i "$MASTER" -c:v libx264 -pix_fmt yuv420p -crf 20 \
   -movflags +faststart -c:a aac "${OUT}_16x9.mp4"
 ffmpeg -y -loglevel error -i "$MASTER" \
-  -vf "crop=720:720:280:0,scale=1080:1080" -c:v libx264 -pix_fmt yuv420p -crf 20 \
+  -vf "crop=${SQ}:${SQ}:${SQ_X}:0" -c:v libx264 -pix_fmt yuv420p -crf 20 \
   -movflags +faststart -c:a aac "${OUT}_1x1.mp4"
 ffmpeg -y -loglevel error -i "$MASTER" \
-  -vf "crop=720:720:280:0,scale=1080:1080,pad=1080:1920:(ow-iw)/2:(oh-ih)/2:color=black" \
+  -vf "crop=${SQ}:${SQ}:${SQ_X}:0,pad=${SQ}:${V_H}:(ow-iw)/2:(oh-ih)/2:color=black" \
   -c:v libx264 -pix_fmt yuv420p -crf 20 \
   -movflags +faststart -c:a aac "${OUT}_9x16.mp4"
 

@@ -13,6 +13,7 @@ var all_completed: bool = false
 var highest_level_completed: int = 0  # Tracks progress for level select
 var tutorial_shown: bool = false  # Level 1 tutorial prompts (first-time only)
 var welcome_shown: bool = false   # First-launch nickname/welcome prompt (independent of tutorial)
+var seen_hints: Array[String] = []  # one-time HintService hint ids already shown (persisted)
 
 # --- Endless mode ---
 var endless_mode: bool = false
@@ -641,6 +642,7 @@ func get_save_data() -> Dictionary:
 		"nickname": nickname,
 		"tutorial_shown": tutorial_shown,
 		"welcome_shown": welcome_shown,
+		"seen_hints": seen_hints.duplicate(),
 		"difficulty": difficulty,
 		"control_scheme": control_scheme,
 		"selected_skin": selected_skin,
@@ -707,6 +709,12 @@ func _apply_save_data(data: Dictionary) -> void:
 		welcome_shown = bool(data["welcome_shown"])
 	else:
 		welcome_shown = int(data.get("highest_completed", 0)) > 0 or str(data.get("nickname", "")) != ""
+	# seen_hints: default to empty array for legacy saves that predate one-time hints
+	seen_hints.clear()
+	var saved_hints = data.get("seen_hints", [])
+	if saved_hints is Array:
+		for h in saved_hints:
+			seen_hints.append(str(h))
 	difficulty = int(data.get("difficulty", Difficulty.NORMAL))
 	control_scheme = int(data.get("control_scheme", ControlScheme.TILT))
 	selected_skin = str(data.get("selected_skin", "default"))
@@ -748,6 +756,7 @@ func reset_progress() -> void:
 	all_completed = false
 	tutorial_shown = false
 	welcome_shown = false
+	seen_hints.clear()
 	endless_mode = false
 	endless_wave = 1
 	endless_best_wave = 0

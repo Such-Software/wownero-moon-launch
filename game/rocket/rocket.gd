@@ -127,6 +127,21 @@ var _tilt_orientation: int = -1
 var _self_destruct_btn: Button = null
 const SELF_DESTRUCT_FUEL_THRESHOLD := 0.05  # show when fuel ≤ 5% of max
 
+# --- Thrust exhaust ramp (WP-D3) ---------------------------------------------
+# Binary emitting=true/false makes the exhaust strobe when thrust is tapped
+# rapidly. Instead we tween amount_ratio: a fast swell up and a slower decay
+# down, keeping the emitter alive (emitting=true) until the ratio hits zero.
+# Strictly visual/audio — physics (constant_force / fuel) is unchanged.
+const _THRUST_RAMP_UP := 0.08        # seconds to swell to full
+const _THRUST_RAMP_DOWN := 0.25      # seconds to decay to nothing
+const _THRUST_SOUND_MIN_DB := -40.0  # effectively silent during the fade
+var _rear_thrust_on := false
+var _rev_thrust_on := false
+var _thrust_sound_on := false
+var _rear_thrust_tween: Tween
+var _rev_thrust_tween: Tween
+var _thrust_sound_tween: Tween
+
 
 func _ready():
 	# Add to group so HUD widgets (FuelBar etc.) can find us
@@ -188,6 +203,13 @@ func _ready():
 	get_node("SkullSprite").hide()
 	get_node("ExplosionSprite").hide()
 	get_node("CosmonautSprite").hide()
+	# Thrust exhaust starts idle — emitters swell in via _set_thrust_visuals().
+	# ExhaustTrail is deliberately NOT reset here: it is authored always-on (a
+	# constant motion trail behind the ship) and must keep emitting while coasting.
+	for _emitter_name in ["RearThrust", "RevThrust"]:
+		var _emitter := get_node(_emitter_name) as GPUParticles2D
+		_emitter.amount_ratio = 0.0
+		_emitter.emitting = false
 	# Apply selected skin
 	var skin_tex := load(globalvar.get_skin_texture_path())
 	if skin_tex:
@@ -277,6 +299,62 @@ func _revthrust_held() -> bool:
 	return ai_revthrust if ai_controlled else Input.is_action_pressed("revthrust")
 
 
+# Ramp a GPUParticles2D emitter toward full (on) or off via amount_ratio, so
+# rapid thrust taps swell/decay smoothly instead of strobing. Returns the live
+# tween so the caller can kill it on the next state flip. See WP-D3.
+func _ramp_emitter(node: GPUParticles2D, tween: Tween, on: bool) -> Tween:
+	if tween and tween.is_valid():
+		tween.kill()
+	if on and not node.emitting:
+		node.emitting = true
+	var duration := _THRUST_RAMP_UP if on else _THRUST_RAMP_DOWN
+	var ratio := 1.0 if on else 0.0
+	var t := create_tween()
+	t.tween_property(node, "amount_ratio", ratio, duration)
+	if not on:
+		# Stop emitting only once fully decayed so nothing lingers/strobes.
+		t.tween_callback(func(): node.emitting = false)
+	return t
+
+
+# Drive the exhaust particle ramps (and thrust audio fade) from thrust state.
+# Edge-detected so it is safe to call every physics frame — a tween is only
+# (re)started when a state actually flips. Purely visual/audio.
+func _set_thrust_visuals(rear_on: bool, rev_on: bool) -> void:
+	if rear_on != _rear_thrust_on:
+		_rear_thrust_on = rear_on
+		_rear_thrust_tween = _ramp_emitter(get_node("RearThrust"), _rear_thrust_tween, rear_on)
+	if rev_on != _rev_thrust_on:
+		_rev_thrust_on = rev_on
+		_rev_thrust_tween = _ramp_emitter(get_node("RevThrust"), _rev_thrust_tween, rev_on)
+	# ExhaustTrail is authored always-on (constant motion trail) — never gate it.
+	_set_thrust_sound(rear_on or rev_on)
+
+
+# Fade the thrust audio loop in/out over the same short windows so it doesn't
+# hard-cut when thrust toggles. Matches the particle ramp durations.
+func _set_thrust_sound(on: bool) -> void:
+	# thrust.wav is non-looping (loop_mode=0), so re-trigger it while thrust is
+	# held and the sample has finished — restores the pre-D3 every-frame replay.
+	if on and _thrust_sound_on and not $ThrustSound.playing:
+		$ThrustSound.play()
+	if on == _thrust_sound_on:
+		return
+	_thrust_sound_on = on
+	if _thrust_sound_tween and _thrust_sound_tween.is_valid():
+		_thrust_sound_tween.kill()
+	if on:
+		if not $ThrustSound.playing:
+			$ThrustSound.volume_db = _THRUST_SOUND_MIN_DB
+			$ThrustSound.play()
+		_thrust_sound_tween = create_tween()
+		_thrust_sound_tween.tween_property($ThrustSound, "volume_db", 0.0, _THRUST_RAMP_UP)
+	else:
+		_thrust_sound_tween = create_tween()
+		_thrust_sound_tween.tween_property($ThrustSound, "volume_db", _THRUST_SOUND_MIN_DB, _THRUST_RAMP_DOWN)
+		_thrust_sound_tween.tween_callback(func(): $ThrustSound.stop())
+
+
 func _steer_axis() -> float:
 	if ai_controlled:
 		return float(int(ai_right) - int(ai_left))
@@ -311,23 +389,15 @@ func _integrate_forces(state):
 
 	if has_fuel and _thrust_held():
 		constant_force = state.total_gravity - thrust.rotated(rotation)
-		get_node("RearThrust").show()
-		get_node("RevThrust").hide()
+		_set_thrust_visuals(true, false)
 		fuel -= fuel_drain * dt
-		if not $ThrustSound.playing:
-			$ThrustSound.play()
 	elif has_fuel and _revthrust_held():
 		constant_force = state.total_gravity + reverse_thrust.rotated(rotation)
-		get_node("RearThrust").hide()
-		get_node("RevThrust").show()
+		_set_thrust_visuals(false, true)
 		fuel -= fuel_drain * dt
-		if not $ThrustSound.playing:
-			$ThrustSound.play()
 	else:
 		constant_force = state.total_gravity
-		get_node("RearThrust").hide()
-		get_node("RevThrust").hide()
-		$ThrustSound.stop()
+		_set_thrust_visuals(false, false)
 
 	fuel = maxf(fuel, 0.0)
 

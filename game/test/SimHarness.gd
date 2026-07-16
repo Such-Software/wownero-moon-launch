@@ -74,6 +74,16 @@ func _report(outcome: String, rocket, frames: int) -> void:
 		fuel = float(rocket.get("fuel"))
 	var cause := ""
 	if outcome == "DEATH":
-		cause = " cause=" + ("hazard" if _hazard_death else "crash")
+		# Prefer the authoritative cause_type computed by rocket.gd's death forensics
+		# (exposed via globalvar.last_death once WP-B3 lands); it correctly resolves
+		# crash-vs-out_of_fuel by crash_body, which the harness cannot observe. Until
+		# then, fall back to the sendDeath signal (hazard) vs a plain collision crash.
+		# Note: we deliberately do NOT infer out_of_fuel from `fuel<=0` — a crash with
+		# an empty tank is a crash, and that guess would over-report out_of_fuel.
+		var cause_type := "hazard" if _hazard_death else "crash"
+		var ld = globalvar.get("last_death")
+		if typeof(ld) == TYPE_DICTIONARY and ld.has("cause_type"):
+			cause_type = String(ld["cause_type"])
+		cause = " cause=" + cause_type
 	print("SIM_RESULT outcome=%s level=%d t=%.2f fuel=%.1f frames=%d%s" % [outcome, globalvar.nowlevel, t, fuel, frames, cause])
 	get_tree().quit()

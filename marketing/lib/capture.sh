@@ -22,7 +22,7 @@ set -euo pipefail
 
 GODOT="${GODOT:-/Applications/Godot.app/Contents/MacOS/Godot}"
 PROJ="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
-RES="${MK_RES:-1280x720}"
+RES="${MK_RES:-1920x1080}"
 
 if [ "$#" -lt 3 ]; then
   echo "usage: capture.sh <res-scene> <out.avi> <quit-after-frames> [godot args...]" >&2
