@@ -11,6 +11,18 @@ extends CanvasLayer
 
 const BS = preload("res://game/gui/ButtonStyles.gd")
 
+## Per-hazard one-liners keyed by the body/hazard name recorded in
+## globalvar.last_death["hazard_name"] (see rocket.gd death forensics).
+const HAZARD_ADVICE := {
+	"Martian": "Martians chase — outrun them or fire back.",
+	"BlackHole": "Black holes pull hard — keep your distance and your speed.",
+	"SolarWind": "Solar wind shoves you off course — thrust across it, not into it.",
+	"Wormhole": "Wormholes fling you far — line up your exit before you enter.",
+	"Mothership": "The mothership hits hard — weave and return fire.",
+	"GammaRay": "Gamma bursts flash then fire — move between the beams.",
+	"Asteroid": "Asteroids drift fast — watch ahead and thread the gaps.",
+}
+
 var _panel: PanelContainer
 var _ad_button: Button
 
@@ -67,6 +79,18 @@ func _build_ui() -> void:
 	subtitle.add_theme_color_override("font_color", Color(0.6, 0.6, 0.8))
 	subtitle.add_theme_font_size_override("font_size", 14)
 	vbox.add_child(subtitle)
+
+	# Death-cause advice (only when we have forensics from this death)
+	var advice_text := _build_advice_text()
+	if advice_text != "":
+		var advice := Label.new()
+		advice.text = advice_text
+		advice.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		advice.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		advice.custom_minimum_size = Vector2(292, 0)
+		advice.add_theme_color_override("font_color", Color(1.0, 0.9, 0.5))
+		advice.add_theme_font_size_override("font_size", 13)
+		vbox.add_child(advice)
 
 	# Separator
 	var sep := HSeparator.new()
@@ -139,6 +163,43 @@ func _build_ui() -> void:
 		var delay := 0.25 + i * 0.1  # after panel starts appearing
 		btn_tw.tween_property(btn, "position:x", final_x, 0.35).set_delay(delay)
 		btn_tw.tween_property(btn, "modulate", Color.WHITE, 0.25).set_delay(delay)
+
+
+## Build a one-line coaching tip from the transient death forensics stashed by
+## rocket.gd. Returns "" when there's nothing to advise (e.g. self-destruct) so
+## the caller simply omits the row.
+func _build_advice_text() -> String:
+	var ld: Dictionary = globalvar.last_death
+	if ld.is_empty():
+		return ""
+	var cause_type: String = ld.get("cause_type", "")
+	# Deliberate self-destruct isn't a mistake to coach — show no advice row.
+	if cause_type == "self_destruct":
+		return ""
+	var speed: float = ld.get("speed", 0.0)
+	var hazard_name: String = ld.get("hazard_name", "")
+	var attempt: int = ld.get("attempt", 0)
+	# Read the actual safe-landing threshold (upgrade/difficulty-adjusted), not a
+	# hardcoded 40 — Help quotes 40 px/s but upgrades and difficulty shift it.
+	var safe_speed: float = globalvar.get_landing_speed()
+	var advice := ""
+	match cause_type:
+		"crash":
+			if speed > safe_speed:
+				advice = "Came in at %d px/s — safe touchdown is under %d. Feather REVERSE on approach." % [int(speed), int(safe_speed)]
+			else:
+				var body: String = ld.get("cause", "that")
+				advice = "You hit %s. Use short thrust bursts to adjust course early — gravity does the rest." % body
+		"out_of_fuel":
+			advice = "Ran dry. Thrust in bursts, coast between them, and grab fuel canisters."
+		"hazard":
+			advice = HAZARD_ADVICE.get(hazard_name, "Slow, upright, and patient wins.")
+		_:
+			advice = "Slow, upright, and patient wins."
+	# Gentle monetization nudge once they're clearly stuck on this level.
+	if attempt >= 3:
+		advice += "\nTip: upgrades in the Shop make this easier."
+	return advice
 
 
 func _on_retry() -> void:

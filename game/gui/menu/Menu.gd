@@ -622,14 +622,21 @@ func _show_options_popup() -> void:
 	add_child(_options_popup)
 
 	_options_popup.set_anchors_preset(Control.PRESET_CENTER)
-	_options_popup.offset_left = -200
-	_options_popup.offset_right = 200
-	_options_popup.offset_top = -220
-	_options_popup.offset_bottom = 220
+	_options_popup.offset_left = -210
+	_options_popup.offset_right = 210
+	_options_popup.offset_top = -250
+	_options_popup.offset_bottom = 250
+
+	# Scroll the content so the expanded control/audio rows never overflow the
+	# panel on shorter viewports (WP-A3 adds several rows).
+	var scroll := ScrollContainer.new()
+	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	_options_popup.add_child(scroll)
 
 	var vbox := VBoxContainer.new()
 	vbox.add_theme_constant_override("separation", 12)
-	_options_popup.add_child(vbox)
+	vbox.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	scroll.add_child(vbox)
 
 	# Title
 	var title := Label.new()
@@ -697,11 +704,6 @@ func _show_options_popup() -> void:
 		ctrl_btn.custom_minimum_size = Vector2(90, 28)
 		BS.apply_space_style(ctrl_btn, Color(0.5, 0.8, 1.0))
 		ctrl_btn.add_theme_font_size_override("font_size", 12)
-		ctrl_btn.pressed.connect(func():
-			globalvar.control_scheme = (globalvar.control_scheme + 1) % 2
-			globalvar.save_game()
-			ctrl_value.text = globalvar.CONTROL_SCHEME_NAMES.get(globalvar.control_scheme, "Tilt")
-		)
 		ctrl_hbox.add_child(ctrl_btn)
 		vbox.add_child(ctrl_hbox)
 
@@ -710,8 +712,102 @@ func _show_options_popup() -> void:
 		ctrl_hint.add_theme_font_size_override("font_size", 11)
 		ctrl_hint.add_theme_color_override("font_color", Color(0.55, 0.65, 0.78))
 		ctrl_hint.autowrap_mode = TextServer.AUTOWRAP_WORD
-		ctrl_hint.custom_minimum_size = Vector2(380, 0)
+		ctrl_hint.custom_minimum_size = Vector2(340, 0)
 		vbox.add_child(ctrl_hint)
+
+		# Tilt sensitivity slider (WP-A3) — visible only in Tilt mode.
+		var tilt_row := VBoxContainer.new()
+		tilt_row.add_theme_constant_override("separation", 4)
+		var tilt_hbox := HBoxContainer.new()
+		tilt_hbox.add_theme_constant_override("separation", 8)
+		var tilt_label := Label.new()
+		tilt_label.text = "Tilt Sensitivity"
+		tilt_label.add_theme_font_size_override("font_size", 13)
+		tilt_label.add_theme_color_override("font_color", Color(0.8, 0.85, 0.9))
+		tilt_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		tilt_hbox.add_child(tilt_label)
+		var tilt_value := Label.new()
+		tilt_value.text = "%.2f" % globalvar.tilt_sensitivity
+		tilt_value.add_theme_font_size_override("font_size", 13)
+		tilt_value.add_theme_color_override("font_color", Color(0.6, 0.9, 1.0))
+		tilt_hbox.add_child(tilt_value)
+		tilt_row.add_child(tilt_hbox)
+		var tilt_slider := HSlider.new()
+		tilt_slider.min_value = 1.0
+		tilt_slider.max_value = 4.0
+		tilt_slider.step = 0.25
+		tilt_slider.value = globalvar.tilt_sensitivity
+		tilt_slider.custom_minimum_size = Vector2(340, 20)
+		tilt_slider.value_changed.connect(func(v: float):
+			globalvar.tilt_sensitivity = v
+			globalvar.save_game()
+			tilt_value.text = "%.2f" % v
+		)
+		tilt_row.add_child(tilt_slider)
+		tilt_row.visible = (globalvar.control_scheme == globalvar.ControlScheme.TILT)
+		vbox.add_child(tilt_row)
+
+		ctrl_btn.pressed.connect(func():
+			globalvar.set_control_scheme((globalvar.control_scheme + 1) % 2)
+			globalvar.save_game()
+			ctrl_value.text = globalvar.CONTROL_SCHEME_NAMES.get(globalvar.control_scheme, "Tilt")
+			tilt_row.visible = (globalvar.control_scheme == globalvar.ControlScheme.TILT)
+		)
+
+	# --- Desktop control glyphs (desktop + gamepad connected) — WP-A3 ---
+	elif Input.get_connected_joypads().size() > 0:
+		var dctrl_label := Label.new()
+		dctrl_label.text = "Controls"
+		dctrl_label.add_theme_font_size_override("font_size", 14)
+		dctrl_label.add_theme_color_override("font_color", Color.ORANGE)
+		vbox.add_child(dctrl_label)
+
+		var dctrl_hbox := HBoxContainer.new()
+		dctrl_hbox.add_theme_constant_override("separation", 8)
+		var dctrl_value := Label.new()
+		dctrl_value.text = globalvar.DESKTOP_CONTROL_NAMES.get(globalvar.desktop_control, "Keyboard")
+		dctrl_value.add_theme_font_size_override("font_size", 13)
+		dctrl_value.add_theme_color_override("font_color", Color(0.6, 0.9, 1.0))
+		dctrl_value.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		dctrl_hbox.add_child(dctrl_value)
+
+		var dctrl_btn := Button.new()
+		dctrl_btn.text = "Change"
+		dctrl_btn.custom_minimum_size = Vector2(90, 28)
+		BS.apply_space_style(dctrl_btn, Color(0.5, 0.8, 1.0))
+		dctrl_btn.add_theme_font_size_override("font_size", 12)
+		dctrl_btn.pressed.connect(func():
+			globalvar.set_desktop_control((globalvar.desktop_control + 1) % 2)
+			globalvar.save_game()
+			dctrl_value.text = globalvar.DESKTOP_CONTROL_NAMES.get(globalvar.desktop_control, "Keyboard")
+		)
+		dctrl_hbox.add_child(dctrl_btn)
+		vbox.add_child(dctrl_hbox)
+
+		var dctrl_hint := Label.new()
+		dctrl_hint.text = "Keyboard and controller both work — this picks which button hints you see."
+		dctrl_hint.add_theme_font_size_override("font_size", 11)
+		dctrl_hint.add_theme_color_override("font_color", Color(0.55, 0.65, 0.78))
+		dctrl_hint.autowrap_mode = TextServer.AUTOWRAP_WORD
+		dctrl_hint.custom_minimum_size = Vector2(340, 0)
+		vbox.add_child(dctrl_hint)
+
+	# --- Audio (all platforms) — WP-A3, Music-only v1 ---
+	var audio_label := Label.new()
+	audio_label.text = "Audio"
+	audio_label.add_theme_font_size_override("font_size", 14)
+	audio_label.add_theme_color_override("font_color", Color.ORANGE)
+	vbox.add_child(audio_label)
+
+	var music_chk := CheckButton.new()
+	music_chk.text = "Music"
+	music_chk.button_pressed = globalvar.music_enabled
+	music_chk.add_theme_font_size_override("font_size", 13)
+	music_chk.add_theme_color_override("font_color", Color(0.8, 0.85, 0.9))
+	music_chk.toggled.connect(func(pressed: bool):
+		globalvar.set_music_enabled(pressed)
+	)
+	vbox.add_child(music_chk)
 
 	# --- Nickname Section ---
 	var nick_label := Label.new()
@@ -1076,14 +1172,28 @@ func _show_first_time_nickname_prompt() -> void:
 	var _argv := OS.get_cmdline_args()
 	if "--capture" in _argv or "--autopilot" in _argv or "--sim" in _argv:
 		return
+	# Adaptive first-run picker (WP-A1). Control section content depends on
+	# platform + connected devices; both option cards are equal weight (no nudge).
+	var is_mob := OS.get_name() == "Android" or OS.get_name() == "iOS"
+	var has_pad := Input.get_connected_joypads().size() > 0
+	# Control section shown on mobile (always) and on desktop with a pad. Desktop
+	# with no pad keeps the original nickname-only welcome.
+	var show_controls := is_mob or has_pad
+
 	var popup := _build_styled_popup(Color(0.5, 0.85, 1.0, 0.7))
 	popup.name = "WelcomePopup"
 	add_child(popup)
 	popup.set_anchors_preset(Control.PRESET_CENTER)
-	popup.offset_left = -220
-	popup.offset_right = 220
-	popup.offset_top = -150
-	popup.offset_bottom = 150
+	if show_controls:
+		popup.offset_left = -240
+		popup.offset_right = 240
+		popup.offset_top = -210
+		popup.offset_bottom = 210
+	else:
+		popup.offset_left = -220
+		popup.offset_right = 220
+		popup.offset_top = -150
+		popup.offset_bottom = 150
 
 	var vbox := VBoxContainer.new()
 	vbox.add_theme_constant_override("separation", 12)
@@ -1096,6 +1206,74 @@ func _show_first_time_nickname_prompt() -> void:
 	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	vbox.add_child(title)
 
+	# Pending control choice; value = -1 means nothing picked yet. Dictionary so
+	# the select/commit closures share one mutable reference.
+	var sel := { "value": -1, "style": "" }
+	var card_btns: Array = []
+	# Created up-front so the select closure can enable it on pick.
+	var start_btn := Button.new()
+
+	if show_controls:
+		var prompt_c := Label.new()
+		prompt_c.text = "How do you want to steer?" if is_mob else "Choose your controls"
+		prompt_c.add_theme_font_size_override("font_size", 15)
+		prompt_c.add_theme_color_override("font_color", Color(0.85, 0.9, 0.95))
+		prompt_c.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		vbox.add_child(prompt_c)
+
+		var opts: Array = []
+		if is_mob:
+			opts = [
+				{ "emoji": "📱", "title": "Tilt", "sub": "Roll your phone to turn", "value": globalvar.ControlScheme.TILT, "style": "tilt" },
+				{ "emoji": "🕹", "title": "Joystick", "sub": "On-screen stick", "value": globalvar.ControlScheme.JOYSTICK, "style": "joystick" },
+			]
+		else:
+			opts = [
+				{ "emoji": "⌨", "title": "Keyboard", "sub": "Arrow keys + Space", "value": globalvar.DesktopControl.KEYBOARD, "style": "keyboard" },
+				{ "emoji": "🎮", "title": "Gamepad", "sub": "Stick + buttons", "value": globalvar.DesktopControl.GAMEPAD, "style": "gamepad" },
+			]
+
+		var cards_row := HBoxContainer.new()
+		cards_row.alignment = BoxContainer.ALIGNMENT_CENTER
+		cards_row.add_theme_constant_override("separation", 14)
+		vbox.add_child(cards_row)
+
+		# Selecting highlights the chosen card and enables Start.
+		var select := func(idx: int) -> void:
+			sel["value"] = opts[idx]["value"]
+			sel["style"] = opts[idx]["style"]
+			for i in card_btns.size():
+				card_btns[i].modulate = Color.WHITE if i == idx else Color(0.6, 0.63, 0.7)
+			start_btn.disabled = false
+
+		for i in opts.size():
+			var opt: Dictionary = opts[i]
+			var card := Button.new()
+			card.custom_minimum_size = Vector2(200, 100)
+			# Emoji / title / subtitle on three lines. No autowrap (kept off the
+			# Button API): the card is sized so the longest subtitle fits one line.
+			card.text = "%s\n%s\n%s" % [opt["emoji"], opt["title"], opt["sub"]]
+			card.add_theme_font_size_override("font_size", 13)
+			BS.apply_space_style(card, Color(0.5, 0.85, 1.0))
+			card.modulate = Color(0.6, 0.63, 0.7)
+			var idx := i
+			card.pressed.connect(func() -> void: select.call(idx))
+			card_btns.append(card)
+			cards_row.add_child(card)
+
+		# Desktop: keyboard is a safe default — pre-select it (Start stays
+		# enabled). Mobile: NO default — Start disabled until one is tapped.
+		if not is_mob:
+			select.call(0)
+
+		var footer := Label.new()
+		footer.text = "Change anytime in Options or Pause."
+		footer.add_theme_font_size_override("font_size", 11)
+		footer.add_theme_color_override("font_color", Color(0.55, 0.6, 0.7))
+		footer.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		vbox.add_child(footer)
+
+	# --- Nickname (optional) ---
 	var prompt := Label.new()
 	prompt.text = "Enter your pilot nickname"
 	prompt.add_theme_font_size_override("font_size", 14)
@@ -1113,39 +1291,50 @@ func _show_first_time_nickname_prompt() -> void:
 	var line_edit := _build_styled_nickname_line_edit("")
 	vbox.add_child(line_edit)
 
-	var start_btn := Button.new()
 	start_btn.text = "Start Game"
 	start_btn.custom_minimum_size = Vector2(180, 36)
 	BS.apply_space_style(start_btn, Color.GREEN)
 	start_btn.add_theme_font_size_override("font_size", 14)
-	var commit := func():
+	# Mobile with an unpicked control section: disabled until a card is tapped
+	# (the anti-churn point — tilt must not be a silent default).
+	start_btn.disabled = (show_controls and is_mob and int(sel["value"]) < 0)
+	var commit := func() -> void:
 		var cleaned := line_edit.text.strip_edges().left(20)
 		if cleaned != "":
 			globalvar.nickname = cleaned
+		if show_controls and int(sel["value"]) >= 0:
+			if is_mob:
+				globalvar.set_control_scheme(int(sel["value"]))
+			else:
+				globalvar.set_desktop_control(int(sel["value"]))
+			# Learn the real control split.
+			Analytics.event("control_scheme_chosen", { "style": sel["style"] })
 		globalvar.welcome_shown = true
 		globalvar.save_game()
 		popup.queue_free()
-	start_btn.pressed.connect(commit)
-	line_edit.text_submitted.connect(func(_t): commit.call())
+	start_btn.pressed.connect(func() -> void:
+		if not start_btn.disabled:
+			commit.call()
+	)
+	line_edit.text_submitted.connect(func(_t):
+		if not start_btn.disabled:
+			commit.call()
+	)
 	var btn_row := HBoxContainer.new()
 	btn_row.alignment = BoxContainer.ALIGNMENT_CENTER
 	btn_row.add_child(start_btn)
 	vbox.add_child(btn_row)
 
-	# On mobile, pin the popup to the TOP of the screen and auto-focus the
-	# field. The landscape on-screen keyboard covers the bottom ~half, so a
-	# centered popup put the field under it; tapping to focus was also
-	# unreliable on iPhone (a tester saw no keyboard at all). Top-anchored +
-	# grab_focus reliably raises the keyboard with the field above it; the
-	# keyboard return key submits (text_submitted -> commit).
-	if OS.get_name() == "Android" or OS.get_name() == "iOS":
+	# On mobile, top-anchor so the (optional) on-screen keyboard doesn't cover
+	# the field if the player taps it. Do NOT auto-grab focus here — the control
+	# cards must stay visible/tappable (raising the keyboard would hide them).
+	if is_mob:
 		vbox.add_theme_constant_override("separation", 8)
 		popup.set_anchors_preset(Control.PRESET_CENTER_TOP)
-		popup.offset_left = -220
-		popup.offset_right = 220
+		popup.offset_left = -240
+		popup.offset_right = 240
 		popup.offset_top = 8
-		popup.offset_bottom = 250
-		line_edit.call_deferred("grab_focus")
+		popup.offset_bottom = 430
 
 
 func _show_nickname_edit_popup(nick_label: Label) -> void:

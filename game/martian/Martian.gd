@@ -34,6 +34,7 @@ func _physics_process(_delta):
 	for i in get_slide_collision_count():
 		var collision = get_slide_collision(i)
 		if collision.get_collider().name == "Rocket":
+			globalvar.pending_hazard_name = "Martian"
 			globalvar.sendDeath.emit()
 			return
 

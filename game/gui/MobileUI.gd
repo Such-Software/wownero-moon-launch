@@ -24,6 +24,9 @@ var _emp_btn: Control = null
 var _fuel_bar: Control = null
 var _wallet_hud: Control = null
 var _debug_overlay: Control = null
+var _target_arrow: Control = null
+var _pause_controls_btn: Button = null
+var _highlight_tweens: Dictionary = {}
 
 # List of old TouchScreenButton node names to hide/disable
 var _touch_button_names := ["left", "right", "up", "down", "menu"]
@@ -56,6 +59,14 @@ func _ready() -> void:
 
 	# HUD widgets — always visible on all platforms
 	_setup_hud()
+
+	# Live control-scheme hot-swap (WP-A2): joystick visibility + tilt
+	# recalibration update the instant the setting changes, no level reload.
+	globalvar.control_scheme_changed.connect(_on_control_scheme_changed)
+	# Gamepad hotplug (desktop): one-time hint + reveal the pause Controls row.
+	Input.joy_connection_changed.connect(_on_joy_connection_changed)
+	# Pause popup Controls row (mobile cycles scheme, desktop cycles glyphs).
+	_setup_pause_controls_row()
 
 
 func _setup_pause_button() -> void:
@@ -212,6 +223,102 @@ func _setup_hud() -> void:
 	add_child(_debug_overlay)
 	_debug_overlay.position = Vector2(400, 10)
 
+	# Off-screen target arrow (WP-B2). Guarded so this compiles/runs before B2
+	# lands the script — mounts full-rect on this HUD CanvasLayer.
+	const TARGET_ARROW_PATH := "res://game/gui/hud/TargetArrow.gd"
+	if ResourceLoader.exists(TARGET_ARROW_PATH):
+		_target_arrow = Control.new()
+		_target_arrow.set_script(load(TARGET_ARROW_PATH))
+		_target_arrow.name = "TargetArrow"
+		_target_arrow.set_anchors_preset(Control.PRESET_FULL_RECT)
+		_target_arrow.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		add_child(_target_arrow)
+
+
+# --- Live control-scheme hot-swap (WP-A2) ---
+
+func _on_control_scheme_changed() -> void:
+	## Fired whenever control_scheme / desktop_control changes. Update the
+	## joystick live (fixes the one-shot at _setup_mobile:97) and re-calibrate the
+	## tilt baseline when tilt just became the active input, so there's no stuck
+	## turn from a stale hold position.
+	if _joystick and is_instance_valid(_joystick):
+		_joystick.visible = (globalvar.control_scheme != globalvar.ControlScheme.TILT)
+	if globalvar.active_input_hint() == globalvar.InputHint.TILT:
+		var rocket := get_tree().get_first_node_in_group("rocket")
+		if rocket and rocket.has_method("_calibrate_tilt"):
+			rocket.call("_calibrate_tilt")
+	_refresh_pause_controls_row()
+
+
+func _on_joy_connection_changed(_device: int, connected: bool) -> void:
+	## Desktop gamepad hotplug: first connect while still on KEYBOARD surfaces a
+	## one-time hint pointing at Pause/Options. Also reveals the pause row.
+	if not is_mobile and connected and globalvar.desktop_control == globalvar.DesktopControl.KEYBOARD:
+		var hs := get_node_or_null("/root/HintService")
+		if hs:
+			hs.show_hint("gamepad_detected", "Controller detected — switch to gamepad in Pause/Options")
+	_refresh_pause_controls_row()
+
+
+# --- Coach-mark highlight (WP-B1 calls this) ---
+
+func highlight(btn_name: String, on: bool) -> void:
+	## Pulse-scale an on-screen control to draw the eye. Accepts "thrust",
+	## "revthrust"/"reverse", or "joystick". No-op if that control isn't present.
+	var node: Control = null
+	match btn_name:
+		"thrust": node = _thrust_btn
+		"revthrust", "reverse": node = _reverse_btn
+		"joystick": node = _joystick
+	if node == null or not is_instance_valid(node):
+		return
+	var existing = _highlight_tweens.get(btn_name)
+	if existing and existing.is_valid():
+		existing.kill()
+	_highlight_tweens.erase(btn_name)
+	if not on:
+		node.scale = Vector2.ONE
+		return
+	node.pivot_offset = node.size / 2.0
+	var t := create_tween().set_loops()
+	t.tween_property(node, "scale", Vector2(1.18, 1.18), 0.4).set_trans(Tween.TRANS_SINE)
+	t.tween_property(node, "scale", Vector2.ONE, 0.4).set_trans(Tween.TRANS_SINE)
+	_highlight_tweens[btn_name] = t
+
+
+# --- Pause popup Controls row (WP-A2) ---
+
+func _setup_pause_controls_row() -> void:
+	_pause_controls_btn = get_node_or_null("popupMenu/Controls") as Button
+	if _pause_controls_btn == null:
+		return
+	BS.apply_space_style(_pause_controls_btn, Color(0.5, 0.8, 1.0))
+	_pause_controls_btn.pressed.connect(_on_pause_controls_pressed)
+	_refresh_pause_controls_row()
+
+
+func _refresh_pause_controls_row() -> void:
+	if _pause_controls_btn == null or not is_instance_valid(_pause_controls_btn):
+		return
+	if is_mobile:
+		# Mobile always cycles Tilt / Joystick.
+		_pause_controls_btn.visible = true
+		_pause_controls_btn.text = "Controls: %s" % globalvar.CONTROL_SCHEME_NAMES.get(globalvar.control_scheme, "Tilt")
+	else:
+		# Desktop: only meaningful (and only shown) when a controller is connected.
+		_pause_controls_btn.visible = Input.get_connected_joypads().size() > 0
+		_pause_controls_btn.text = "Controls: %s" % globalvar.DESKTOP_CONTROL_NAMES.get(globalvar.desktop_control, "Keyboard")
+
+
+func _on_pause_controls_pressed() -> void:
+	if is_mobile:
+		globalvar.set_control_scheme((globalvar.control_scheme + 1) % 2)
+	else:
+		globalvar.set_desktop_control((globalvar.desktop_control + 1) % 2)
+	globalvar.save_game()
+	_refresh_pause_controls_row()
+
 
 func _unhandled_input(event: InputEvent) -> void:
 	# Escape key toggles pause menu on any platform
@@ -255,6 +362,7 @@ func _on_down_released():
 
 func _on_menu_pressed():
 	get_tree().paused = true
+	_refresh_pause_controls_row()
 	var popup := $popupMenu
 	var vp := get_viewport().get_visible_rect().size
 	var sz: Vector2 = popup.get_combined_minimum_size()

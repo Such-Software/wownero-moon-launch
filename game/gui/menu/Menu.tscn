@@ -7,6 +7,14 @@
 [ext_resource type="Texture2D" uid="uid://bmer0dr5o1w5u" path="res://art/ship/rocket.png" id="5"]
 [ext_resource type="Texture2D" uid="uid://crwtp8q32dvoh" path="res://art/planets/1311069131-800px.png" id="6"]
 [ext_resource type="AudioStream" uid="uid://cc1a6e8eqn1vg" path="res://art/audio/introwavybgm.ogg" id="7"]
+[ext_resource type="Shader" uid="uid://dssia7wcexeve" path="res://game/starfield.gdshader" id="8"]
+
+[sub_resource type="ShaderMaterial" id="ShaderMaterial_starfield"]
+shader = ExtResource("8")
+shader_parameter/star_density = 0.014
+shader_parameter/twinkle_speed = 1.8
+shader_parameter/brightness = 1.7
+shader_parameter/scroll_offset = Vector2(0, 0)
 
 [sub_resource type="FontVariation" id="FontVariation_25"]
 base_font = ExtResource("3")
@@ -62,6 +70,7 @@ grow_vertical = 2
 script = ExtResource("2")
 
 [node name="SpaceBG" type="Sprite2D" parent="." unique_id=1905961611]
+material = SubResource("ShaderMaterial_starfield")
 position = Vector2(503, 291)
 scale = Vector2(1.08008, 1)
 texture = ExtResource("1")

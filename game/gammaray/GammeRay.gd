@@ -37,6 +37,7 @@ func _physics_process(_delta):
 		$CollisionParticles2D.position = cast_point
 		var collider = get_collider()
 		if collider and collider.name == 'Rocket':
+			globalvar.pending_hazard_name = "GammaRay"
 			globalvar.sendDeath.emit()
 		# Stop extending when blocked by a planet (StaticBody2D)
 		if collider and collider is StaticBody2D and collider.name != 'Rocket':

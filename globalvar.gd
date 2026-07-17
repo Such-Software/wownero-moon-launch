@@ -5,6 +5,12 @@ extends Node
 # --- Signals ---
 signal sendDeath
 signal wallet_changed(new_total: int)
+## Emitted whenever the control-hint preference changes — either the mobile
+## control_scheme or the desktop_control. Live listeners (MobileUI joystick
+## visibility, tilt recalibration, tutorial/HUD glyphs) refresh on this instead
+## of only at level load. ALWAYS write those settings via set_control_scheme()/
+## set_desktop_control() so this fires.
+signal control_scheme_changed
 
 # --- Level state ---
 var nowlevel: int = 1
@@ -38,9 +44,50 @@ enum ControlScheme { TILT, JOYSTICK }
 var control_scheme: int = ControlScheme.TILT
 const CONTROL_SCHEME_NAMES := { 0: "Tilt", 1: "Joystick" }
 
+# --- Desktop control preference ---
+# On desktop BOTH keyboard and gamepad inputs stay live at once. This setting
+# only chooses which control HINTS/glyphs to show (tutorial text, Help, coach
+# marks, death advice). Default KEYBOARD — a safe default, not a nudge (WP-A1).
+enum DesktopControl { KEYBOARD, GAMEPAD }
+var desktop_control: int = DesktopControl.KEYBOARD
+const DESKTOP_CONTROL_NAMES := { 0: "Keyboard", 1: "Gamepad" }
+
+# --- Input-hint resolver ---
+# Single source of truth for "which control style are we teaching right now?".
+# Every place that branches control-instruction text (tutorial, Help, coach
+# marks, death advice) must call active_input_hint() instead of re-deriving
+# is_mobile/control_scheme inline.
+enum InputHint { KEYBOARD, GAMEPAD, TILT, TOUCH_JOYSTICK }
+
+func active_input_hint() -> int:
+	## Resolve the active control-hint style from platform + the two settings.
+	var os := OS.get_name()
+	if os == "Android" or os == "iOS":
+		if control_scheme == ControlScheme.TILT:
+			return InputHint.TILT
+		return InputHint.TOUCH_JOYSTICK
+	# Desktop (and Web-on-desktop): both inputs live; the setting picks glyphs.
+	if desktop_control == DesktopControl.GAMEPAD:
+		return InputHint.GAMEPAD
+	return InputHint.KEYBOARD
+
+# --- Control-setting writers (emit control_scheme_changed) ---
+# Route ALL runtime writes to control_scheme / desktop_control through these so
+# live listeners stay in sync. Bulk state loads (_apply_save_data /
+# reset_progress) assign directly since no listener is connected yet there.
+func set_control_scheme(scheme: int) -> void:
+	control_scheme = scheme
+	control_scheme_changed.emit()
+
+func set_desktop_control(mode: int) -> void:
+	desktop_control = mode
+	control_scheme_changed.emit()
+
 ## Tilt sensitivity — multiplier on normalized tilt [-1..1] from calibrated
 ## baseline. Lower = needs more tilt for max steering. Tuned for ~30° = full.
-const TILT_SENSITIVITY := 2.0
+## Now a runtime setting (Options slider, range 1.0–4.0); DEFAULT anchors it.
+const TILT_SENSITIVITY_DEFAULT := 2.0
+var tilt_sensitivity := TILT_SENSITIVITY_DEFAULT
 ## Deadzone — tilt amounts smaller than this register as zero. The low-pass
 ## filter handles sensor jitter, so this can be tight: 0.02 ≈ 1.1°.
 const TILT_DEADZONE := 0.02
@@ -73,6 +120,27 @@ const IOS_TILT_POLARITY := 1.0
 ## Device-verified on a moto g (2025): -1.0 is correct (gravity.y the discriminator,
 ## delta.x the steer). +1.0 inverts BOTH landscapes.
 const ANDROID_TILT_POLARITY := -1.0
+
+# --- Audio settings ---
+# Music-only toggle for v1 (SFX toggle deferred — a second "SFX" bus + explicit
+# per-node routing would sprawl across many scenes not owned by this WP; tracked
+# for a follow-up). A dedicated "Music" bus is created at startup and every
+# background-music player (streams under res://art/audio/*bgm*) is auto-routed
+# onto it via node_added, so muting the bus silences BGM everywhere without
+# editing each scene.
+var music_enabled := true
+const MUSIC_BUS_NAME := "Music"
+var _music_bus_idx := -1
+
+# --- Death forensics (transient, NOT persisted) ---
+# Populated by rocket.gd at death time (WP-B3) so the death screen can give
+# cause-specific advice. Stays empty on edge cases (e.g. self-destruct) so the
+# death screen can suppress the advice row instead of showing a stale one.
+var last_death: Dictionary = {}
+# Set by a hazard (Martian/GammaRay/BlackHole) to its canonical name immediately
+# before emitting sendDeath, so death() can name the killer (crash_body is null on
+# the signal path). Consumed + cleared in death(); reset each level.
+var pending_hazard_name := ""
 
 ## Spawn interval multiplier (higher = slower spawns = easier)
 func get_spawn_interval_mult() -> float:
@@ -531,6 +599,9 @@ func reset_level_stats() -> void:
 	level_crypto_collected = 0
 	level_fuel_remaining = 0.0
 	level_easy_bounce_used = false
+	# Clear stale death forensics so a prior level's death can't surface on this one.
+	last_death = {}
+	pending_hazard_name = ""
 	checkpoint_position = Vector2.ZERO
 	checkpoint_velocity = Vector2.ZERO
 	checkpoint_fuel = 0.0
@@ -578,10 +649,17 @@ func _ready():
 	if OS.get_name() == "Web":
 		ThemeDB.fallback_font = load("res://fonts/Computer Speak v0.3.ttf")
 
+	# Route background-music players onto a dedicated "Music" bus as they enter
+	# the tree, so the Options music toggle works in every scene without editing
+	# each one. Connected before the main scene loads so the menu BGM is caught.
+	get_tree().node_added.connect(_on_scene_node_added)
+
 	# One-shot migration from the old "Wownero Moon Launch" save dir (if any)
 	# must run before load_game so the legacy file is in place to be read.
 	_migrate_legacy_save()
 	load_game()
+	# Music bus + saved mute state (after load so music_enabled is applied).
+	_setup_audio_buses()
 	# Ensure device has a UUID (generated once, persisted forever)
 	if device_uuid == "":
 		device_uuid = _generate_uuid()
@@ -628,6 +706,41 @@ func _generate_uuid() -> String:
 	parts[8] = "%02x" % ((int("0x" + parts[8]) & 0x3F) | 0x80)
 	return "%s%s%s%s-%s%s-%s%s-%s%s-%s%s%s%s%s%s" % parts
 
+# --- Audio bus setup / music toggle ---
+func _setup_audio_buses() -> void:
+	## Create a dedicated "Music" bus (routing to Master) if missing, then apply
+	## the saved music_enabled state. BGM players are moved onto this bus by
+	## _on_scene_node_added() as they enter the tree.
+	_music_bus_idx = AudioServer.get_bus_index(MUSIC_BUS_NAME)
+	if _music_bus_idx < 0:
+		AudioServer.add_bus()
+		_music_bus_idx = AudioServer.get_bus_count() - 1
+		AudioServer.set_bus_name(_music_bus_idx, MUSIC_BUS_NAME)
+		AudioServer.set_bus_send(_music_bus_idx, "Master")
+	_apply_music_setting()
+
+func _apply_music_setting() -> void:
+	if _music_bus_idx < 0:
+		_music_bus_idx = AudioServer.get_bus_index(MUSIC_BUS_NAME)
+	if _music_bus_idx >= 0:
+		AudioServer.set_bus_mute(_music_bus_idx, not music_enabled)
+
+func set_music_enabled(enabled: bool) -> void:
+	music_enabled = enabled
+	_apply_music_setting()
+	save_game()
+
+func _on_scene_node_added(node: Node) -> void:
+	## Auto-route background-music players onto the Music bus so the toggle works
+	## in every scene without per-scene edits. Matches BGM by stream path (the
+	## four BGM oggs are res://art/audio/*bgm*.ogg).
+	if node is AudioStreamPlayer:
+		var player := node as AudioStreamPlayer
+		var stream := player.stream
+		if stream != null and "bgm" in stream.resource_path:
+			player.bus = MUSIC_BUS_NAME
+
+
 func get_save_data() -> Dictionary:
 	## Returns the full save-state dictionary (used by local save and cloud save).
 	return {
@@ -645,6 +758,9 @@ func get_save_data() -> Dictionary:
 		"seen_hints": seen_hints.duplicate(),
 		"difficulty": difficulty,
 		"control_scheme": control_scheme,
+		"desktop_control": desktop_control,
+		"tilt_sensitivity": tilt_sensitivity,
+		"music_enabled": music_enabled,
 		"selected_skin": selected_skin,
 		"owned_skins": owned_skins.duplicate(),
 		"endless_best_wave": endless_best_wave,
@@ -717,6 +833,11 @@ func _apply_save_data(data: Dictionary) -> void:
 			seen_hints.append(str(h))
 	difficulty = int(data.get("difficulty", Difficulty.NORMAL))
 	control_scheme = int(data.get("control_scheme", ControlScheme.TILT))
+	# New A1/A3 settings — default for legacy saves that predate them.
+	desktop_control = int(data.get("desktop_control", DesktopControl.KEYBOARD))
+	tilt_sensitivity = float(data.get("tilt_sensitivity", TILT_SENSITIVITY_DEFAULT))
+	music_enabled = bool(data.get("music_enabled", true))
+	_apply_music_setting()
 	selected_skin = str(data.get("selected_skin", "default"))
 	var saved_skins = data.get("owned_skins", ["default"])
 	if saved_skins is Array:
@@ -763,6 +884,10 @@ func reset_progress() -> void:
 
 	difficulty = Difficulty.NORMAL
 	control_scheme = ControlScheme.TILT
+	desktop_control = DesktopControl.KEYBOARD
+	tilt_sensitivity = TILT_SENSITIVITY_DEFAULT
+	music_enabled = true
+	_apply_music_setting()
 
 	wallet = 0
 	for key in upgrades.keys():

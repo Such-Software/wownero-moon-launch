@@ -1,5 +1,10 @@
 extends RigidBody2D
 
+## Emitted when the player completes a gravity slingshot (gains >= threshold speed
+## swinging past a body). WP-B1's Level 1 tutorial listens for this to advance the
+## slingshot step when it actually happens.
+signal slingshot_achieved(speed_gain: float)
+
 # Ship control variables — base values overridden by upgrades in _ready()
 var thrust = Vector2(0, 350)
 var reverse_thrust = Vector2(0, 350)
@@ -460,7 +465,7 @@ func _integrate_forces(state):
 			tilt = globalvar.ANDROID_TILT_POLARITY * land * delta.x / 9.81
 		if absf(tilt) < globalvar.TILT_DEADZONE:
 			tilt = 0.0
-		var ctrl := clampf(tilt * globalvar.TILT_SENSITIVITY, -1.0, 1.0)
+		var ctrl := clampf(tilt * globalvar.tilt_sensitivity, -1.0, 1.0)
 		if globalvar.TILT_USE_TORQUE:
 			constant_torque = torque * ctrl
 		else:
@@ -632,6 +637,19 @@ func _capture_initial_dist() -> void:
 		_initial_target_dist = (target.global_position - global_position).length()
 
 
+func _canonical_hazard(n: String) -> String:
+	## Normalize a hazard node name to the canonical key DeathScreen.HAZARD_ADVICE uses:
+	## strip trailing instance digits (Martian2 -> Martian) and fold known aliases.
+	var s := n
+	while s.length() > 0 and s.substr(s.length() - 1, 1).is_valid_int():
+		s = s.substr(0, s.length() - 1)
+	match s:
+		"GammeRay", "GammaRay": return "GammaRay"
+		"OrbitingAsteroid", "Asteroid": return "Asteroid"
+		"Hull", "Mothership": return "Mothership"
+		_: return s
+
+
 func death(crash_body: Node2D = null):
 	# Easy-mode second-chance bounce: if the player is about to crash into a
 	# planet/moon/asteroid and they haven't used their bounce this attempt, kick
@@ -650,15 +668,22 @@ func death(crash_body: Node2D = null):
 		_dist = (target.global_position - global_position).length()
 	var _t_into: float = (float(Time.get_ticks_msec() - _level_start_ms) / 1000.0) if _level_start_ms > 0 else 0.0
 	var _hazard_name: String = ""
-	var _cause_type: String = "hazard"
+	var _cause_type: String = ""
 	if crash_body and is_instance_valid(crash_body):
 		var _bn: String = crash_body.get_name()
 		if crash_body.is_in_group("hazard") or _bn in ["Martian", "BlackHole", "Wormhole", "SolarWind", "Mothership"]:
-			_cause_type = "hazard"; _hazard_name = _bn
+			_cause_type = "hazard"; _hazard_name = _canonical_hazard(_bn)
 		else:
 			_cause_type = "crash"
+	elif globalvar.pending_hazard_name != "":
+		# Killed by a hazard that fired sendDeath (no crash_body on that path).
+		_cause_type = "hazard"; _hazard_name = _canonical_hazard(globalvar.pending_hazard_name)
 	elif fuel <= 0.0:
 		_cause_type = "out_of_fuel"
+	else:
+		# No crash body, no hazard signal, tank not empty -> deliberate self-destruct.
+		_cause_type = "self_destruct"
+	globalvar.pending_hazard_name = ""
 	var _pct: float = 0.0
 	if _initial_target_dist > 0.0 and _dist >= 0.0:
 		_pct = clampf(1.0 - _dist / _initial_target_dist, 0.0, 1.0)
@@ -678,6 +703,19 @@ func death(crash_body: Node2D = null):
 	# Bucketed funnel row -> Firebase/GA4.
 	Analytics.level_death(globalvar.nowlevel, _cause_type, _hazard_name, _pct,
 		maxf(_dist, 0.0), _spd, _fuel_frac, _t_into, globalvar.level_attempt)
+	# Transient forensics for the death screen advice (NOT persisted). Same fields.
+	globalvar.last_death = {
+		"level": globalvar.nowlevel,
+		"cause": crash_body.get_name() if (crash_body and is_instance_valid(crash_body)) else "hazard",
+		"cause_type": _cause_type,
+		"hazard_name": _hazard_name,
+		"speed": _spd,
+		"fuel_frac": _fuel_frac,
+		"dist_to_target": _dist,
+		"time_into_level": _t_into,
+		"attempt": globalvar.level_attempt,
+		"pct_through": _pct,
+	}
 	# Restore normal time if in slow-mo
 	if _in_slowmo:
 		_in_slowmo = false
@@ -1042,6 +1080,7 @@ func _get_gravity_radius(body: Node2D) -> float:
 
 func _spawn_slingshot_effect(_planet_pos: Vector2, speed_gain: float) -> void:
 	## Visual + audio feedback for a successful gravity slingshot.
+	slingshot_achieved.emit(speed_gain)
 	# Haptic feedback
 	Input.vibrate_handheld(50)
 	# Floating "SLINGSHOT!" label

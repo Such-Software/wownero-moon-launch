@@ -89,6 +89,14 @@ theme_override_font_sizes/font_size = 20
 text = "Resume"
 flat = true
 
+[node name="Controls" type="Button" parent="popupMenu" unique_id=437746209]
+custom_minimum_size = Vector2(164, 42)
+layout_mode = 2
+theme_override_fonts/font = SubResource("FontVar_default")
+theme_override_font_sizes/font_size = 20
+text = "Controls: Tilt"
+flat = true
+
 [node name="Restart" type="Button" parent="popupMenu" unique_id=437746208]
 custom_minimum_size = Vector2(164, 42)
 layout_mode = 2

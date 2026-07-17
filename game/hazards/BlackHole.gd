@@ -88,5 +88,6 @@ func _draw() -> void:
 func _on_kill_entered(body: Node2D) -> void:
 	if body.is_in_group("rocket"):
 		# Instant death — trigger via globalvar signal
+		globalvar.pending_hazard_name = "BlackHole"
 		globalvar.sendDeath.emit()
 		Input.vibrate_handheld(300)
