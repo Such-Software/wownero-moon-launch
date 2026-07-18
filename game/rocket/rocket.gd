@@ -369,6 +369,10 @@ func _steer_axis() -> float:
 func _is_tilt_mode() -> bool:
 	if ai_controlled:
 		return false
+	# During a "Watch a demo" run (WP-B5) the heuristic pilot drives via global
+	# Input (ui_left/ui_right); tilt mode would ignore those, so bypass it.
+	if globalvar.demo_mode:
+		return false
 	if globalvar.control_scheme != globalvar.ControlScheme.TILT:
 		return false
 	var os := OS.get_name()

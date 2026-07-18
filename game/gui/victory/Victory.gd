@@ -35,6 +35,17 @@ var _rate_prompt_panel: PanelContainer = null
 
 
 func _ready():
+	# WP-B5: an untouched "Watch a demo flight" that actually LANDS must mark NO
+	# progress — no best time/stars, no tutorial_shown, no score/telemetry, no
+	# celebration. Tear the demo down (clears demo_mode + banner, fires
+	# demo_watched(took_over=false)) and return straight to the menu. Once the
+	# player takes over, demo_mode is already false and this branch is skipped, so
+	# their real landing records normally.
+	if globalvar.demo_mode:
+		AutoPilot.stop_demo(false)
+		get_tree().change_scene_to_file("res://game/gui/menu/Menu.tscn")
+		return
+
 	# Center the 1024x600 layout within the actual viewport
 	var vp := get_viewport_rect().size
 	position = Vector2((vp.x - 1024) / 2.0, (vp.y - 600) / 2.0)

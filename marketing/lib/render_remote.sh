@@ -24,6 +24,10 @@
 #                     GPU-backed X display (e.g. such-aigen-one / 1080 Ti) = hardware GPU.
 #   RENDER_XAUTH      X auth file for RENDER_DISPLAY (default: /var/run/lightdm/root/:0)
 #   MK_RES            capture resolution        (default: 1920x1080 -- 1080p)
+#   SML_PORTRAIT      1 = native 9:16 portrait take (1080x1920). See the PORTRAIT note
+#                     below and marketing/README.md -- FRAMING is not solved by this flag
+#                     alone (the game is landscape-locked; use the such-graphics
+#                     marketing-camera override for usable portrait framing).
 #   SML_SEED          RNG seed for a repeatable take (default: 1337 -- captures are seeded)
 #   SML_RL_DETERMINISTIC  1 = greedy RL policy (default under capture); set "" for variance
 set -euo pipefail
@@ -33,7 +37,28 @@ HOST="${RENDER_HOST:-deb}"
 REMOTE_DIR="${RENDER_REMOTE_DIR:-moonlaunch-render}"
 GODOT_REMOTE="${GODOT_REMOTE:-\$HOME/godot/Godot_v4.6.1-stable_linux.x86_64}"
 DRIVER="${GODOT_DRIVER:-}"
-RES="${MK_RES:-1920x1080}"   # 1080p end-to-end; override for a faster/smaller take
+# Default capture resolution. SML_PORTRAIT=1 flips the default to native 9:16
+# (1080x1920) so the assembled MP4 stays portrait end-to-end (MK_OUT_RES is forwarded
+# as $RES below, so assembly normalizes to this size with NO letterbox/upscale added by
+# assemble.sh). An explicit MK_RES always wins over the SML_PORTRAIT default.
+#
+# IMPORTANT -- PORTRAIT FRAMING IS NOT SOLVED BY THIS FLAG ALONE. The game is
+# landscape-LOCKED (globalvar.gd:639 forces DisplayServer.SCREEN_SENSOR_LANDSCAPE on
+# mobile; project.godot window/handheld/orientation=4). The in-game Camera2D lives on
+# the rocket and is authored for a landscape viewport, so a 1080x1920 window renders the
+# same landscape framing into a tall frame -- the playfield ends up narrow with dead
+# vertical space (effectively self-letterboxed), not a real portrait composition. To get
+# usable portrait framing (rocket + target in frame through the slingshot) you need a
+# TEMPORARY marketing-camera override that re-zooms/re-centers the rocket Camera2D for
+# the portrait aspect. ~/src/such-graphics already ships that override -- see the
+# "Native portrait 9:16" section of marketing/README.md for the one-liner path and the
+# port-into-this-repo plan. Treat SML_PORTRAIT here as the resolution/assembly STARTING
+# point that the camera override plugs into.
+if [ -n "${SML_PORTRAIT:-}" ]; then
+  RES="${MK_RES:-1080x1920}"   # native 9:16; framing still needs the marketing camera (see above)
+else
+  RES="${MK_RES:-1920x1080}"   # 1080p end-to-end; override for a faster/smaller take
+fi
 
 LEVEL="${1:-1}"; DURATION="${2:-15}"; OUT_BASE="${3:-out/remote_level_${LEVEL}}"
 FRAMES=$((DURATION * 60))

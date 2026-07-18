@@ -132,6 +132,9 @@ func _setup_mobile() -> void:
 		_fire_btn.name = "FireBtn"
 		add_child(_fire_btn)
 		_fire_btn.position = Vector2(20, vp.y - 260)
+		# First-encounter weapon hints (WP-B4). One-time, keyed + capture-gated by
+		# HintService — fire the first time each weapon button actually appears.
+		HintService.show_hint("weapon_cannon", "CANNON armed — tap to fire")
 
 	# Weapon buttons — stack vertically on right side above thrust buttons
 	var weapon_y := vp.y - 320
@@ -147,6 +150,7 @@ func _setup_mobile() -> void:
 		add_child(_missile_btn)
 		_missile_btn.position = Vector2(vp.x - 174, weapon_y)
 		weapon_y -= 68.0
+		HintService.show_hint("weapon_missile", "MISSILE armed — tap to fire")
 
 	if globalvar.upgrades.get("laser", 0) > 0:
 		_laser_btn = Control.new()
@@ -159,6 +163,7 @@ func _setup_mobile() -> void:
 		add_child(_laser_btn)
 		_laser_btn.position = Vector2(vp.x - 174, weapon_y)
 		weapon_y -= 68.0
+		HintService.show_hint("weapon_laser", "LASER armed — tap to fire")
 
 	if globalvar.upgrades.get("emp", 0) > 0:
 		_emp_btn = Control.new()
@@ -171,6 +176,7 @@ func _setup_mobile() -> void:
 		_emp_btn.set("ammo_count", globalvar.upgrades.get("emp", 0))
 		add_child(_emp_btn)
 		_emp_btn.position = Vector2(vp.x - 174, weapon_y)
+		HintService.show_hint("weapon_emp", "EMP ready — tap to stun nearby enemies")
 
 	# Reposition controls on viewport resize (orientation change, etc.)
 	get_viewport().size_changed.connect(_reposition_controls)
@@ -379,6 +385,8 @@ func _on_restart_pressed():
 	get_tree().paused = false
 	$popupMenu.hide()
 	Engine.time_scale = 1.0
+	if globalvar.demo_mode:  # exiting mid-demo: tear it down first (WP-B5)
+		AutoPilot.stop_demo(false)
 	var scene_path: String = globalvar.get_level_scene(globalvar.nowlevel)
 	get_tree().change_scene_to_file(scene_path)
 
@@ -386,4 +394,6 @@ func _on_backtomenu_pressed():
 	get_tree().paused = false
 	$popupMenu.hide()
 	Engine.time_scale = 1.0
+	if globalvar.demo_mode:  # exiting mid-demo: tear it down first (WP-B5)
+		AutoPilot.stop_demo(false)
 	get_tree().change_scene_to_file("res://game/gui/menu/Menu.tscn")

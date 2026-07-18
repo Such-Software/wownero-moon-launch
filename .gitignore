@@ -100,3 +100,4 @@ rl/*.json
 
 # Firebase config bundled by the iOS plugin (API keys)
 ios/plugins/GoogleService-Info.plist
+rl/remote_out/

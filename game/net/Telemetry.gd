@@ -78,6 +78,9 @@ func _notification(what: int) -> void:
 func log_event(name: String, params: Dictionary = {}) -> void:
 	if not _initialized:
 		return
+	# A "Watch a demo" run (WP-B5) replays the real level but must submit nothing.
+	if globalvar.demo_mode:
+		return
 	if _buffer.size() >= MAX_DROPPED_BEFORE_GIVEUP:
 		# Backend is presumably down; stop adding to avoid unbounded growth.
 		return

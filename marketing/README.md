@@ -104,6 +104,96 @@ consumption ships (WP-E3 wave 2); until then `SML_SEED=42` has no effect on outp
 If a remote render crawls or the Vulkan/lavapipe path misbehaves, fall back to
 `GODOT_DRIVER=opengl3` (llvmpipe).
 
+## Native portrait 9:16 capture (WP-E2)
+
+Cropping a landscape take down to 9:16 throws away most of the frame. A **native**
+1080x1920 gameplay clip looks far better on Reels/Shorts/TikTok — but there is a catch:
+
+> **The game is landscape-LOCKED.** `globalvar.gd:639` forces
+> `DisplayServer.SCREEN_SENSOR_LANDSCAPE` on mobile and `project.godot` sets
+> `window/handheld/orientation=4`. The in-game `Camera2D` lives on the rocket and is
+> authored for a landscape viewport. If you simply render into a 1080x1920 window you get
+> the *same landscape framing* squeezed into a tall frame — the playfield is a narrow band
+> with dead space above/below (effectively self-letterboxed), not a real portrait shot.
+
+So a true portrait take needs a **temporary marketing camera** that re-zooms and
+re-centers the rocket's `Camera2D` for the portrait aspect. There are two paths.
+
+### Recommended path — such-graphics marketing camera (works today)
+
+`~/src/such-graphics` already solved this for this game. It stages two **capture-only**
+autoload scripts into the render host at render time (they never touch this repo's
+tree) via a temporary `override.cfg`, then renders at native 1080x1920:
+
+- `scripts/godot/marketing_camera_overlay.gd` — a tiny autoload that, every frame, finds
+  the node in the `rocket` group, grabs its `Camera2D`, and sets `camera.zoom` (from
+  `SG_MKT_ZOOM`, default `2.6`) and disables drag/position-smoothing so the rocket stays
+  centered. This is the whole trick: **it just retunes the existing camera for portrait**,
+  it does not add a new camera or fight the landscape lock.
+- `scripts/godot/marketing_slingshot_pilot.gd` — an optional capture-only opening
+  maneuver (`SG_MKT_SLINGSHOT=1`): it takes over from AutoPilot, orbits Earth, wraps past
+  half the planet, burns outward, then hands control **back** to AutoPilot (setting
+  `tangent_bias`/`angle_tol`) so the transit + landing continue normally. Purely for a
+  cinematic slingshot beat; leave it off for a plain landing take.
+- `scripts/capture-wownero-gameplay.py` — the driver. It `rsync`s the two `.gd` files to
+  the host, writes a temporary `override.cfg` that (a) sets
+  `window/size/viewport_{width,height}` + `window_{width,height}_override` to
+  `1080x1920`, `window/size/mode=0`, and (b) registers the two scripts under
+  `[autoload]` (`MarketingCaptureCamera`, `MarketingSlingshotPilot`). It backs up any
+  existing `override.cfg`, runs Godot under `xvfb-run -s "-screen 0 1080x1920x24"` with
+  `--write-movie … --fixed-fps 60 --quit-after N --capture --autopilot`, then encodes
+  the AVI to a color-managed H.264 MP4 (bt709, `crf 17`) and restores the override on a
+  trap. Env it forwards: `SG_MKT_ZOOM`, `SG_MKT_CENTER`, `SG_MKT_SLINGSHOT`,
+  `AP_TANGENT_BIAS`, `AP_ANGLE_TOL`, `SML_RL_LAND`, `SML_RL_DETERMINISTIC`.
+
+One-liner (from the such-graphics repo):
+
+```
+python scripts/capture-wownero-gameplay.py \
+  --host deb --scene res://game/levels/1/Level1.tscn \
+  --size 1080x1920 --frames 1080 --slingshot -o /tmp/l1_portrait.mp4
+```
+
+This yields a native 1080x1920 clip with the rocket + target actually framed for
+portrait, HUD not clipped. It's the recommended portrait path **because the framing
+problem is already solved there** — nothing to port, nothing to verify.
+
+### render_remote SML_PORTRAIT plumb (starting point in THIS repo)
+
+`render_remote.sh` now understands `SML_PORTRAIT=1`, which flips the default capture
+resolution to **native 9:16 (1080x1920)** and — because it already forwards
+`MK_OUT_RES="$RES"` into `assemble.sh` — keeps the assembled master native portrait with
+**no crop/upscale** step added:
+
+```
+SML_PORTRAIT=1 marketing/lib/render_remote.sh 1 15 out/l1_portrait
+```
+
+This is deliberately only the **resolution + assembly** half of the job. It is the
+STARTING point the marketing camera plugs into — **framing is still landscape** until you
+also stage a camera override, exactly like the such-graphics scripts above. Without that
+override a `SML_PORTRAIT=1` take will render the landscape playfield into a tall frame
+(self-letterboxed), which is fine for a resolution/pipeline smoke test but not a
+publishable portrait shot. An explicit `MK_RES` always overrides the `SML_PORTRAIT`
+default.
+
+To make `SML_PORTRAIT=1` produce publishable framing **from this repo**, port the
+such-graphics approach in: copy the two capture-only autoload `.gd` files (or a trimmed
+`marketing_camera_overlay.gd`) into `marketing/`, and have `render_remote.sh` stage them
+via a temporary `override.cfg` `[autoload]` block when `SML_PORTRAIT=1` (backing up /
+restoring any existing override, as the such-graphics driver does). Also spot-check the
+HUD at portrait aspect — `MobileUI.gd` positions by viewport size
+(`MobileUI.gd:89-115`), so anchors should adapt, but this needs a real render to confirm.
+
+> **Verification deferred:** the acceptance for WP-E2 (a real 1080x1920 L1 take with the
+> rocket + target framed through the slingshot and HUD un-clipped) requires an actual GPU
+> render, and the render box is busy with an RL training run. The code + this doc are the
+> shippable deliverable; framing verification lands with the next render window.
+
+| var | default | where | effect |
+|-----|---------|-------|--------|
+| `SML_PORTRAIT` | unset | render_remote | `1` = native 9:16 (1080x1920) capture + assembly; framing still needs the marketing-camera override (see above) |
+
 ## Notes / safety
 
 - `capture.sh` launches Godot in a **minimized** window (a temporary `override.cfg`

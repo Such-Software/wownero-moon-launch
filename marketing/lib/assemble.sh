@@ -25,9 +25,11 @@ set -euo pipefail
 OUT=""; MUSIC=""; VO=""; MUSIC_GAIN="0.25"
 OUT_RES="${MK_OUT_RES:-1920x1080}"; OUT_W="${OUT_RES%x*}"; OUT_H="${OUT_RES#*x}"
 FPS="${MK_FPS:-60}"
-# Social crops derived from the master so any MK_OUT_RES stays valid: a centered square
-# (side = master height) for 1:1, padded to 9:16 for vertical. V_H forced even for yuv420p.
-SQ="$OUT_H"; SQ_X=$(( (OUT_W - OUT_H) / 2 )); V_H=$(( (SQ * 16 / 9) / 2 * 2 ))
+# Social crops derived from the master so any MK_OUT_RES stays valid (landscape OR
+# portrait, e.g. SML_PORTRAIT=1080x1920): the square side is the SHORTER master
+# dimension, centered on the long axis. V_H forced even for yuv420p.
+if [ "$OUT_W" -le "$OUT_H" ]; then SQ="$OUT_W"; else SQ="$OUT_H"; fi
+SQ_X=$(( (OUT_W - SQ) / 2 )); SQ_Y=$(( (OUT_H - SQ) / 2 )); V_H=$(( (SQ * 16 / 9) / 2 * 2 ))
 CLIPS=()
 while [ "$#" -gt 0 ]; do
   case "$1" in
@@ -105,10 +107,10 @@ echo "[assemble] exporting formats"
 ffmpeg -y -loglevel error -i "$MASTER" -c:v libx264 -pix_fmt yuv420p -crf 20 \
   -movflags +faststart -c:a aac "${OUT}_16x9.mp4"
 ffmpeg -y -loglevel error -i "$MASTER" \
-  -vf "crop=${SQ}:${SQ}:${SQ_X}:0" -c:v libx264 -pix_fmt yuv420p -crf 20 \
+  -vf "crop=${SQ}:${SQ}:${SQ_X}:${SQ_Y}" -c:v libx264 -pix_fmt yuv420p -crf 20 \
   -movflags +faststart -c:a aac "${OUT}_1x1.mp4"
 ffmpeg -y -loglevel error -i "$MASTER" \
-  -vf "crop=${SQ}:${SQ}:${SQ_X}:0,pad=${SQ}:${V_H}:(ow-iw)/2:(oh-ih)/2:color=black" \
+  -vf "crop=${SQ}:${SQ}:${SQ_X}:${SQ_Y},pad=${SQ}:${V_H}:(ow-iw)/2:(oh-ih)/2:color=black" \
   -c:v libx264 -pix_fmt yuv420p -crf 20 \
   -movflags +faststart -c:a aac "${OUT}_9x16.mp4"
 

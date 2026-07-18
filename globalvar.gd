@@ -33,6 +33,14 @@ var difficulty: int = Difficulty.NORMAL
 # a race-enabled level. race_won is filled in when the race is decided.
 var race_mode := false
 var race_won := false
+# Demo mode (transient, NOT persisted — never added to get_save_data). True while
+# the heuristic AutoPilot flies a watchable "Watch a demo flight" run (WP-B5). A
+# demo submits NO scores, marks NO progress and never sets tutorial_shown — it is
+# gated in ScoreClient.submit_score and Victory. Set true by DeathScreen /
+# AutoPilot.start_demo(); cleared by AutoPilot.stop_demo() on take-over, demo
+# victory, or a demo crash. NOT reset in reset_level_stats (the demo reloads the
+# level, and that must not clear the flag mid-transition).
+var demo_mode := false
 
 const DIFFICULTY_NAMES := { 0: "Easy", 1: "Normal", 2: "Hard" }
 

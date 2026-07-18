@@ -32,6 +32,16 @@ var bound_rocket: RigidBody2D = null   # race mode: the specific rocket this pil
 var direct_control := false            # race mode: write ai_* on bound_rocket vs global Input
 var _rocket: RigidBody2D = null
 
+# Demo mode (WP-B5): the heuristic pilot flies a watchable demo of the CURRENT
+# level via GLOBAL Input (direct_control=false, like the F8/--autopilot tester),
+# NOT the race-mode ai_* path and NOT the RL lander. A persistent banner invites
+# the player to tap/press to take over; the first ARMED input hands control back
+# without restarting. Armed only once a live rocket is being flown so the button
+# press that launched the demo can't immediately cancel it.
+var _demo_active := false
+var _demo_input_armed := false
+var _demo_banner: CanvasLayer = null
+
 # tuning knobs (defaults; override per-run via AP_* env vars for sweeps)
 var seek_speed := 120.0     # transfer cruise speed (px/s); slow enough to brake on arrival
 var approach_radius := 420.0  # start easing speed down this far from the target
@@ -89,6 +99,7 @@ func _f(name: String, def: float) -> float:
 
 
 func _ready() -> void:
+	set_process_input(false)  # only enabled during a demo run (WP-B5 take-over watch)
 	if not OS.is_debug_build() and not ("--autopilot" in OS.get_cmdline_args()):
 		set_physics_process(false)
 		set_process_unhandled_input(false)
@@ -143,6 +154,26 @@ func _unhandled_input(e: InputEvent) -> void:
 			_release_all()
 
 
+func _input(event: InputEvent) -> void:
+	# WP-B5: during a demo, the first ARMED tap/key press hands control back to the
+	# player (no restart). Consume it so it doesn't also thrust/steer on the way out.
+	if not _demo_active or not _demo_input_armed:
+		return
+	# is_pressed() is defined on InputEvent itself, so no base-type property access
+	# (event.pressed only exists on subclasses and would fail to parse).
+	var take_over := event.is_pressed() and (
+		event is InputEventKey
+		or event is InputEventMouseButton
+		or event is InputEventScreenTouch
+		or event is InputEventJoypadButton)
+	# Ignore key auto-repeat so a held key doesn't insta-cancel the demo.
+	if event is InputEventKey and event.is_echo():
+		take_over = false
+	if take_over:
+		get_viewport().set_input_as_handled()
+		stop_demo(true)
+
+
 func _physics_process(_dt: float) -> void:
 	if not active:
 		return
@@ -153,6 +184,10 @@ func _physics_process(_dt: float) -> void:
 		_rocket = arr[0] if arr.size() > 0 else null
 	if _rocket == null or not is_instance_valid(_rocket):
 		return
+	# Demo: arm take-over once we're actually flying a live rocket in the (reloaded)
+	# level, so the death-screen tap that launched the demo can't cancel it early.
+	if _demo_active:
+		_demo_input_armed = true
 	# Keep the body awake: a sleeping RigidBody2D stops calling _integrate_forces,
 	# so our torque/thrust inputs would silently do nothing if it ever rests.
 	_rocket.can_sleep = false
@@ -415,6 +450,77 @@ func stop_race() -> void:
 	bound_rocket = null
 	direct_control = false
 	set_physics_process(false)
+
+
+# ── Watch-a-demo (WP-B5) ──────────────────────────────────────────────
+# Fly the CURRENT level as a watchable demo for a player stuck on the L1 tutorial.
+# Mirrors start_race() but drives GLOBAL Input (direct_control=false) instead of a
+# bound rocket's ai_* vars, and forces the HEURISTIC touchdown (RL landing OFF) so
+# the demo is the same pilot the tutorial teaches. The caller sets globalvar.demo_mode
+# and reloads the level; this singleton persists across the scene change and picks up
+# the fresh rocket from the "rocket" group once it enters the tree.
+func start_demo() -> void:
+	globalvar.demo_mode = true
+	direct_control = false
+	bound_rocket = null
+	_rocket = null
+	_haz_for = null            # force a hazard re-scan for the reloaded level
+	_rl_land = false           # heuristic landing only — NOT the RL model (WP-B5)
+	_rl_in_handoff = false
+	_demo_active = true
+	_demo_input_armed = false
+	active = true
+	set_physics_process(true)
+	set_process_input(true)              # watch for a take-over tap/key
+	set_process_unhandled_input(false)   # no F8 toggle mid-demo
+	_show_demo_banner()
+
+
+# End the demo and hand control back WITHOUT restarting. Safe from any exit path
+# (take-over tap, demo victory, demo crash) and idempotent. took_over feeds the
+# demo_watched analytics; the demo_mode flag is always cleared so nothing downstream
+# treats the run as real.
+func stop_demo(took_over: bool) -> void:
+	globalvar.demo_mode = false
+	if not _demo_active:
+		return
+	_demo_active = false
+	_demo_input_armed = false
+	active = false
+	_release_all()
+	set_physics_process(false)
+	set_process_input(false)
+	_hide_demo_banner()
+	Analytics.event("demo_watched", {"took_over": took_over})
+
+
+func _show_demo_banner() -> void:
+	if is_instance_valid(_demo_banner):
+		return
+	# Own CanvasLayer (high index) so the banner survives the level reload and sits
+	# above the HUD in any scene. Green + shadow, matching the L1 tutorial style.
+	var cl := CanvasLayer.new()
+	cl.layer = 128
+	var label := Label.new()
+	label.text = "🤖 AUTOPILOT DEMO — tap anywhere to take over"
+	label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	label.add_theme_font_size_override("font_size", 20)
+	label.add_theme_color_override("font_color", Color(0.4, 1.0, 0.6))
+	label.add_theme_color_override("font_shadow_color", Color(0, 0, 0, 0.8))
+	label.add_theme_constant_override("shadow_offset_x", 2)
+	label.add_theme_constant_override("shadow_offset_y", 2)
+	label.set_anchors_preset(Control.PRESET_TOP_WIDE)
+	label.offset_top = 24
+	label.offset_bottom = 60
+	cl.add_child(label)
+	add_child(cl)
+	_demo_banner = cl
+
+
+func _hide_demo_banner() -> void:
+	if is_instance_valid(_demo_banner):
+		_demo_banner.queue_free()
+	_demo_banner = null
 
 
 func _refresh_hazards() -> void:

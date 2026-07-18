@@ -73,6 +73,10 @@ func enabled() -> bool:
 func event(name: String, params: Dictionary = {}) -> void:
 	if not _enabled:
 		return
+	# A "Watch a demo" run (WP-B5) replays the real level but must emit nothing.
+	# Gating event() covers every specialized emitter (they all route through here).
+	if globalvar.demo_mode:
+		return
 	var safe_name := _safe_name(name)
 	var safe_params := _safe_params(params)
 	var required := _required_params()
@@ -148,6 +152,8 @@ func share(method: String, content_type: String, item_id: String = "results_card
 ## First successful launch = activation. One-time, deduped via the install config.
 func activation(source: String) -> void:
 	if not _enabled:
+		return
+	if globalvar.demo_mode:  # a demo must not consume the one-time activation
 		return
 	if bool(_cfg.get_value("install", "activation_sent", false)):
 		return

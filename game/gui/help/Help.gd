@@ -5,14 +5,15 @@ extends Control
 const BS = preload("res://game/gui/ButtonStyles.gd")
 
 const PAGE_TITLES: Array[String] = [
+	"Quick Start",
 	"Controls",
 	"Landing",
 	"Fuel",
-	"Crypto & Moonrocks",
-	"Upgrades",
-	"Weapons",
 	"Hazards & Enemies",
 	"Waypoints & Slingshots",
+	"Upgrades",
+	"Weapons",
+	"Crypto & Moonrocks",
 	"Difficulty",
 	"Star Ratings & Scoring",
 	"Leaderboard & Cloud Save",
@@ -229,23 +230,36 @@ func _unhandled_input(event: InputEvent) -> void:
 
 func _get_page_content(page: int) -> String:
 	match page:
-		0: return _page_controls()
-		1: return _page_landing()
-		2: return _page_fuel()
-		3: return _page_crypto()
-		4: return _page_upgrades()
-		5: return _page_weapons()
-		6: return _page_hazards()
-		7: return _page_waypoints()
-		8: return _page_difficulty()
-		9: return _page_scoring()
-		10: return _page_leaderboard()
-		11: return _page_skins()
+		0: return _page_quickstart()
+		1: return _page_controls()
+		2: return _page_landing()
+		3: return _page_fuel()
+		4: return _page_hazards()
+		5: return _page_waypoints()
+		6: return _page_upgrades()
+		7: return _page_weapons()
+		8: return _page_crypto()
+		9: return _page_difficulty()
+		10: return _page_scoring()
+		11: return _page_leaderboard()
+		12: return _page_skins()
 	return ""
 
 
+func _page_quickstart() -> String:
+	# Three-beat crib sheet distilled from the Controls / Landing / Slingshot pages.
+	return """[b]Launch[/b]
+[color=cyan]Thrust[/color] to fly; [color=cyan]rotate[/color] to aim — turn BEFORE you thrust.
+[b]Slingshot[/b]
+Don't aim straight — [color=gold]arc[/color] around a planet and let gravity curl you.
+[b]Land[/b]
+Come in [color=lime]slow[/color] + [color=lime]upright[/color], then hold the pad [color=cyan]3 seconds[/color]."""
+
+
+## Controls adapt to the player's active scheme (WP-A1/A4): the style returned by
+## globalvar.active_input_hint() leads, the other schemes follow below.
 func _page_controls() -> String:
-	return """[b]Keyboard Controls[/b]
+	var keyboard := """[b]Keyboard[/b]
 [color=cyan]UP[/color] — Forward thrust
 [color=cyan]DOWN[/color] — Reverse thrust
 [color=cyan]LEFT / RIGHT[/color] — Rotate ship
@@ -254,24 +268,44 @@ func _page_controls() -> String:
 [color=cyan]L[/color] — Laser beam (hold)
 [color=cyan]E[/color] — EMP pulse
 [color=cyan]F3[/color] — FPS/debug overlay
-[color=cyan]ESC[/color] — Pause menu (in-game)
+[color=cyan]ESC[/color] — Pause menu (in-game)"""
 
-[b]Menu[/b]
-Use the [color=cyan]Levels[/color] button to replay completed levels.
+	var gamepad := """[b]Gamepad[/b]
+[color=lightgreen]A / Right Trigger[/color] — Forward thrust
+[color=lightgreen]B / Left Trigger[/color] — Reverse thrust
+[color=lightgreen]X[/color] — Fire cannon (if purchased)
+[color=lightgreen]Y[/color] — Launch missile
+[color=lightgreen]LB[/color] — Laser beam (hold)
+[color=lightgreen]RB[/color] — EMP pulse
+[color=lightgreen]Left Stick / D-Pad[/color] — Rotate ship"""
 
-[b]Mobile Controls[/b]
+	var mobile := """[b]Mobile / Touch[/b]
 [color=lime]Virtual Joystick[/color] — left side of screen, controls rotation
 [color=lime]Thrust Buttons[/color] — right side, tap/hold for forward and reverse
 [color=lime]Weapon Buttons[/color] — appear when weapons are purchased:
   [color=red]Crosshair[/color] — Cannon (auto-aim)
   [color=orange]M[/color] — Missile
   [color=aqua]L[/color] — Laser
-  [color=dodgerblue]E[/color] — EMP
+  [color=dodgerblue]E[/color] — EMP"""
+
+	var tail := """[b]Menu[/b]
+Use the [color=cyan]Levels[/color] button to replay completed levels.
 
 [b]Tips[/b]
 Thrust uses fuel — let go when you have enough speed.
 Rotate BEFORE thrusting to change direction efficiently.
 Weapons are unlocked in the Upgrade Shop between levels."""
+
+	var blocks: Array[String] = []
+	match globalvar.active_input_hint():
+		globalvar.InputHint.GAMEPAD:
+			blocks = [gamepad, keyboard, mobile]
+		globalvar.InputHint.TILT, globalvar.InputHint.TOUCH_JOYSTICK:
+			blocks = [mobile, keyboard, gamepad]
+		_:
+			blocks = [keyboard, gamepad, mobile]
+	blocks.append(tail)
+	return "\n\n".join(blocks)
 
 
 func _page_landing() -> String:

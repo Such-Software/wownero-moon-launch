@@ -33,6 +33,10 @@ func _ready():
 
 func submit_score(level: int, completion_time: float, fuel_remaining: float,
 		crypto_collected: int, stars: int, wave: int = 0) -> void:
+	# Never post a "Watch a demo flight" run (WP-B5): the heuristic AutoPilot flew it,
+	# not the player — same treatment as capture/sim runs, marks no leaderboard entry.
+	if globalvar.demo_mode:
+		return
 	# Never post bot scores from automated sims / captures / RL training to the live
 	# leaderboard (--disable-render-loop marks a godot_rl_agents training env binary).
 	var argv := OS.get_cmdline_args()

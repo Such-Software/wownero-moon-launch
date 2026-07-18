@@ -29,6 +29,11 @@ var _ad_button: Button
 
 func _ready() -> void:
 	layer = 10
+	# WP-B5: if the heuristic demo crashed, tear it down first so the banner clears
+	# and this death is handled as a normal (non-demo) screen. stop_demo() also
+	# clears globalvar.demo_mode, so retry/advice below behave as a real attempt.
+	if globalvar.demo_mode:
+		AutoPilot.stop_demo(false)
 	_build_ui()
 
 
@@ -115,6 +120,18 @@ func _build_ui() -> void:
 		waypoint_btn.pressed.connect(_on_retry_waypoint)
 		vbox.add_child(waypoint_btn)
 
+	# Watch-a-demo (WP-B5): only when the player is clearly stuck on the L1 tutorial
+	# (attempt >= 3, still no first win). The heuristic AutoPilot flies + lands L1;
+	# the run marks no progress and submits nothing (gated in demo_mode).
+	var demo_btn: Button = null
+	if globalvar.nowlevel == 1 and globalvar.level_attempt >= 3 and not globalvar.tutorial_shown:
+		demo_btn = Button.new()
+		demo_btn.text = "🤖 Watch a demo flight"
+		demo_btn.custom_minimum_size = Vector2(280, 44)
+		BS.apply_space_style(demo_btn, Color(0.7, 0.55, 1.0))
+		demo_btn.pressed.connect(_on_watch_demo)
+		vbox.add_child(demo_btn)
+
 	# Rewarded ad button (always available on ad-supported platforms)
 	if AdManager.is_rewarded_available():
 		_ad_button = Button.new()
@@ -136,6 +153,8 @@ func _build_ui() -> void:
 	var _buttons: Array[Button] = [retry_btn]
 	if waypoint_btn:
 		_buttons.append(waypoint_btn)
+	if demo_btn:
+		_buttons.append(demo_btn)
 	if _ad_button:
 		_buttons.append(_ad_button)
 	_buttons.append(quit_btn)
@@ -205,6 +224,17 @@ func _build_advice_text() -> String:
 func _on_retry() -> void:
 	# No forced ads here — players retry instantly. Rewarded ad button is opt-in.
 	Engine.time_scale = 1.0
+	var scene_path: String = globalvar.get_level_scene(globalvar.nowlevel)
+	get_tree().change_scene_to_file(scene_path)
+
+
+func _on_watch_demo() -> void:
+	## WP-B5: restart L1 with the heuristic AutoPilot flying. start_demo() sets
+	## globalvar.demo_mode and arms the pilot; the singleton survives the reload and
+	## drives the fresh rocket. A persistent banner lets the player tap to take over.
+	Engine.time_scale = 1.0
+	globalvar.demo_mode = true
+	AutoPilot.start_demo()
 	var scene_path: String = globalvar.get_level_scene(globalvar.nowlevel)
 	get_tree().change_scene_to_file(scene_path)
 
