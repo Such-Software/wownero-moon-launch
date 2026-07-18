@@ -153,32 +153,41 @@ var pending_hazard_name := ""
 ## Spawn interval multiplier (higher = slower spawns = easier)
 func get_spawn_interval_mult() -> float:
 	match difficulty:
-		Difficulty.EASY: return 1.4
-		Difficulty.HARD: return 0.7
-		_: return 1.0
+		Difficulty.EASY: return 1.8
+		Difficulty.HARD: return 1.0
+		_: return 1.4
 
 ## Enemy speed multiplier
 func get_enemy_speed_mult() -> float:
 	match difficulty:
-		Difficulty.EASY: return 0.8
-		Difficulty.HARD: return 1.2
-		_: return 1.0
+		Difficulty.EASY: return 0.6
+		Difficulty.HARD: return 1.0
+		_: return 0.8
 
 ## Fuel drain multiplier (higher = drains faster = harder)
 func get_fuel_drain_mult() -> float:
 	match difficulty:
-		Difficulty.EASY: return 0.8
-		Difficulty.HARD: return 1.3
-		_: return 1.0
+		Difficulty.EASY: return 0.6
+		Difficulty.HARD: return 1.0
+		_: return 0.8
 
 ## Fuel tank size multiplier by difficulty.
 ## Applied to max_fuel so the rocket starts with a full tank — the difficulty
 ## advantage shows up as a bigger tank, not as "115% fuel" overfill in the HUD.
 func get_starting_fuel_mult() -> float:
 	match difficulty:
-		Difficulty.EASY: return 1.2
-		Difficulty.HARD: return 0.9
-		_: return 1.0
+		Difficulty.EASY: return 1.4
+		Difficulty.HARD: return 1.0
+		_: return 1.2
+
+## Second-chance bounces allowed per level attempt. The bounce now also catches
+## HAZARD hits (Martian/gamma/black hole), not just body crashes — the single
+## highest-impact mercy for the hazard levels. Default (Normal) gets one; Easy two.
+func get_bounce_allowance() -> int:
+	match difficulty:
+		Difficulty.EASY: return 2
+		Difficulty.HARD: return 0
+		_: return 1
 
 # --- Ad removal ---
 const AD_REMOVAL_COST := 10000  # Moonrocks to remove banners + interstitials
@@ -305,7 +314,7 @@ func select_skin(skin_id: String) -> void:
 # --- Per-run tracking (reset each level start) ---
 var level_crypto_collected: int = 0   # Moonrocks earned this run
 var level_fuel_remaining: float = 0.0 # percentage at landing
-var level_easy_bounce_used: bool = false  # Easy-mode second-chance bounce — one per level attempt
+var level_bounces_used: int = 0  # second-chance bounces used this attempt (see get_bounce_allowance)
 
 # --- Waypoint checkpoint (transient, not persisted) ---
 var checkpoint_position: Vector2 = Vector2.ZERO
@@ -416,16 +425,16 @@ func get_fuel_drain() -> float:
 func get_crash_speed() -> float:
 	var base: float = 100.0 + upgrades["armor"] * 50.0
 	match difficulty:
-		Difficulty.EASY: return base * 1.3
-		Difficulty.HARD: return base * 0.85
-		_: return base
+		Difficulty.EASY: return base * 1.6
+		Difficulty.HARD: return base * 1.0
+		_: return base * 1.3
 
 func get_landing_speed() -> float:
 	var base: float = 40.0 + upgrades["landing_gear"] * 20.0
 	match difficulty:
-		Difficulty.EASY: return base * 1.4
-		Difficulty.HARD: return base * 0.8
-		_: return base
+		Difficulty.EASY: return base * 1.8
+		Difficulty.HARD: return base * 1.0
+		_: return base * 1.4
 
 func get_shield_hits() -> int:
 	return upgrades["shield"]  # 0 = no shield, 1-5 hits absorbed
@@ -606,7 +615,7 @@ func reset_level_stats() -> void:
 		_last_attempt_level = nowlevel
 	level_crypto_collected = 0
 	level_fuel_remaining = 0.0
-	level_easy_bounce_used = false
+	level_bounces_used = 0
 	# Clear stale death forensics so a prior level's death can't surface on this one.
 	last_death = {}
 	pending_hazard_name = ""

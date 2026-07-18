@@ -37,6 +37,16 @@ func _ready() -> void:
 	var lvl := OS.get_environment("SIM_LEVEL")
 	if lvl != "":
 		globalvar.nowlevel = int(lvl)
+	# SIM_DIFF (easy|normal|hard, or 0|1|2): force the difficulty so balance sweeps
+	# can measure how much of the level ramp is difficulty-tuned vs genuinely hard.
+	# SimHarness is an autoload, so this lands before the level's rocket reads
+	# globalvar.difficulty in its own _ready (crash/landing speed, fuel, enemy speed).
+	var diff := OS.get_environment("SIM_DIFF").to_lower()
+	if diff != "":
+		match diff:
+			"easy", "0": globalvar.difficulty = globalvar.Difficulty.EASY
+			"hard", "2": globalvar.difficulty = globalvar.Difficulty.HARD
+			_: globalvar.difficulty = globalvar.Difficulty.NORMAL
 	var maxt := 90.0
 	var mt := OS.get_environment("SIM_MAX_TIME")
 	if mt != "":

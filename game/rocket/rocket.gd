@@ -63,6 +63,8 @@ var TILT_DEATH_ANGLE := 0.6109  # ~35 degrees (var, not const, so RL training ca
 # Easy-mode second-chance bounce
 const BOUNCE_SPEED := 220.0  # px/s away from crash body
 const BOUNCE_FUEL_PCT := 0.15  # max_fuel fraction restored on bounce
+const BOUNCE_INVULN_TIME := 1.2  # seconds of hazard-immunity after a hazard bounce
+var _bounce_invuln: float = 0.0  # counts down; while >0, hazards can't kill (post-bounce)
 
 # Proximity beep state
 var _beep_cooldown: float = 0.0
@@ -481,6 +483,8 @@ func _integrate_forces(state):
 		constant_torque = torque * t
 
 func _process(_delta):
+	if _bounce_invuln > 0.0:
+		_bounce_invuln -= _delta
 	if target:
 		$arrow.look_at(target.global_position)
 	# Screen shake decay
@@ -655,13 +659,12 @@ func _canonical_hazard(n: String) -> String:
 
 
 func death(crash_body: Node2D = null):
-	# Easy-mode second-chance bounce: if the player is about to crash into a
-	# planet/moon/asteroid and they haven't used their bounce this attempt, kick
-	# them away from the crashing body instead of killing them.
-	if globalvar.difficulty == globalvar.Difficulty.EASY \
-			and not globalvar.level_easy_bounce_used \
+	# Second-chance bounce: if the player is about to crash into a planet/moon/
+	# asteroid and they have a bounce left this attempt, kick them away instead of
+	# dying. Allowance is difficulty-scaled (Easy 2, Normal 1, Hard 0).
+	if globalvar.level_bounces_used < globalvar.get_bounce_allowance() \
 			and crash_body and is_instance_valid(crash_body):
-		globalvar.level_easy_bounce_used = true
+		globalvar.level_bounces_used += 1
 		_do_bounce(crash_body)
 		return
 	# Death forensics (the dimensions the AI play-tester validated as load-bearing).
@@ -850,7 +853,16 @@ func _deactivate_landing_mode() -> void:
 
 
 func _do_bounce(body: Node2D) -> void:
-	## Easy-mode second-chance: bounce the rocket away from `body` instead of dying.
+	## Second-chance: bounce the rocket away from `body` instead of dying.
+	# Direction away from the crashing body. Fall back to "straight up in world
+	# space" if the rocket and body are at exactly the same position.
+	var diff := global_position - body.global_position
+	var dir := diff.normalized() if diff.length_squared() > 0.0001 else Vector2.UP
+	_do_bounce_dir(dir)
+
+
+func _do_bounce_dir(dir: Vector2) -> void:
+	## Shared bounce core — kick the rocket along `dir` and refuel a little.
 	# Cancel any in-progress slow-mo or landing countdown so the player resumes
 	# normal flight cleanly.
 	if _in_slowmo:
@@ -859,10 +871,6 @@ func _do_bounce(body: Node2D) -> void:
 	if moontimer and not moontimer.is_stopped():
 		moontimer.stop()
 		landattemptnow = false
-	# Direction away from the crashing body. Fall back to "straight up in world
-	# space" if the rocket and body are at exactly the same position.
-	var diff := global_position - body.global_position
-	var dir := diff.normalized() if diff.length_squared() > 0.0001 else Vector2.UP
 	linear_velocity = dir * BOUNCE_SPEED
 	angular_velocity *= 0.3
 	# Restore some fuel so the player can actually retry
@@ -969,8 +977,39 @@ func _on_external_death() -> void:
 	# can't easily evade with the 3D overlay up and the camera locked to target.
 	if _landing_mode_active:
 		return
-	if not _try_shield():
-		death()
+	# Brief invulnerability right after a hazard bounce so the same chaser can't
+	# instantly re-kill before the player flies clear.
+	if _bounce_invuln > 0.0:
+		return
+	if _try_shield():
+		return
+	# Second-chance bounce ALSO catches hazard hits (rebalance): bounce away from
+	# the nearest hazard and grant a short invuln window instead of dying.
+	if globalvar.level_bounces_used < globalvar.get_bounce_allowance():
+		globalvar.level_bounces_used += 1
+		var hz := _nearest_hazard()
+		if hz != null:
+			_do_bounce(hz)   # grouped hazards (e.g. black hole) — bounce away from it
+		else:
+			# Ungrouped chaser (Martian/gamma): reverse out of whatever we flew into.
+			var away := (-linear_velocity.normalized()) if linear_velocity.length_squared() > 1.0 else Vector2.UP
+			_do_bounce_dir(away)
+		_bounce_invuln = BOUNCE_INVULN_TIME
+		return
+	death()
+
+
+func _nearest_hazard() -> Node2D:
+	## Closest node in the "hazard" group (Martian/gamma/black hole/…), or null.
+	var best: Node2D = null
+	var best_d := INF
+	for h in get_tree().get_nodes_in_group("hazard"):
+		if h is Node2D and is_instance_valid(h):
+			var d: float = global_position.distance_squared_to((h as Node2D).global_position)
+			if d < best_d:
+				best_d = d
+				best = h
+	return best
 
 
 func _try_shield() -> bool:
