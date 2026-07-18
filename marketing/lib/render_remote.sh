@@ -107,7 +107,7 @@ echo "[remote-render] rendering Level $LEVEL ($FRAMES frames @ 60fps, $RES) via 
 # overridable (SML_SEED=42, SML_RL_DETERMINISTIC="" for variance). The engine-side RNG
 # seeding for SML_SEED lands in a later wave; the env is plumbed through now.
 # Pass the hybrid-pilot env through so we can render the RL-piloted run (SML_RL_LAND=1).
-RL_ENV="SML_RL_LAND='${SML_RL_LAND:-}' SML_RL_DETERMINISTIC='${SML_RL_DETERMINISTIC:-1}' SML_SEED='${SML_SEED:-1337}'"
+RL_ENV="SML_RL_LAND='${SML_RL_LAND:-}' SML_RL_DETERMINISTIC='${SML_RL_DETERMINISTIC:-1}' SML_SEED='${SML_SEED:-1337}' SML_DIFF='${SML_DIFF:-}'"
 ssh "$HOST" "cd '$REMOTE_DIR' && $RL_ENV $LAUNCH $GODOT_REMOTE $DRIVER_ARG \
   --path . --resolution $RES --write-movie '$REMOTE_AVI' \
   --quit-after $FRAMES --capture $AUTOPILOT_FLAG '$SCENE' 2>&1 \

@@ -675,6 +675,14 @@ func _ready():
 	# must run before load_game so the legacy file is in place to be read.
 	_migrate_legacy_save()
 	load_game()
+	# Capture/testing hook: force a difficulty for promo renders + balance runs,
+	# overriding the loaded save (e.g. SML_DIFF=easy to render L2-L4 as clean wins).
+	var _sml_diff := OS.get_environment("SML_DIFF").to_lower()
+	if _sml_diff != "":
+		match _sml_diff:
+			"easy", "0": difficulty = Difficulty.EASY
+			"hard", "2": difficulty = Difficulty.HARD
+			"normal", "1": difficulty = Difficulty.NORMAL
 	# Music bus + saved mute state (after load so music_enabled is applied).
 	_setup_audio_buses()
 	# Ensure device has a UUID (generated once, persisted forever)
