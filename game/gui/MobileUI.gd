@@ -105,7 +105,7 @@ func _setup_mobile() -> void:
 	_joystick.name = "VirtualJoystick"
 	add_child(_joystick)
 	_joystick.position = Vector2(20, vp.y - 170)
-	_joystick.visible = (globalvar.control_scheme != globalvar.ControlScheme.TILT)
+	_joystick.visible = (globalvar.control_scheme == globalvar.ControlScheme.JOYSTICK)
 
 	# Create thrust button (right side, upper)
 	_thrust_btn = Control.new()
@@ -124,6 +124,11 @@ func _setup_mobile() -> void:
 	_reverse_btn.set("arrow_up", false)
 	add_child(_reverse_btn)
 	_reverse_btn.position = Vector2(vp.x - 104, vp.y - 140)
+
+	# Full-tilt (portrait) has NO on-screen thrust/reverse buttons — pitch drives them.
+	var _full_tilt: bool = globalvar.control_scheme == globalvar.ControlScheme.FULL_TILT
+	_thrust_btn.visible = not _full_tilt
+	_reverse_btn.visible = not _full_tilt
 
 	# Fire button — only if cannon upgrade purchased (left side, above joystick)
 	if globalvar.upgrades.get("cannon", 0) > 0:
@@ -248,12 +253,19 @@ func _on_control_scheme_changed() -> void:
 	## joystick live (fixes the one-shot at _setup_mobile:97) and re-calibrate the
 	## tilt baseline when tilt just became the active input, so there's no stuck
 	## turn from a stale hold position.
+	var full_tilt: bool = globalvar.control_scheme == globalvar.ControlScheme.FULL_TILT
 	if _joystick and is_instance_valid(_joystick):
-		_joystick.visible = (globalvar.control_scheme != globalvar.ControlScheme.TILT)
-	if globalvar.active_input_hint() == globalvar.InputHint.TILT:
+		_joystick.visible = (globalvar.control_scheme == globalvar.ControlScheme.JOYSTICK)
+	if _thrust_btn and is_instance_valid(_thrust_btn):
+		_thrust_btn.visible = not full_tilt
+	if _reverse_btn and is_instance_valid(_reverse_btn):
+		_reverse_btn.visible = not full_tilt
+	if globalvar.active_input_hint() == globalvar.InputHint.TILT or full_tilt:
 		var rocket := get_tree().get_first_node_in_group("rocket")
 		if rocket and rocket.has_method("_calibrate_tilt"):
 			rocket.call("_calibrate_tilt")
+		if rocket and rocket.has_method("_apply_portrait_view"):
+			rocket.call("_apply_portrait_view")  # live zoom on full-tilt <-> other
 	_refresh_pause_controls_row()
 
 
@@ -319,7 +331,7 @@ func _refresh_pause_controls_row() -> void:
 
 func _on_pause_controls_pressed() -> void:
 	if is_mobile:
-		globalvar.set_control_scheme((globalvar.control_scheme + 1) % 2)
+		globalvar.set_control_scheme((globalvar.control_scheme + 1) % 3)
 	else:
 		globalvar.set_desktop_control((globalvar.desktop_control + 1) % 2)
 	globalvar.save_game()

@@ -129,6 +129,10 @@ var _tilt_calibrated: bool = false
 # Screen orientation captured at calibration. With sensor_landscape the device
 # can be in either landscape; when this changes we re-calibrate + flip the sign.
 var _tilt_orientation: int = -1
+# Full-tilt (portrait) inputs — computed each frame in _read_full_tilt().
+var _fulltilt_turn := 0.0       # -1..1 roll -> steering
+var _fulltilt_thrust := false   # pitch forward past deadzone
+var _fulltilt_reverse := false  # pitch back past deadzone
 # Self-destruct button — shown on the HUD when fuel is dangerously low so
 # the player can bail out of an unrecoverable drift.
 var _self_destruct_btn: Button = null
@@ -259,8 +263,9 @@ func _ready():
 
 	# Tilt calibration: capture player's natural hold as the "zero" baseline.
 	# Wait a short moment for sensors to stabilize before sampling.
-	if _is_tilt_mode():
+	if _is_tilt_mode() or _is_full_tilt():
 		get_tree().create_timer(0.4).timeout.connect(_calibrate_tilt)
+	_apply_portrait_view()
 
 
 func _update_self_destruct_button() -> void:
@@ -299,10 +304,14 @@ var ai_right := false
 
 
 func _thrust_held() -> bool:
+	if _is_full_tilt():
+		return _fulltilt_thrust  # pitch forward = thrust (no button in full-tilt)
 	return ai_thrust if ai_controlled else Input.is_action_pressed("thrust")
 
 
 func _revthrust_held() -> bool:
+	if _is_full_tilt():
+		return _fulltilt_reverse  # pitch back = reverse
 	return ai_revthrust if ai_controlled else Input.is_action_pressed("revthrust")
 
 
@@ -381,6 +390,41 @@ func _is_tilt_mode() -> bool:
 	return os == "Android" or os == "iOS"
 
 
+# Portrait (full-tilt) is a narrower viewport — zoom the camera OUT so enough of the
+# world stays visible; landscape keeps the default. (Godot4: zoom < 1 = zoom out.)
+# Called at _ready and on a live scheme switch. The 0.65 is device-tunable.
+func _apply_portrait_view() -> void:
+	if has_node("Camera2D"):
+		$Camera2D.zoom = Vector2(0.65, 0.65) if globalvar.wants_portrait() else Vector2.ONE
+
+
+func _is_full_tilt() -> bool:
+	if ai_controlled or globalvar.demo_mode:
+		return false
+	if globalvar.control_scheme != globalvar.ControlScheme.FULL_TILT:
+		return false
+	var os := OS.get_name()
+	return os == "Android" or os == "iOS"
+
+
+# Full-tilt (portrait) input: the device is held UPRIGHT, so — unlike the landscape
+# tilt path — roll (tilt L/R) reads on the device X axis and pitch (tilt the top
+# away/toward you) reads on the device Z axis. Roll steers; pitch forward thrusts,
+# pitch back reverses. The two axis choices + polarities are DEVICE-CALIBRATION
+# values (see globalvar.FULLTILT_*): verify + flip on a real phone in portrait.
+func _read_full_tilt() -> void:
+	var raw := Input.get_gravity()
+	_tilt_filtered = _tilt_filtered.lerp(raw, globalvar.TILT_FILTER_ALPHA)
+	var delta := _tilt_filtered - _tilt_baseline
+	var roll := globalvar.FULLTILT_TURN_POLARITY * delta.x / 9.81
+	var pitch := globalvar.FULLTILT_THRUST_POLARITY * -delta.z / 9.81
+	if absf(roll) < globalvar.TILT_DEADZONE:
+		roll = 0.0
+	_fulltilt_turn = clampf(roll * globalvar.tilt_sensitivity, -1.0, 1.0)
+	_fulltilt_thrust = pitch > globalvar.FULLTILT_THRUST_DEADZONE
+	_fulltilt_reverse = pitch < -globalvar.FULLTILT_THRUST_DEADZONE
+
+
 func _calibrate_tilt() -> void:
 	## Sample current gravity vector as the player's neutral hold position.
 	## All tilt input is computed as a delta from this baseline.
@@ -395,6 +439,10 @@ func _calibrate_tilt() -> void:
 func _integrate_forces(state):
 	var dt = state.step
 	var has_fuel = fuel > 0.0
+	# Full-tilt reads BOTH thrust (pitch) and turn (roll) from the accelerometer,
+	# so sample it before the thrust block below consults _thrust_held().
+	if _is_full_tilt() and _tilt_calibrated:
+		_read_full_tilt()
 	# Track recent peak speed BEFORE the solver may have damped this frame.
 	_recent_max_speed = maxf(_recent_max_speed * _RECENT_SPEED_DECAY, state.linear_velocity.length())
 
@@ -421,7 +469,11 @@ func _integrate_forces(state):
 		_update_self_destruct_button()
 
 	# Steering input — branches by control scheme.
-	if _is_tilt_mode() and _tilt_calibrated:
+	if _is_full_tilt() and _tilt_calibrated:
+		# Portrait full-tilt: roll drives angular velocity directly (like tilt mode).
+		state.angular_velocity = _fulltilt_turn * globalvar.TILT_MAX_ANGULAR_VELOCITY
+		constant_torque = 0
+	elif _is_tilt_mode() and _tilt_calibrated:
 		# Canonical mobile tilt-to-steer pipeline:
 		#   raw gravity → low-pass filter → delta from baseline → screen-X
 		#   axis with correct sign → deadzone → sensitivity → clamp → output

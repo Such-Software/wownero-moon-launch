@@ -48,9 +48,36 @@ const DIFFICULTY_NAMES := { 0: "Easy", 1: "Normal", 2: "Hard" }
 # Desktop uses keyboard (this setting is ignored). On mobile, the player can
 # choose how to rotate the rocket. Thrust + reverse remain on-screen buttons
 # in all modes.
-enum ControlScheme { TILT, JOYSTICK }
+## TILT: tilt-to-turn + on-screen thrust button (landscape).
+## JOYSTICK: on-screen stick + thrust button, no tilt (landscape).
+## FULL_TILT: no buttons — roll to turn, pitch to thrust — runs in PORTRAIT.
+enum ControlScheme { TILT, JOYSTICK, FULL_TILT }
 var control_scheme: int = ControlScheme.TILT
-const CONTROL_SCHEME_NAMES := { 0: "Tilt", 1: "Joystick" }
+const CONTROL_SCHEME_NAMES := { 0: "Tilt", 1: "Joystick", 2: "Full Tilt" }
+
+## Full-tilt (portrait) tuning. Pitch (device forward/back tilt) drives thrust:
+## deadzone below which no thrust, then linear up to full. Turn reuses the tilt
+## roll axis. ALL of the axis/polarity choices below are DEVICE-CALIBRATION values
+## (like IOS/ANDROID_TILT_POLARITY) — verify + flip on a real phone in portrait.
+const FULLTILT_THRUST_DEADZONE := 0.06   # normalized pitch below this = no thrust
+const FULLTILT_THRUST_FULL := 0.5        # normalized pitch at/above this = full thrust
+const FULLTILT_TURN_POLARITY := 1.0      # flip if roll steers the wrong way in portrait
+const FULLTILT_THRUST_POLARITY := 1.0    # flip if you have to pitch the WRONG way to thrust
+## true when the active scheme wants a portrait viewport (full-tilt on mobile).
+func wants_portrait() -> bool:
+	if OS.get_name() != "Android" and OS.get_name() != "iOS":
+		return false
+	return control_scheme == ControlScheme.FULL_TILT
+
+## Apply the orientation the current scheme wants. Call on _ready and whenever the
+## scheme changes. Full-tilt -> portrait; everything else -> sensor-landscape.
+func apply_orientation() -> void:
+	if OS.get_name() != "Android" and OS.get_name() != "iOS":
+		return
+	if control_scheme == ControlScheme.FULL_TILT:
+		DisplayServer.screen_set_orientation(DisplayServer.SCREEN_SENSOR_PORTRAIT)
+	else:
+		DisplayServer.screen_set_orientation(DisplayServer.SCREEN_SENSOR_LANDSCAPE)
 
 # --- Desktop control preference ---
 # On desktop BOTH keyboard and gamepad inputs stay live at once. This setting
@@ -85,6 +112,7 @@ func active_input_hint() -> int:
 # reset_progress) assign directly since no listener is connected yet there.
 func set_control_scheme(scheme: int) -> void:
 	control_scheme = scheme
+	apply_orientation()  # full-tilt <-> other flips portrait/landscape live
 	control_scheme_changed.emit()
 
 func set_desktop_control(mode: int) -> void:
@@ -647,13 +675,12 @@ func get_platform_string() -> String:
 
 # --- Save / Load ---
 func _ready():
-	# Mobile: force sensorLandscape so the game flips between BOTH landscape
-	# orientations regardless of the device's auto-rotate lock. The project's
-	# "sensor_landscape" setting only emits Android "userLandscape" (which honors
-	# the lock); this runtime call upgrades Android to true sensorLandscape.
-	# Harmless on desktop/web.
-	if OS.get_name() == "Android" or OS.get_name() == "iOS":
-		DisplayServer.screen_set_orientation(DisplayServer.SCREEN_SENSOR_LANDSCAPE)
+	# Mobile orientation: full-tilt wants portrait, every other scheme wants true
+	# sensor-landscape (the project's "sensor_landscape" only emits Android
+	# userLandscape, which honors the auto-rotate lock — this upgrades it). The
+	# scheme isn't loaded yet here, so apply_orientation() is (re)called after
+	# load_game() below; this call just sets a sane pre-load default.
+	apply_orientation()
 
 	# WEB-ONLY: point the global fallback font at the pixel UI font (whose
 	# import declares Symbols2 + Emoji fallbacks) so symbol/emoji glyphs
@@ -675,6 +702,7 @@ func _ready():
 	# must run before load_game so the legacy file is in place to be read.
 	_migrate_legacy_save()
 	load_game()
+	apply_orientation()  # now that the real control_scheme is loaded
 	# Capture/testing hook: force a difficulty for promo renders + balance runs,
 	# overriding the loaded save (e.g. SML_DIFF=easy to render L2-L4 as clean wins).
 	var _sml_diff := OS.get_environment("SML_DIFF").to_lower()

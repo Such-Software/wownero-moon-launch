@@ -708,7 +708,7 @@ func _show_options_popup() -> void:
 		vbox.add_child(ctrl_hbox)
 
 		var ctrl_hint := Label.new()
-		ctrl_hint.text = "Tilt: rotate phone left/right to turn.  Joystick: use bottom-left stick."
+		ctrl_hint.text = "Tilt: roll to turn, button to thrust.  Joystick: on-screen stick.  Full Tilt: portrait — roll to turn, pitch to thrust, no buttons."
 		ctrl_hint.add_theme_font_size_override("font_size", 11)
 		ctrl_hint.add_theme_color_override("font_color", Color(0.55, 0.65, 0.78))
 		ctrl_hint.autowrap_mode = TextServer.AUTOWRAP_WORD
@@ -748,7 +748,7 @@ func _show_options_popup() -> void:
 		vbox.add_child(tilt_row)
 
 		ctrl_btn.pressed.connect(func():
-			globalvar.set_control_scheme((globalvar.control_scheme + 1) % 2)
+			globalvar.set_control_scheme((globalvar.control_scheme + 1) % 3)
 			globalvar.save_game()
 			ctrl_value.text = globalvar.CONTROL_SCHEME_NAMES.get(globalvar.control_scheme, "Tilt")
 			tilt_row.visible = (globalvar.control_scheme == globalvar.ControlScheme.TILT)
@@ -1224,8 +1224,9 @@ func _show_first_time_nickname_prompt() -> void:
 		var opts: Array = []
 		if is_mob:
 			opts = [
-				{ "emoji": "📱", "title": "Tilt", "sub": "Roll your phone to turn", "value": globalvar.ControlScheme.TILT, "style": "tilt" },
-				{ "emoji": "🕹", "title": "Joystick", "sub": "On-screen stick", "value": globalvar.ControlScheme.JOYSTICK, "style": "joystick" },
+				{ "emoji": "📱", "title": "Tilt", "sub": "Roll to turn, tap to thrust", "value": globalvar.ControlScheme.TILT, "style": "tilt" },
+				{ "emoji": "🕹", "title": "Joystick", "sub": "On-screen stick + buttons", "value": globalvar.ControlScheme.JOYSTICK, "style": "joystick" },
+				{ "emoji": "🎢", "title": "Full Tilt", "sub": "Portrait · tilt to fly, no buttons", "value": globalvar.ControlScheme.FULL_TILT, "style": "full_tilt" },
 			]
 		else:
 			opts = [
