@@ -183,9 +183,10 @@ func nonfatal(area: String, message: String, params: Dictionary = {}) -> void:
 # --- Internal ---
 
 func _compute_enabled() -> bool:
-	# Never emit from the bot harness or video capture runs.
+	# Never emit from the bot harness, video capture, or RL training runs
+	# (--disable-render-loop marks a godot_rl_agents training env binary).
 	var args := OS.get_cmdline_args() + OS.get_cmdline_user_args()
-	if "--sim" in args or "--autopilot" in args or "--capture" in args:
+	if "--sim" in args or "--autopilot" in args or "--capture" in args or "--disable-render-loop" in args:
 		return false
 	# Keep GA4 clean: no editor/debug events unless explicitly opted in.
 	return not OS.is_debug_build() or OS.get_environment("SML_ANALYTICS_DEBUG") != ""

@@ -53,10 +53,11 @@ func _ready() -> void:
 	_flush_timer.timeout.connect(_flush)
 	add_child(_flush_timer)
 
-	# Automated bot runs (headless sims / Movie Maker captures) must not write
-	# to the live events backend, so leave telemetry uninitialized for them.
+	# Automated bot runs (headless sims / Movie Maker captures / RL training) must
+	# not write to the live events backend, so leave telemetry uninitialized for them.
+	# --disable-render-loop is added by godot_rl_agents to every training env binary.
 	var argv := OS.get_cmdline_args()
-	if "--sim" in argv or "--autopilot" in argv or "--capture" in argv:
+	if "--sim" in argv or "--autopilot" in argv or "--capture" in argv or "--disable-render-loop" in argv:
 		return
 
 	_initialized = true
