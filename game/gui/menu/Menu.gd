@@ -224,7 +224,10 @@ func _fit_menu_buttons() -> void:
 		return
 	var vp := get_viewport_rect().size
 	var top := 120.0
-	var bottom := vp.y - 12.0
+	# Cap the button band so a very tall (portrait) viewport doesn't strand the
+	# centered button block in the dead middle with a huge title->buttons gap. At the
+	# 600 landscape base this cap never bites (588 < 660), so landscape is unchanged.
+	var bottom := minf(vp.y - 12.0, top + 540.0)
 	var band := maxf(bottom - top, 120.0)
 	var sep := 10
 	# Row height that fits every row in the band, capped so buttons don't balloon
