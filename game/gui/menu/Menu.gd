@@ -259,6 +259,11 @@ func _fit_menu_buttons() -> void:
 		var e: Sprite2D = $Earth
 		var ehw := e.texture.get_width() * e.scale.x * 0.5
 		e.position.x = minf(124.0, (vp.x / 2.0 - 255.0) - 22.0 - ehw)
+		e.position.y = vp.y * (462.0 / 600.0)  # proportional: spread down in tall portrait, unchanged at the 600 base
+	if has_node("Moon"):
+		# Moon tracks the right edge + proportional height (x is also set once in
+		# _ready; doing both here re-lays it out on an orientation flip).
+		$Moon.position = Vector2(vp.x - 76.0, vp.y * (374.0 / 600.0))
 
 
 func _adapt_rocket_animation(vp: Vector2) -> void:
@@ -280,7 +285,9 @@ func _adapt_rocket_animation(vp: Vector2) -> void:
 			continue
 		if anim.track_get_key_count(i) < 2:
 			continue
-		var y_pos: float = (anim.track_get_key_value(i, 0) as Vector2).y
+		# Proportional height so the flyover isn't stuck in the top strip of a tall
+		# portrait viewport (design y was 519 at the 600 base).
+		var y_pos: float = vp.y * (519.0 / 600.0)
 		# Off-screen left at start, off-screen right at the end keyframe.
 		anim.track_set_key_value(i, 0, Vector2(-200.0, y_pos))
 		anim.track_set_key_value(i, 1, Vector2(vp.x + 200.0, y_pos))

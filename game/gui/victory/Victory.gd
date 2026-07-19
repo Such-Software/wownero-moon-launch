@@ -32,6 +32,7 @@ var _stats_group: Node2D = null
 var _rewarded_btn: Button = null
 var _share_btn: Button = null
 var _rate_prompt_panel: PanelContainer = null
+var _buttons_vbox: VBoxContainer = null
 
 
 func _ready():
@@ -46,9 +47,29 @@ func _ready():
 		get_tree().change_scene_to_file("res://game/gui/menu/Menu.tscn")
 		return
 
-	# Center the 1024x600 layout within the actual viewport
+	# Center the 1024x600 design "panel" within the actual viewport. EVERYTHING
+	# that reads as the victory panel — title, level name, the count-up stats,
+	# stars, score, astronaut, leaderboard rank AND the action buttons — lives in
+	# this one 1024x600 band (design space), so the whole thing moves as a single
+	# unit and stays centered in BOTH orientations. Under stretch=expand the canvas
+	# viewport keeps height==600 in landscape (only width grows) and width==1024 in
+	# portrait (only height grows), so this band always fits with its centre exactly
+	# on the viewport centre: landscape (height==600) is pixel-identical to before,
+	# portrait floats the panel centred in the tall column.
 	var vp := get_viewport_rect().size
 	position = Vector2((vp.x - 1024) / 2.0, (vp.y - 600) / 2.0)
+
+	# Cover-scale the starfield to fill the ACTUAL viewport (not just the band), so
+	# a tall portrait column has no uncovered clear-color bands top/bottom. The band
+	# centre equals the viewport centre, so anchoring the sprite at the band centre
+	# (512,300) local and scaling by the max ratio covers every aspect. (Mirrors the
+	# Menu.gd SpaceBG cover-scale pattern.)
+	var starfield: Sprite2D = get_node_or_null("Sprite_Starfield")
+	if starfield and starfield.texture:
+		var tex_size: Vector2 = starfield.texture.get_size()
+		var cover := maxf(vp.x / tex_size.x, vp.y / tex_size.y) * 1.02
+		starfield.position = Vector2(512, 300)
+		starfield.scale = Vector2(cover, cover)
 
 	get_node("Sprite_Astronaut").hide()
 	get_node("Label_Score").hide()
@@ -197,29 +218,20 @@ func colors():
 
 
 func presskey():
-	# Build the 4-button column in a CanvasLayer pinned to viewport bottom.
-	# (The .tscn-baked ButtonNode is hidden inside _build_optional_buttons.)
+	# Build the action-button grid inside the design-space panel (bottom of the
+	# 1024x600 band). (The .tscn-baked ButtonNode is hidden in _build_optional_buttons.)
 	_build_optional_buttons()
 
-	# Shrink + slide the stats group up-and-left so it stops fighting the
-	# bottom button block on short-aspect phone viewports. Scale toward
-	# Node2D origin already pulls children up-and-left; the negative X
-	# offset nudges them further into the upper-left quadrant.
-	if _stats_group:
-		var tw_stats := create_tween()
-		tw_stats.set_ease(Tween.EASE_OUT)
-		tw_stats.set_trans(Tween.TRANS_CUBIC)
-		tw_stats.set_parallel(true)
-		tw_stats.tween_property(_stats_group, "scale", Vector2(0.65, 0.65), 0.55)
-		tw_stats.tween_property(_stats_group, "position", Vector2(-80, 20), 0.55)
+	# The stats group no longer needs the old shrink-and-slide hack: with every
+	# element living in the one centred band, the stats and the button grid never
+	# vertically collide (the canvas band is always >=600 tall), so the stats stay
+	# at full size.
 
 	# Fade-in stagger on the new buttons. Iterate the leaf buttons inside
 	# the HBox rows (vbox -> HBox -> Button).
-	var cl := get_node_or_null("ButtonsCanvasLayer")
-	if cl:
-		var vbox := cl.get_child(0)
+	if _buttons_vbox:
 		var btn_index: int = 0
-		for row in vbox.get_children():
+		for row in _buttons_vbox.get_children():
 			for btn in row.get_children():
 				if btn is Control:
 					(btn as Control).modulate = Color(1, 1, 1, 0)
@@ -238,21 +250,14 @@ func presskey():
 
 	done = true
 
-	# Rate prompt fires once after the 3rd successful landing in the player's history
-	# (and only once per save). Trigger after the button stagger completes.
-	if globalvar.landings_since_install >= 3 and not globalvar.rate_prompt_shown:
-		var rt_timer := get_tree().create_timer(1.2)
-		rt_timer.timeout.connect(_show_rate_prompt)
-
-	done = true
-
 
 func _build_optional_buttons() -> void:
-	## Build the action buttons as a 2-column grid (two rows of two) inside a
-	## CanvasLayer pinned to the bottom-center of the ACTUAL viewport. Two
-	## rows is roughly half as tall as the old 4-stack, which leaves enough
-	## room above for the stats column on short phone aspects without any
-	## design-coord math.
+	## Build the action buttons as a 2-column grid (two rows of two) placed in
+	## DESIGN space at the bottom of the 1024x600 panel, so the grid rides the
+	## centred band and stays attached to the celebration content in BOTH
+	## orientations (in a 600-tall landscape canvas it lands exactly where the old
+	## viewport-bottom CanvasLayer put it; in a tall portrait column it floats with
+	## the panel instead of stranding at the true screen bottom).
 	##
 	## Hides the original .tscn-baked ButtonNode and routes its handlers to
 	## the freshly-created buttons here.
@@ -266,12 +271,8 @@ func _build_optional_buttons() -> void:
 	var v_spacing := 12.0
 	var bottom_margin := 70.0
 
-	var cl := CanvasLayer.new()
-	cl.name = "ButtonsCanvasLayer"
-	cl.layer = 5
-	add_child(cl)
-
 	var vbox := VBoxContainer.new()
+	vbox.name = "ButtonsVBox"
 	vbox.add_theme_constant_override("separation", v_spacing)
 	vbox.alignment = BoxContainer.ALIGNMENT_CENTER
 
@@ -292,12 +293,14 @@ func _build_optional_buttons() -> void:
 	var total_w: float = 2 * btn_w + h_spacing
 	var total_h: float = rows * btn_h + (rows - 1) * v_spacing
 
-	vbox.set_anchors_preset(Control.PRESET_CENTER_BOTTOM)
-	vbox.offset_left = -total_w / 2.0
-	vbox.offset_right = total_w / 2.0
-	vbox.offset_top = -(total_h + bottom_margin)
-	vbox.offset_bottom = -bottom_margin
-	cl.add_child(vbox)
+	# Anchor to the BAND (design coords), not the viewport: horizontally centre in
+	# the 1024-wide band, sit `bottom_margin` above the band's 600px bottom edge.
+	# In a 600-tall landscape canvas this is identical to the old CENTER_BOTTOM
+	# CanvasLayer placement (band bottom == viewport bottom); in portrait it rides
+	# the centred panel.
+	vbox.position = Vector2((1024.0 - total_w) / 2.0, 600.0 - bottom_margin - total_h)
+	add_child(vbox)
+	_buttons_vbox = vbox
 
 	var i: int = 0
 	while i < n:
@@ -352,25 +355,21 @@ func _on_share_pressed() -> void:
 
 func _on_score_submitted(success: bool, rank: int) -> void:
 	if success and rank > 0:
-		# Rank label inside a CanvasLayer so its TOP_WIDE anchor actually
-		# spans the viewport horizontally (Node2D parent has no rect, so
-		# anchored Controls don't auto-center properly when added directly).
-		var cl := CanvasLayer.new()
-		add_child(cl)
+		# Rank lives in the DESIGN-space band (as a direct child) so it rides the
+		# centred panel in both orientations instead of pinning to the true viewport
+		# top far above the panel in a tall portrait column. It sits in the clear
+		# slot between the stats cluster (fuel/crypto bottom ≈ design Y 374) and the
+		# button grid (top ≈ design Y 418), centred across the 1024-wide band. Size
+		# is set explicitly because a Control child of a Node2D has no parent rect to
+		# anchor against.
 		var rank_label := Label.new()
 		rank_label.text = "Leaderboard Rank: #%d" % rank
 		rank_label.add_theme_color_override("font_color", Color(1, 0.85, 0.2))
 		rank_label.add_theme_font_size_override("font_size", 18)
 		rank_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-		# Anchor to top-wide; place vertically far enough below the design-
-		# space subtitle ("Level X — ... Complete!") that it doesn't collide
-		# on tall aspects (iPad 4:3 expand mode pushes design coords down).
-		# Subtitle bottom ≈ design Y 165 → on iPad viewport Y ~249; offset
-		# 270 leaves a safe gap on both iPhone (slim landscape) and iPad.
-		rank_label.set_anchors_preset(Control.PRESET_TOP_WIDE)
-		rank_label.offset_top = 270
-		rank_label.offset_bottom = 300
-		cl.add_child(rank_label)
+		rank_label.size = Vector2(1024, 24)
+		rank_label.position = Vector2(0, 384)
+		add_child(rank_label)
 
 func _process(delta):
 	# Drive count-up animation
@@ -477,6 +476,11 @@ func _show_rate_prompt() -> void:
 	add_child(cl)
 	cl.add_child(panel)
 	panel.set_anchors_preset(Control.PRESET_CENTER)
+	# Grow from the centre anchor in BOTH directions so if the panel's content
+	# exceeds its offset box it stays CENTRED instead of drifting right/down
+	# (the default GROW_DIRECTION_END would off-centre it, notably in portrait).
+	panel.grow_horizontal = Control.GROW_DIRECTION_BOTH
+	panel.grow_vertical = Control.GROW_DIRECTION_BOTH
 	panel.offset_left = -220
 	panel.offset_right = 220
 	panel.offset_top = -130
