@@ -715,6 +715,33 @@ func _show_options_popup() -> void:
 		ctrl_hint.custom_minimum_size = Vector2(340, 0)
 		vbox.add_child(ctrl_hint)
 
+		# Orientation — portrait is first-class + independent of the control scheme.
+		var orient_hbox := HBoxContainer.new()
+		orient_hbox.add_theme_constant_override("separation", 8)
+		var orient_label := Label.new()
+		orient_label.text = "Orientation"
+		orient_label.add_theme_font_size_override("font_size", 13)
+		orient_label.add_theme_color_override("font_color", Color(0.8, 0.85, 0.9))
+		orient_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		orient_hbox.add_child(orient_label)
+		var orient_value := Label.new()
+		orient_value.text = globalvar.ORIENTATION_NAMES.get(globalvar.orientation_pref, "Landscape")
+		orient_value.add_theme_font_size_override("font_size", 13)
+		orient_value.add_theme_color_override("font_color", Color(0.6, 0.9, 1.0))
+		orient_hbox.add_child(orient_value)
+		var orient_btn := Button.new()
+		orient_btn.text = "Change"
+		orient_btn.custom_minimum_size = Vector2(90, 28)
+		BS.apply_space_style(orient_btn, Color(0.5, 0.8, 1.0))
+		orient_btn.add_theme_font_size_override("font_size", 12)
+		orient_btn.pressed.connect(func():
+			globalvar.set_orientation_pref((globalvar.orientation_pref + 1) % 2)
+			globalvar.save_game()
+			orient_value.text = globalvar.ORIENTATION_NAMES.get(globalvar.orientation_pref, "Landscape")
+		)
+		orient_hbox.add_child(orient_btn)
+		vbox.add_child(orient_hbox)
+
 		# Tilt sensitivity slider (WP-A3) — visible only in Tilt mode.
 		var tilt_row := VBoxContainer.new()
 		tilt_row.add_theme_constant_override("separation", 4)
@@ -1162,6 +1189,12 @@ func _build_styled_popup(border_color: Color) -> PanelContainer:
 	style.shadow_size = 12
 	panel.add_theme_stylebox_override("panel", style)
 	panel.z_index = 15
+	# Grow from the anchor in BOTH directions so a popup whose content exceeds its
+	# offset box stays CENTERED instead of drifting right/down (the default
+	# GROW_DIRECTION_END caused the off-center welcome popup in portrait). This one
+	# line immunizes every _build_styled_popup caller.
+	panel.grow_horizontal = Control.GROW_DIRECTION_BOTH
+	panel.grow_vertical = Control.GROW_DIRECTION_BOTH
 	return panel
 
 
@@ -1331,11 +1364,22 @@ func _show_first_time_nickname_prompt() -> void:
 	# cards must stay visible/tappable (raising the keyboard would hide them).
 	if is_mob:
 		vbox.add_theme_constant_override("separation", 8)
-		popup.set_anchors_preset(Control.PRESET_CENTER_TOP)
-		popup.offset_left = -240
-		popup.offset_right = 240
-		popup.offset_top = 8
-		popup.offset_bottom = 430
+		if globalvar.wants_portrait():
+			# Portrait: the popup sits upper-middle, well clear of the keyboard —
+			# center it so it isn't stranded at the top of the tall viewport.
+			popup.set_anchors_preset(Control.PRESET_CENTER)
+			popup.offset_left = -240
+			popup.offset_right = 240
+			popup.offset_top = -235
+			popup.offset_bottom = 235
+		else:
+			# Landscape (short): top-anchor so the on-screen keyboard doesn't cover
+			# the nickname field when tapped.
+			popup.set_anchors_preset(Control.PRESET_CENTER_TOP)
+			popup.offset_left = -240
+			popup.offset_right = 240
+			popup.offset_top = 8
+			popup.offset_bottom = 430
 
 
 func _show_nickname_edit_popup(nick_label: Label) -> void:

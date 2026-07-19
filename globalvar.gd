@@ -67,14 +67,16 @@ const FULLTILT_THRUST_POLARITY := 1.0    # flip if you have to pitch the WRONG w
 func wants_portrait() -> bool:
 	if OS.get_name() != "Android" and OS.get_name() != "iOS":
 		return false
-	return control_scheme == ControlScheme.FULL_TILT
+	return control_scheme == ControlScheme.FULL_TILT or orientation_pref == Orientation.PORTRAIT
 
 ## Apply the orientation the current scheme wants. Call on _ready and whenever the
 ## scheme changes. Full-tilt -> portrait; everything else -> sensor-landscape.
 func apply_orientation() -> void:
 	if OS.get_name() != "Android" and OS.get_name() != "iOS":
 		return
-	if control_scheme == ControlScheme.FULL_TILT:
+	# Full-tilt is portrait by design; otherwise honor the orientation setting.
+	# SENSOR_* locks to one orientation family (allows its 180° flip, never crosses).
+	if wants_portrait():
 		DisplayServer.screen_set_orientation(DisplayServer.SCREEN_SENSOR_PORTRAIT)
 	else:
 		DisplayServer.screen_set_orientation(DisplayServer.SCREEN_SENSOR_LANDSCAPE)
@@ -86,6 +88,16 @@ func apply_orientation() -> void:
 enum DesktopControl { KEYBOARD, GAMEPAD }
 var desktop_control: int = DesktopControl.KEYBOARD
 const DESKTOP_CONTROL_NAMES := { 0: "Keyboard", 1: "Gamepad" }
+
+# --- Orientation (mobile) — portrait is FIRST-CLASS, independent of control scheme ---
+# We LOCK to the chosen orientation (SENSOR_LANDSCAPE / SENSOR_PORTRAIT allow the
+# two 180° flips of that orientation but never cross to the other) rather than free
+# sensor-rotate, so tilt-steering can't flip the screen mid-play. First launch
+# detects how the device is held and defaults to it (_detect_launch_orientation);
+# the player can change it in Options. Full-tilt forces portrait regardless.
+enum Orientation { LANDSCAPE, PORTRAIT }
+var orientation_pref: int = Orientation.LANDSCAPE
+const ORIENTATION_NAMES := { 0: "Landscape", 1: "Portrait" }
 
 # --- Input-hint resolver ---
 # Single source of truth for "which control style are we teaching right now?".
@@ -118,6 +130,20 @@ func set_control_scheme(scheme: int) -> void:
 func set_desktop_control(mode: int) -> void:
 	desktop_control = mode
 	control_scheme_changed.emit()
+
+func set_orientation_pref(o: int) -> void:
+	orientation_pref = o
+	apply_orientation()
+	control_scheme_changed.emit()  # HUD/glyph listeners also refresh on orientation
+
+## First-run only: default the orientation to how the device is being held. The OS
+## hands us a portrait-shaped window if the phone launched upright (project.godot
+## uses "sensor" orientation), so read the window aspect BEFORE we lock anything.
+func _detect_launch_orientation() -> void:
+	if OS.get_name() != "Android" and OS.get_name() != "iOS":
+		return
+	var sz := DisplayServer.window_get_size()
+	orientation_pref = Orientation.PORTRAIT if sz.y > sz.x else Orientation.LANDSCAPE
 
 ## Tilt sensitivity — multiplier on normalized tilt [-1..1] from calibrated
 ## baseline. Lower = needs more tilt for max steering. Tuned for ~30° = full.
@@ -702,7 +728,9 @@ func _ready():
 	# must run before load_game so the legacy file is in place to be read.
 	_migrate_legacy_save()
 	load_game()
-	apply_orientation()  # now that the real control_scheme is loaded
+	if not welcome_shown:  # first launch — default orientation to how the device is held
+		_detect_launch_orientation()
+	apply_orientation()  # now that scheme + orientation are known
 	# Capture/testing hook: force a difficulty for promo renders + balance runs,
 	# overriding the loaded save (e.g. SML_DIFF=easy to render L2-L4 as clean wins).
 	var _sml_diff := OS.get_environment("SML_DIFF").to_lower()
@@ -811,6 +839,7 @@ func get_save_data() -> Dictionary:
 		"seen_hints": seen_hints.duplicate(),
 		"difficulty": difficulty,
 		"control_scheme": control_scheme,
+		"orientation_pref": orientation_pref,
 		"desktop_control": desktop_control,
 		"tilt_sensitivity": tilt_sensitivity,
 		"music_enabled": music_enabled,
@@ -886,6 +915,7 @@ func _apply_save_data(data: Dictionary) -> void:
 			seen_hints.append(str(h))
 	difficulty = int(data.get("difficulty", Difficulty.NORMAL))
 	control_scheme = int(data.get("control_scheme", ControlScheme.TILT))
+	orientation_pref = int(data.get("orientation_pref", Orientation.LANDSCAPE))
 	# New A1/A3 settings — default for legacy saves that predate them.
 	desktop_control = int(data.get("desktop_control", DesktopControl.KEYBOARD))
 	tilt_sensitivity = float(data.get("tilt_sensitivity", TILT_SENSITIVITY_DEFAULT))
