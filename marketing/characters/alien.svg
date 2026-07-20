@@ -1,0 +1,63 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 720 720" width="720" height="720">
+  <!-- Smug little green Martian. Named-group puppet for such_graphics.puppet.
+       CONTRACT (see examples/puppets/sprout.svg): every animatable part is a
+       TOP-LEVEL <g> with a known id; the mouth is parametric at the anchor.
+       Big dark almond eyes + down-angled brows read as smug/skeptical. First
+       draft — bold + readable. -->
+
+  <g id="body">
+    <!-- little shoulders -->
+    <path d="M225 720 L225 660 Q225 600 300 584 Q360 574 420 584 Q495 600 495 660 L495 720 Z"
+          fill="#57A23A" stroke="#2E6B23" stroke-width="6" stroke-linejoin="round"/>
+    <!-- neck (behind the head) -->
+    <rect x="322" y="510" width="76" height="72" fill="#63B342" stroke="#2E6B23" stroke-width="6"/>
+    <!-- collar shadow -->
+    <path d="M300 586 Q360 612 420 586 L420 606 Q360 632 300 606 Z" fill="#3F7C2C"/>
+  </g>
+
+  <g id="head">
+    <!-- antennae -->
+    <path d="M300 210 Q276 120 250 70" fill="none" stroke="#4B9433" stroke-width="9" stroke-linecap="round"/>
+    <circle cx="246" cy="60" r="20" fill="#8FD86A" stroke="#2E6B23" stroke-width="5"/>
+    <path d="M420 210 Q444 120 470 70" fill="none" stroke="#4B9433" stroke-width="9" stroke-linecap="round"/>
+    <circle cx="474" cy="60" r="20" fill="#8FD86A" stroke="#2E6B23" stroke-width="5"/>
+
+    <!-- head: wide cranium, narrow chin (classic martian silhouette) -->
+    <path d="M360 196
+             C250 196 176 262 176 348
+             C176 430 236 486 300 520
+             C332 537 340 560 360 560
+             C380 560 388 537 420 520
+             C484 486 544 430 544 348
+             C544 262 470 196 360 196 Z"
+          fill="#6FBF4B" stroke="#2E6B23" stroke-width="7" stroke-linejoin="round"/>
+    <!-- forehead highlight -->
+    <ellipse cx="300" cy="286" rx="80" ry="52" fill="#8AD066" opacity="0.55"/>
+    <!-- chin/cheek shadow -->
+    <ellipse cx="360" cy="500" rx="62" ry="40" fill="#4E9A34" opacity="0.5"/>
+  </g>
+
+  <g id="eye-l">
+    <ellipse cx="286" cy="356" rx="74" ry="46" transform="rotate(18 286 356)" fill="#0E140C" stroke="#0A3A12" stroke-width="4"/>
+  </g>
+  <g id="eye-r">
+    <ellipse cx="434" cy="356" rx="74" ry="46" transform="rotate(-18 434 356)" fill="#0E140C" stroke="#0A3A12" stroke-width="4"/>
+  </g>
+
+  <g id="pupil-l">
+    <ellipse cx="270" cy="342" rx="12" ry="19" fill="#DFF6D2" opacity="0.85"/>
+  </g>
+  <g id="pupil-r">
+    <ellipse cx="450" cy="342" rx="12" ry="19" fill="#DFF6D2" opacity="0.85"/>
+  </g>
+
+  <g id="brow-l">
+    <path d="M212 300 L338 330" stroke="#245A1B" stroke-width="14" stroke-linecap="round" fill="none"/>
+  </g>
+  <g id="brow-r">
+    <path d="M508 300 L382 330" stroke="#245A1B" stroke-width="14" stroke-linecap="round" fill="none"/>
+  </g>
+
+  <!-- MARKER: never rendered. Centre = mouth centre, width = mouth width. -->
+  <rect id="mouth-anchor" x="305" y="430" width="110" height="52" fill="none"/>
+</svg>

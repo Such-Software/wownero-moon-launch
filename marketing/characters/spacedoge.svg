@@ -1,0 +1,70 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 720 720" width="720" height="720">
+  <!-- SpaceDoge: Shiba Inu astronaut. Named-group puppet for such_graphics.puppet.
+       CONTRACT (see examples/puppets/sprout.svg): every animatable part is a
+       TOP-LEVEL <g> with a known id; the mouth is drawn parametrically at the
+       mouth-anchor marker. No stray top-level drawing elements (they'd appear in
+       every sliced layer). First-draft art — bold + readable, not detailed. -->
+
+  <g id="body">
+    <!-- white spacesuit shoulders -->
+    <path d="M118 720 L118 640 Q118 566 210 552 Q288 540 360 540 Q432 540 510 552 Q602 566 602 640 L602 720 Z"
+          fill="#EEF1F6" stroke="#C3CAD8" stroke-width="6" stroke-linejoin="round"/>
+    <!-- collar shadow where helmet meets suit -->
+    <path d="M250 566 Q360 602 470 566 L470 596 Q360 632 250 596 Z" fill="#DBE1EC"/>
+    <!-- chest control panel: an orange nod to the game's cosmonaut -->
+    <rect x="326" y="612" width="68" height="48" rx="11" fill="#F08A24" stroke="#C56C15" stroke-width="4"/>
+    <circle cx="360" cy="636" r="9" fill="#FCE0B8"/>
+  </g>
+
+  <g id="head">
+    <!-- helmet bowl (white), behind the face -->
+    <circle cx="360" cy="338" r="252" fill="#FBFCFE" stroke="#CBD2E0" stroke-width="7"/>
+    <!-- gold-tinted visor rim across the top -->
+    <path d="M150 300 A216 216 0 0 1 570 300" fill="none" stroke="#E7B944" stroke-width="17" stroke-linecap="round"/>
+    <path d="M150 300 A216 216 0 0 1 570 300" fill="none" stroke="#C4901C" stroke-width="5" stroke-linecap="round" opacity="0.55"/>
+    <!-- helmet highlight -->
+    <ellipse cx="252" cy="228" rx="72" ry="46" fill="#FFFFFF" opacity="0.75"/>
+
+    <!-- ears (drawn under the face so the face overlaps their base) -->
+    <path d="M245 252 L214 118 Q264 168 302 216 Z" fill="#E0A24A" stroke="#B0762F" stroke-width="6" stroke-linejoin="round"/>
+    <path d="M236 176 L228 136 Q254 168 272 202 Z" fill="#8C5A28"/>
+    <path d="M475 252 L506 118 Q456 168 418 216 Z" fill="#E0A24A" stroke="#B0762F" stroke-width="6" stroke-linejoin="round"/>
+    <path d="M484 176 L492 136 Q466 168 448 202 Z" fill="#8C5A28"/>
+
+    <!-- doge face -->
+    <circle cx="360" cy="378" r="184" fill="#E7A94F" stroke="#B87A32" stroke-width="7"/>
+    <!-- Shiba cheek ruffs -->
+    <circle cx="204" cy="408" r="47" fill="#EEBB6A" stroke="#B87A32" stroke-width="5"/>
+    <circle cx="516" cy="408" r="47" fill="#EEBB6A" stroke="#B87A32" stroke-width="5"/>
+    <!-- cream muzzle -->
+    <ellipse cx="360" cy="454" rx="122" ry="94" fill="#F6E7C6"/>
+    <!-- nose -->
+    <ellipse cx="360" cy="410" rx="27" ry="18" fill="#3A2A20"/>
+  </g>
+
+  <g id="eye-l">
+    <ellipse cx="300" cy="352" rx="37" ry="43" fill="#FFFFFF" stroke="#7A5223" stroke-width="5"/>
+  </g>
+  <g id="eye-r">
+    <ellipse cx="420" cy="352" rx="37" ry="43" fill="#FFFFFF" stroke="#7A5223" stroke-width="5"/>
+  </g>
+
+  <g id="pupil-l">
+    <circle cx="303" cy="356" r="17" fill="#22160E"/>
+    <circle cx="310" cy="348" r="6" fill="#FFFFFF" opacity="0.9"/>
+  </g>
+  <g id="pupil-r">
+    <circle cx="417" cy="356" r="17" fill="#22160E"/>
+    <circle cx="424" cy="348" r="6" fill="#FFFFFF" opacity="0.9"/>
+  </g>
+
+  <g id="brow-l">
+    <path d="M262 300 Q300 285 337 300" stroke="#8C5A28" stroke-width="10" stroke-linecap="round" fill="none"/>
+  </g>
+  <g id="brow-r">
+    <path d="M383 300 Q420 285 458 300" stroke="#8C5A28" stroke-width="10" stroke-linecap="round" fill="none"/>
+  </g>
+
+  <!-- MARKER: never rendered. Centre = mouth centre, width = mouth width. -->
+  <rect id="mouth-anchor" x="300" y="440" width="120" height="60" fill="none"/>
+</svg>
