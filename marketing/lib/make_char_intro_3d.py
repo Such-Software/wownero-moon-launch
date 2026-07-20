@@ -121,13 +121,49 @@ def talk_breath(t, speaker, events, ramp=0.45):
     return w
 
 
+def growl_clip():
+    """A short low DOG GROWL, generated once (cached, so no re-bill) via the
+    such-graphics ElevenLabs SFX path. The talking-character audio path mixes VO
+    only, so we layer this in ourselves below. Returns a path or None (degrades)."""
+    try:
+        from such_graphics import audio_gen
+        return audio_gen.generate(
+            "sfx", "aggressive snarling dog growl, low guttural threatening rumble, "
+                   "mono, no bark, no music",
+            opts={"duration": 2.0, "prompt_influence": 0.75}, provider="elevenlabs")
+    except Exception as e:  # missing key / network — the intro still renders
+        print(f"  [growl] skipped: {e}")
+        return None
+
+
+def overlay_growl(scene_audio, growl, at_s, out_path):
+    """Mix the growl UNDER the scene VO starting at `at_s` (levels preserved via
+    normalize=0, growl ducked to 0.8). Falls back to the original audio on failure."""
+    delay = max(0, int(at_s * 1000))
+    try:
+        subprocess.run([
+            "ffmpeg", "-y", "-loglevel", "error", "-i", str(scene_audio),
+            "-i", str(growl), "-filter_complex",
+            # Normalise the growl to a consistent level (clips vary), fade its tail so
+            # it tucks under the clap-back instead of cutting, duck slightly, delay to
+            # just before the doge speaks. normalize=0 keeps the VO at full level.
+            f"[1:a]loudnorm=I=-19:TP=-2,afade=t=out:st=1.3:d=0.7,volume=0.85,"
+            f"adelay={delay}|{delay}[g];"
+            f"[0:a][g]amix=inputs=2:normalize=0:duration=first[a]",
+            "-map", "[a]", "-c:a", "aac", "-ar", "48000", str(out_path)], check=True)
+        return out_path
+    except Exception as e:
+        print(f"  [growl] overlay failed ({e}); using clean VO")
+        return scene_audio
+
+
 def main():
     OUT.mkdir(parents=True, exist_ok=True)
     WORK.mkdir(parents=True, exist_ok=True)
 
-    # SAME two-turn exchange + voices as the 2D intro -> reuses the VO cache.
+    # SAME two-turn exchange + voices + per-character delivery as the 2D intro.
     perf = perform(base.SCRIPT, base.VOICES, out_dir=WORK / "_vo",
-                   lead_in=0.35, gap=0.45)
+                   lead_in=0.35, gap=0.45, settings=base.VOICE_SETTINGS)
     placements = [(perf, 0.0)]
     events, clips = flatten_placements(placements)
     total = max(e.end for e in events) + TAIL
@@ -171,6 +207,15 @@ def main():
 
     audio = OUT / "char_intro_3d.scene.m4a"
     mux_clips(clips, audio, total)
+    # Layer a dog growl in just before the doge's clap-back for some bite.
+    growl = growl_clip()
+    if growl:
+        doge_start = min((e.start for e in events if e.speaker == "doge"),
+                         default=None)
+        if doge_start is not None:
+            at = max(0.0, doge_start - 0.55)   # growl leads in, then the doge barks back
+            audio = overlay_growl(audio, growl, at, WORK / "scene_growl.m4a")
+            print(f"  [growl] layered at {at:.2f}s")
     out = OUT / "char_intro_3d.mp4"
     subprocess.run(["ffmpeg", "-y", "-loglevel", "error", "-framerate", str(FPS),
                     "-i", str(work / "f_%05d.png"), "-i", str(audio),

@@ -23,6 +23,12 @@ from pathlib import Path
 
 import bpy
 
+# The such-graphics creature3d engine owns the articulated cupid's-bow bezier lips
+# (real reshaping lips, not scaled pill-ellipsoids). Import it for the MOUTH only;
+# all of the doge's own head/helmet/ear geometry below is unchanged.
+sys.path.insert(0, "/Users/johnmurphy/src/such-graphics")
+from such_graphics import creature3d as c3d
+
 SP = Path("/private/tmp/claude-501/-Users-johnmurphy-src-WowneroMoonLaunch/"
           "0801bcd3-399b-4237-b990-4df8be9a0d81/scratchpad")
 MODE = sys.argv[-1] if sys.argv[-1] in ("still", "talk", "alpha", "hero") else "still"
@@ -42,29 +48,12 @@ SUIT = (0.90, 0.92, 0.97)        # white spacesuit
 LIP = (0.44, 0.27, 0.20)         # muted brown mouth rim
 MOUTH_IN = (0.05, 0.03, 0.03)    # near-black cavity
 
-#            width open round teeth tongue bite  (full 6, shared A-H/X table)
-SHAPES = {
-    "A": (1.00, 0.02, 0.00, 0, 0, 0), "B": (0.95, 0.22, 0.00, 1, 0, 0),
-    "C": (0.86, 0.50, 0.14, 1, 0, 0), "D": (0.74, 0.95, 0.18, 0, 1, 0),
-    "E": (0.60, 0.44, 0.58, 0, 0, 0), "F": (0.40, 0.30, 0.95, 0, 0, 0),
-    "G": (0.90, 0.18, 0.00, 0, 0, 1), "H": (0.78, 0.48, 0.10, 0, 1, 0),
-    "X": (0.88, 0.00, 0.00, 0, 0, 0),
-}
-BLEND = 0.06
+# Viseme table + co-articulation blend come from the engine now: the 4-tuple
+# (width, open, round, SMILE) table drives the bezier lips (rest X = a warm closed
+# smile, not a flat line). Shared across the whole cast so it never drifts.
+SHAPES = c3d.SHAPES
+blended_params = c3d.blended_params
 IDLE = 0.0        # this actor's bob/blink phase (doge leads)
-
-
-def blended_params(t, cues):
-    for i, c in enumerate(cues):
-        if c["start"] <= t < c["end"]:
-            a = SHAPES.get(c["value"], SHAPES["X"])
-            since = t - c["start"]
-            if since < BLEND and i > 0:
-                b = SHAPES.get(cues[i - 1]["value"], SHAPES["X"])
-                k = since / BLEND
-                return tuple(b[j] + (a[j] - b[j]) * k for j in range(6))
-            return a
-    return SHAPES["X"]
 
 
 def clear():
@@ -187,37 +176,26 @@ def build():
     return dict(root=root, eyes=eyes, mouth=mouth)
 
 
+MOUTH_CENTER = (0, -1.02, -0.52)   # on the muzzle, matching the old cavity anchor
+
+
 def build_mouth(root):
-    """A clean dark cavity on the muzzle that reshapes per viseme, framed by a thin
-    muted-brown upper + lower lip that PART with the jaw. The muzzle is the
-    character; the cavity does the talking. No teeth, no stacked pancakes."""
-    m = bpy.data.objects.new("mouth", None)
-    m.location = (0, -1.02, -0.52)
-    bpy.context.collection.objects.link(m)
-    m.parent = root
-    interior = sphere("mouth_in", (0, 0.02, 0), (0.20, 0.05, 0.09), MOUTH_IN,
-                      1.0, parent=m)
-    up = sphere("lip_up", (0, -0.03, 0.10), (0.22, 0.05, 0.035), LIP, 0.4,
-                parent=m)
-    lo = sphere("lip_lo", (0, -0.03, -0.10), (0.21, 0.05, 0.045), LIP, 0.4,
-                parent=m)
-    return dict(root=m, interior=interior, up=up, lo=lo)
+    """Real articulated cupid's-bow bezier lips from the such-graphics engine
+    (c3d.build_mouth 'lips'): a dark cavity framed by CONTINUOUS tapered upper +
+    lower lip curves that reshape per viseme — parting with the jaw, puckering for
+    O/U/F, curling up on the smile — instead of two scaled pill-ellipsoids. Uses
+    the doge's own muted-brown lip + near-black cavity colours."""
+    pal = c3d.Palette(body=DOGE, lip=LIP, mouth_in=MOUTH_IN)
+    m = c3d.build_mouth(root, pal, c3d.MouthSpec(kind="lips", center=MOUTH_CENTER))
+    m["_center"] = MOUTH_CENTER    # set_face anchors + jaw-drops the rig off this
+    return m
 
 
 def set_mouth(rig, p):
-    """WIDTH sets opening width, OPEN its height, ROUND puckers toward a circle.
-    The lips hug the cavity's top/bottom edges and part with the jaw."""
-    width, opn, rnd = (list(p) + [0, 0, 0])[:3]
-    m = rig["mouth"]
-    w = width * (1 - rnd * 0.5)
-    cav_x = 0.10 + 0.13 * w
-    cav_z = max(0.02 + 0.18 * opn, 0.13 * rnd)
-    m["interior"].scale = (cav_x, 0.05, cav_z)
-    m["root"].location = (0, -1.02 - rnd * 0.03, -0.52)
-    m["up"].scale = (cav_x * 1.0, 0.05, 0.032)
-    m["up"].location = (0, -0.03, cav_z + 0.04)
-    m["lo"].scale = (cav_x * 0.95, 0.05, 0.04)
-    m["lo"].location = (0, -0.03, -(cav_z + 0.045) - opn * 0.08)
+    """Drive the engine bezier lips from (width, open, round, smile): the upper +
+    lower lip curves reshape in place (corner-pinned parting, centre pout on round,
+    outer thirds curl up on smile)."""
+    c3d.set_face(rig, p)
 
 
 def set_blink(rig, k):

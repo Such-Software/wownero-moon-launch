@@ -50,10 +50,23 @@ VOICE_DOGE = "nPczCjzI2devNBz1zQrb"     # Brian
 VOICE_ALIEN = "N2lVS1w4EtoT3dr4eOWO"    # Callum
 VOICES = {"doge": VOICE_DOGE, "alien": VOICE_ALIEN}
 
-# Alien on the LEFT throws the jab; SpaceDoge on the RIGHT answers.
+# Per-character delivery (ElevenLabs voice_settings; folded into the VO cache key so
+# changing it re-synthesises). Both intros previously fell back to the neutral
+# DEFAULT (stability 0.42 / style 0.40) — i.e. the doge spoke in a CALM narrator
+# voice. Now:
+#   doge  -> HYPED: low stability + high style + a touch quick = excitable bravado.
+#   alien -> SNIDE: expressive but composed, a hair slow = smug villain landing a jab.
+VOICE_SETTINGS = {
+    "doge":  {"stability": 0.26, "similarity_boost": 0.85, "style": 0.68,
+              "use_speaker_boost": True, "speed": 1.03},
+    "alien": {"stability": 0.42, "similarity_boost": 0.90, "style": 0.55,
+              "use_speaker_boost": True, "speed": 0.95},
+}
+
+# Alien on the LEFT throws the jab; SpaceDoge on the RIGHT claps back, hyped.
 SCRIPT = [
-    ("alien", "That rusty rocket? Landing on MARS? Never."),
-    ("doge",  "Much thrust. Very moon. Watch this."),
+    ("alien", "Pfft. That rusty rocket, landing on MARS? Never."),
+    ("doge",  "Much thrust! Very moon! Watch THIS!"),
 ]
 
 
@@ -95,7 +108,8 @@ def main() -> None:
     WORK.mkdir(parents=True, exist_ok=True)
 
     # Synthesise (cached) the two-turn exchange onto one timeline.
-    perf = perform(SCRIPT, VOICES, out_dir=WORK / "_vo", lead_in=0.35, gap=0.45)
+    perf = perform(SCRIPT, VOICES, out_dir=WORK / "_vo", lead_in=0.35, gap=0.45,
+                   settings=VOICE_SETTINGS)
     placements = [(perf, 0.0)]
 
     doge = Puppet(CHARS / "spacedoge.svg", (BASE, BASE),
