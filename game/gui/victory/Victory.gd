@@ -97,6 +97,14 @@ func _ready():
 	var level_name: String = globalvar.LEVEL_NAMES.get(nowlevel, str(nowlevel))
 	$Label_Level.text = "Level " + str(nowlevel) + " — " + level_name + " Complete!"
 
+	# The title/subtitle are fixed 924px-wide labels sized for the 1024 landscape
+	# band; in the narrower portrait canvas (content-scale shrinks it to ~640) their
+	# near-full-width text clips at both edges. Shrink each to fit the real viewport
+	# width on one line. Landscape (vp.x >= 1024) is wide enough → no change.
+	var fit_w := minf(vp.x, 1024.0) - 48.0
+	_fit_label_to_width($Label_Victory, fit_w)
+	_fit_label_to_width($Label_Level, fit_w)
+
 	# Set score label to empty (will be filled by count-up)
 	get_node("Label_Score").text = ""
 
@@ -119,6 +127,24 @@ func _ready():
 	set_process(true)
 	set_process_input(true)
 	globalvar.save_game()
+
+
+## Shrink a Label's font size until its (single-line) text fits max_width. Used to
+## keep the fixed-width victory title/subtitle on one line in the narrow portrait
+## canvas without wrapping or clipping. No-op when the text already fits.
+func _fit_label_to_width(label: Label, max_width: float) -> void:
+	if label == null or max_width <= 0.0:
+		return
+	var font := label.get_theme_font("font")
+	var size := label.get_theme_font_size("font_size")
+	if font == null or size <= 0:
+		return
+	while size > 8:
+		var w := font.get_string_size(label.text, HORIZONTAL_ALIGNMENT_CENTER, -1, size).x
+		if w <= max_width:
+			break
+		size -= 1
+	label.add_theme_font_size_override("font_size", size)
 
 	# Submit score to the leaderboard (fire and forget)
 	ScoreClient.submit_score(nowlevel, finaltime, _fuel_pct, _crypto_collected, stars)

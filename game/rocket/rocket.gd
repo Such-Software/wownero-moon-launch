@@ -392,10 +392,20 @@ func _is_tilt_mode() -> bool:
 
 # Portrait (full-tilt) is a narrower viewport — zoom the camera OUT so enough of the
 # world stays visible; landscape keeps the default. (Godot4: zoom < 1 = zoom out.)
-# Called at _ready and on a live scheme switch. The 0.65 is device-tunable.
+# Portrait ALSO boosts content_scale (globalvar.ui_scale) to enlarge the HUD, which
+# would zoom the world too — so we DIVIDE the zoom-out by that boost, leaving the
+# world view identical while only the UI grows. Driven off the live window aspect so
+# desktop portrait renders match on-device. Called at _ready + on a live scheme swap.
+# The 0.65 effective zoom-out is device-tunable.
 func _apply_portrait_view() -> void:
-	if has_node("Camera2D"):
-		$Camera2D.zoom = Vector2(0.65, 0.65) if globalvar.wants_portrait() else Vector2.ONE
+	if not has_node("Camera2D"):
+		return
+	var ws := DisplayServer.window_get_size()
+	if ws.y > ws.x:  # portrait
+		var z := 0.65 / globalvar.ui_scale()
+		$Camera2D.zoom = Vector2(z, z)
+	else:
+		$Camera2D.zoom = Vector2.ONE
 
 
 func _is_full_tilt() -> bool:

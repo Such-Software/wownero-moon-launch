@@ -99,6 +99,29 @@ enum Orientation { LANDSCAPE, PORTRAIT }
 var orientation_pref: int = Orientation.LANDSCAPE
 const ORIENTATION_NAMES := { 0: "Landscape", 1: "Portrait" }
 
+## UI scale compensation for portrait. With the 1024x600 landscape base + expand,
+## landscape renders at ~1.8x (600-height-driven) but portrait at only ~1.05x
+## (1024-width-driven) — so UI/text is ~1.7x SMALLER in portrait. Boost the content
+## scale in portrait to restore a readable, consistent physical size. Because this
+## also scales the gameplay WORLD, the rocket camera zoom is divided by it in
+## portrait so the world view is unchanged (see rocket.gd _apply_portrait_view).
+const PORTRAIT_UI_SCALE := 1.6
+
+## Current content-scale multiplier, driven by the LIVE window aspect (not the
+## mobile setting) so it is correct on-device AND for desktop portrait renders.
+## Gameplay code that must undo the world zoom (the camera) divides by this.
+func ui_scale() -> float:
+	var ws := DisplayServer.window_get_size()
+	return PORTRAIT_UI_SCALE if ws.y > ws.x else 1.0
+
+## Push ui_scale() onto the root. Wired to the window's size_changed in _ready so
+## rotation, resize, and render-time viewport swaps all keep the UI physically sized.
+func _apply_ui_scale() -> void:
+	var t := get_tree()
+	if t == null or t.root == null:
+		return
+	t.root.content_scale_factor = ui_scale()
+
 # --- Input-hint resolver ---
 # Single source of truth for "which control style are we teaching right now?".
 # Every place that branches control-instruction text (tutorial, Help, coach
@@ -731,6 +754,10 @@ func _ready():
 	if not welcome_shown:  # first launch — default orientation to how the device is held
 		_detect_launch_orientation()
 	apply_orientation()  # now that scheme + orientation are known
+	# Keep UI physically sized across rotation/resize/render-viewport swaps. Applied
+	# now and on every window size change (portrait boosts content scale ~1.6x).
+	get_tree().root.size_changed.connect(_apply_ui_scale)
+	_apply_ui_scale()
 	# Capture/testing hook: force a difficulty for promo renders + balance runs,
 	# overriding the loaded save (e.g. SML_DIFF=easy to render L2-L4 as clean wins).
 	var _sml_diff := OS.get_environment("SML_DIFF").to_lower()

@@ -9,11 +9,20 @@ shader_parameter/twinkle_speed = 2.5
 shader_parameter/brightness = 1.7
 shader_parameter/scroll_offset = Vector2(0, 0)
 
-[node name="ParallaxBackground" type="ParallaxBackground" unique_id=451481121]
+; The procedural starfield shader is SCREEN_UV-based, so it only needs a rect that
+; covers the viewport. Formerly a ParallaxBackground with a fixed -3000..3000 world
+; ColorRect: once the camera roamed far in a tall portrait column the rect no longer
+; reached the screen edges and the bottom fell into a black abyss. A CanvasLayer with
+; a full-rect (anchor 0,0->1,1) ColorRect is locked to the screen, so it ALWAYS fills
+; the viewport in any orientation/zoom/camera position. layer=-20 keeps it behind the
+; BackgroundStars parallax particles and all gameplay. (No parallax is lost: the
+; shader pattern is screen-locked and scroll_offset is 0; depth comes from BackgroundStars.)
+[node name="ParallaxBackground" type="CanvasLayer" unique_id=451481121]
+layer = -20
 
 [node name="Starfield" type="ColorRect" parent="." unique_id=13292578]
 material = SubResource("1")
-offset_left = -3000.0
-offset_top = -3000.0
-offset_right = 3000.0
-offset_bottom = 3000.0
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
