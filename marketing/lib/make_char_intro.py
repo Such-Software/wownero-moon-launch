@@ -54,19 +54,22 @@ VOICES = {"doge": VOICE_DOGE, "alien": VOICE_ALIEN}
 # changing it re-synthesises). Both intros previously fell back to the neutral
 # DEFAULT (stability 0.42 / style 0.40) — i.e. the doge spoke in a CALM narrator
 # voice. Now:
-#   doge  -> HYPED: low stability + high style + a touch quick = excitable bravado.
+#   doge  -> GROWLY-HYPED: very low stability lets the leading "Grrrr" render as an
+#            actual snarl (not a politely-read "grr"), high style = excitable bravado.
 #   alien -> SNIDE: expressive but composed, a hair slow = smug villain landing a jab.
 VOICE_SETTINGS = {
-    "doge":  {"stability": 0.26, "similarity_boost": 0.85, "style": 0.68,
-              "use_speaker_boost": True, "speed": 1.03},
+    "doge":  {"stability": 0.18, "similarity_boost": 0.82, "style": 0.72,
+              "use_speaker_boost": True, "speed": 1.0},
     "alien": {"stability": 0.42, "similarity_boost": 0.90, "style": 0.55,
               "use_speaker_boost": True, "speed": 0.95},
 }
 
-# Alien on the LEFT throws the jab; SpaceDoge on the RIGHT claps back, hyped.
+# Alien on the LEFT throws the jab; SpaceDoge on the RIGHT growls, then claps back.
+# The growl lives IN the doge's line ("Grrrr...") so the voice performs it — no
+# separate SFX layer (that read as a canned sound bolted on).
 SCRIPT = [
     ("alien", "Pfft. That rusty rocket, landing on MARS? Never."),
-    ("doge",  "Much thrust! Very moon! Watch THIS!"),
+    ("doge",  "Grrrr... much thrust. Very moon. Watch this."),
 ]
 
 
