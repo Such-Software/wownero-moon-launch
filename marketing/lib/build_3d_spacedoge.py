@@ -203,7 +203,7 @@ def build_mouth(root):
     interior = sphere("mouth_in", (0, 0.03, 0), (0.17, 0.05, 0.05), MOUTH_IN, 1.0,
                       parent=m)
     tongue = sphere("tongue", (0, 0.01, -0.04), (0.12, 0.04, 0.03), TONGUE, 0.5,
-                    sub=0.15, parent=m)
+                    parent=m)
     up = c3d.bezier_tube("lip_up", DOG_UPPER, 0.015, DOG_LIP, m)
     lo = c3d.bezier_tube("lip_lo", DOG_LOWER, 0.016, DOG_LIP, m)
     return dict(kind="dog", root=m, interior=interior, tongue=tongue, up=up, lo=lo,
@@ -233,9 +233,16 @@ def set_blink(rig, k):
 
 
 def lights_and_cam():
-    bpy.ops.object.camera_add(location=(0, -8.6, -0.10),
+    # SG3D_CLOSEUP pushes the camera in on the face (longer lens = flatter, flattering)
+    # for a solo HOOK shot; the default is the wide duo framing (unchanged).
+    if os.environ.get("SG3D_CLOSEUP"):
+        _cam_loc, _lens = (0, -6.1, 0.12), 90.0   # ears in frame, flatter lens
+    else:
+        _cam_loc, _lens = (0, -8.6, -0.10), 50.0
+    bpy.ops.object.camera_add(location=_cam_loc,
                               rotation=(math.radians(90), 0, 0))
     bpy.context.scene.camera = bpy.context.active_object
+    bpy.context.scene.camera.data.lens = _lens
     bpy.ops.object.light_add(type="AREA", location=(-3.4, -4.2, 4.2))
     k = bpy.context.active_object
     k.data.energy = 1150

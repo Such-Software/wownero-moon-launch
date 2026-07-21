@@ -71,7 +71,7 @@ VOICE_SETTINGS = {
 # now comes from the snide delivery + the alien voice FX instead.
 SCRIPT = [
     ("alien", "Ha! You could never land that rusty rocket on Mars, you dirty doge."),
-    ("doge",  "Grrrr, watch me do such landings, many moon!"),
+    ("doge",  "Grrrr, landings? Too easy. Much moon, very win!"),
 ]
 
 
