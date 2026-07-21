@@ -67,8 +67,10 @@ VOICE_SETTINGS = {
 # Alien on the LEFT throws the jab; SpaceDoge on the RIGHT growls, then claps back.
 # The growl lives IN the doge's line ("Grrrr...") so the voice performs it — no
 # separate SFX layer (that read as a canned sound bolted on).
+# NOTE: no "Pffft" — TTS renders a raspberry as a horrible spoken "pff"; the scoff
+# now comes from the snide delivery + the alien voice FX instead.
 SCRIPT = [
-    ("alien", "Pffft, you could never land the rusty rocket on Mars, you dirty doge."),
+    ("alien", "Ha! You could never land that rusty rocket on Mars, you dirty doge."),
     ("doge",  "Grrrr, watch me do such landings, many moon!"),
 ]
 

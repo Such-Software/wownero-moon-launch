@@ -114,9 +114,6 @@ def build():
     # open-face astronaut helmet, opaque (robust on alpha film — no glass z-sort).
     sphere("helmet", (0, 0.82, 0.22), (1.46, 1.42, 1.52), HELMET, 0.18,
            parent=root)
-    # a soft highlight streak up-left on the dome
-    sphere("helmet_hi", (-0.62, -0.30, 1.15), (0.34, 0.10, 0.20),
-           (1.0, 1.0, 1.0), 0.1, parent=root)
 
     # SUIT — white shoulders below; an orange chest control panel + a light button
     sphere("suit", (0, 0.05, -2.15), (1.55, 1.0, 0.95), SUIT, 0.4, parent=root)
@@ -126,15 +123,17 @@ def build():
     sphere("chest_btn", (0, -0.94, -1.66), (0.10, 0.06, 0.10),
            (0.99, 0.88, 0.72), 0.3, parent=root)
 
-    # EARS — upright pointy Shiba ears on top, poking out over the open helmet.
-    # Elongated tapered spheres tilted outward; a dark inner ear proud in front.
+    # EARS — ONE upright pointy Shiba ear per side, poking out over the open helmet.
+    # The dark inner ear is nested ON THE FRONT of the outer ear (same axis, smaller,
+    # further forward) so it reads as inner-ear detail, NOT a second ear.
     for sx, sgn in ((-0.52, -1), (0.52, 1)):
+        rot = (0, math.radians(18) * sgn, math.radians(6) * sgn)
         ear = sphere(f"ear_{sgn}", (sx, -0.28, 0.98), (0.22, 0.13, 0.52), DOGE,
                      0.5, parent=root)
-        ear.rotation_euler = (0, math.radians(18) * sgn, math.radians(6) * sgn)
-        inr = sphere(f"ear_in_{sgn}", (sx * 1.02, -0.40, 0.94),
-                     (0.11, 0.07, 0.32), DOGE_D, 0.55, parent=root)
-        inr.rotation_euler = (0, math.radians(18) * sgn, math.radians(6) * sgn)
+        ear.rotation_euler = rot
+        inr = sphere(f"ear_in_{sgn}", (sx, -0.37, 0.99), (0.105, 0.055, 0.31),
+                     DOGE_D, 0.55, parent=root)
+        inr.rotation_euler = rot
 
     # HEAD — rounded tan doge head (front is -Y)
     sphere("head", (0, 0, 0), (1.06, 0.94, 1.02), DOGE, 0.5, sub=0.05, parent=root)
