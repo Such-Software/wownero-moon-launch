@@ -68,8 +68,8 @@ VOICE_SETTINGS = {
 # The growl lives IN the doge's line ("Grrrr...") so the voice performs it — no
 # separate SFX layer (that read as a canned sound bolted on).
 SCRIPT = [
-    ("alien", "Pfft. That rusty rocket, landing on MARS? Never."),
-    ("doge",  "Grrrr... much thrust. Very moon. Watch this."),
+    ("alien", "Pffft, you could never land the rusty rocket on Mars, you dirty doge."),
+    ("doge",  "Grrrr, watch me do such landings, many moon!"),
 ]
 
 

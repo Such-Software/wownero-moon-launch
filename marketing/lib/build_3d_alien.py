@@ -154,21 +154,45 @@ def build():
 
 
 MOUTH_CENTER = (0, -0.94, -0.46)   # on the lower face, matching the old cavity anchor
+SLIT = (0.10, 0.20, 0.10)          # thin dark lip line, faintly green-black
+
+# An ALIEN mouth, not human lips: a thin LIPLESS slit that PARTS symmetrically into a
+# dark oval/lens (no jaw, no tongue, no teeth — smooth). The rest line is wide and
+# faintly DOWNTURNED (corners below centre) so it reads unimpressed/snide. Both lips
+# are near-straight and thin. (x, y, z, per-point radius tapering to points.)
+SLIT_BX = 0.22
+ALIEN_UPPER = [(-0.22, 0.00, -0.010, 0.12), (-0.10, -0.02, 0.014, 0.55),
+               (0.0, -0.024, 0.010, 0.60), (0.10, -0.02, 0.014, 0.55),
+               (0.22, 0.00, -0.010, 0.12)]
+ALIEN_LOWER = [(-0.22, 0.00, -0.014, 0.12), (-0.09, -0.024, -0.020, 0.55),
+               (0.0, -0.028, -0.024, 0.62), (0.09, -0.024, -0.020, 0.55),
+               (0.22, 0.00, -0.014, 0.12)]
 
 
 def build_mouth(root):
-    """Real articulated cupid's-bow bezier lips from the such-graphics engine
-    (c3d.build_mouth 'lips'): continuous tapered upper + lower lip curves that
-    reshape per viseme, in the alien's muted-green lip + near-black cavity."""
-    pal = c3d.Palette(body=GREEN, lip=LIP, mouth_in=MOUTH_IN)
-    m = c3d.build_mouth(root, pal, c3d.MouthSpec(kind="lips", center=MOUTH_CENTER))
-    m["_center"] = MOUTH_CENTER
-    return m
+    """A thin lipless alien SLIT that opens into a dark oval. Uses the engine's
+    bezier_tube primitive but alien-shaped near-straight profiles + a symmetric-part
+    driver (set_mouth) — NOT human cupid's-bow lips, no tongue/teeth."""
+    m = c3d._empty("mouth", MOUTH_CENTER, root)
+    interior = sphere("mouth_in", (0, 0.03, 0), (0.16, 0.05, 0.03), MOUTH_IN, 1.0,
+                      parent=m)
+    up = c3d.bezier_tube("lip_up", ALIEN_UPPER, 0.012, SLIT, m)
+    lo = c3d.bezier_tube("lip_lo", ALIEN_LOWER, 0.012, SLIT, m)
+    return dict(kind="alien", root=m, interior=interior, up=up, lo=lo,
+                _center=MOUTH_CENTER)
 
 
 def set_mouth(rig, p):
-    """Drive the engine bezier lips from (width, open, round, smile)."""
-    c3d.set_face(rig, p)
+    """Drive the alien slit from (width, open, round, smile). Both thin lips PART
+    symmetrically into a lens (no jaw/tongue); round narrows it toward a small oval.
+    Smile is largely ignored — the alien stays deadpan."""
+    width, opn, rnd, smile = (list(p) + [0, 0, 0, 0])[:4]
+    m = rig["mouth"]
+    sx = (0.92 + 0.14 * width) * (1.0 - rnd * 0.42)   # narrows to an oval on round
+    part = 0.02 + 0.34 * opn
+    c3d._shape_lip(m["up"], ALIEN_UPPER, sx, part * 0.85, smile * 0.15, rnd * 0.02, 1.0)
+    c3d._shape_lip(m["lo"], ALIEN_LOWER, sx, -part, smile * 0.05, rnd * 0.03, 1.0)
+    m["interior"].scale = (0.14 * sx + 0.02, 0.05, max(0.02, part * 0.9))
 
 
 def set_blink(rig, k):

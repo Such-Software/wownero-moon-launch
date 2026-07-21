@@ -177,25 +177,55 @@ def build():
 
 
 MOUTH_CENTER = (0, -1.02, -0.52)   # on the muzzle, matching the old cavity anchor
+DOG_LIP = (0.12, 0.075, 0.065)     # thin DARK muzzle lip line (the dog "flews")
+TONGUE = (0.83, 0.40, 0.42)        # pink tongue
+
+# A DOG mouth, not human lips. Modeled at half-width DOG_BX: a WIDE upper flews line
+# that HUMPS up either side of a soft centre PHILTRUM dip (the classic dog/"3"/omega
+# upper lip), and a lower jaw edge. Animals talk by dropping the JAW, so the upper
+# barely moves and the lower drops — very different from the tomato's symmetric
+# cupid's-bow. (x, y, z, per-point radius that tapers to points at the corners.)
+DOG_BX = 0.24
+DOG_UPPER = [(-0.24, -0.005, 0.000, 0.16), (-0.145, -0.028, 0.052, 0.55),
+             (-0.055, -0.033, 0.030, 0.42), (0.0, -0.030, 0.014, 0.30),
+             (0.055, -0.033, 0.030, 0.42), (0.145, -0.028, 0.052, 0.55),
+             (0.24, -0.005, 0.000, 0.16)]
+DOG_LOWER = [(-0.205, -0.005, -0.010, 0.15), (-0.10, -0.03, -0.040, 0.44),
+             (0.0, -0.038, -0.052, 0.55), (0.10, -0.03, -0.040, 0.44),
+             (0.205, -0.005, -0.010, 0.15)]
 
 
 def build_mouth(root):
-    """Real articulated cupid's-bow bezier lips from the such-graphics engine
-    (c3d.build_mouth 'lips'): a dark cavity framed by CONTINUOUS tapered upper +
-    lower lip curves that reshape per viseme — parting with the jaw, puckering for
-    O/U/F, curling up on the smile — instead of two scaled pill-ellipsoids. Uses
-    the doge's own muted-brown lip + near-black cavity colours."""
-    pal = c3d.Palette(body=DOGE, lip=LIP, mouth_in=MOUTH_IN)
-    m = c3d.build_mouth(root, pal, c3d.MouthSpec(kind="lips", center=MOUTH_CENTER))
-    m["_center"] = MOUTH_CENTER    # set_face anchors + jaw-drops the rig off this
-    return m
+    """A shiba MUZZLE mouth: thin dark upper flews (wide, philtrum-dipped) + a lower
+    jaw that drops open, a dark cavity, and a pink tongue that rises into view when
+    the jaw opens. Uses the engine's bezier_tube primitive but dog-shaped profiles +
+    a jaw-drop driver (set_mouth), NOT the human cupid's-bow lips."""
+    m = c3d._empty("mouth", MOUTH_CENTER, root)
+    interior = sphere("mouth_in", (0, 0.03, 0), (0.17, 0.05, 0.05), MOUTH_IN, 1.0,
+                      parent=m)
+    tongue = sphere("tongue", (0, 0.01, -0.04), (0.12, 0.04, 0.03), TONGUE, 0.5,
+                    sub=0.15, parent=m)
+    up = c3d.bezier_tube("lip_up", DOG_UPPER, 0.015, DOG_LIP, m)
+    lo = c3d.bezier_tube("lip_lo", DOG_LOWER, 0.016, DOG_LIP, m)
+    return dict(kind="dog", root=m, interior=interior, tongue=tongue, up=up, lo=lo,
+                _center=MOUTH_CENTER)
 
 
 def set_mouth(rig, p):
-    """Drive the engine bezier lips from (width, open, round, smile): the upper +
-    lower lip curves reshape in place (corner-pinned parting, centre pout on round,
-    outer thirds curl up on smile)."""
-    c3d.set_face(rig, p)
+    """Drive the dog muzzle from (width, open, round, smile). The upper flews barely
+    move (a small smile curl); the JAW (lower lip) drops for open visemes, growing a
+    dark cavity with the tongue rising into it. Round narrows the mouth (dogs don't
+    pucker human-style)."""
+    width, opn, rnd, smile = (list(p) + [0, 0, 0, 0])[:4]
+    m = rig["mouth"]
+    sx = (0.92 + 0.16 * width) * (1.0 - rnd * 0.30)   # wide; narrows a touch on round
+    drop = 0.02 + 0.42 * opn                          # jaw drop
+    c3d._shape_lip(m["up"], DOG_UPPER, sx, 0.006 * opn, smile * 0.6, 0.0, 1.0)
+    c3d._shape_lip(m["lo"], DOG_LOWER, sx, -drop, smile * 0.25, rnd * 0.03,
+                   1.0 - opn * 0.08)
+    m["interior"].scale = (0.15 * sx + 0.02, 0.05, max(0.02, drop * 0.85))
+    m["tongue"].scale = (0.11 * sx, 0.04, 0.02 + 0.05 * opn)
+    m["tongue"].location = (0, 0.01, -drop * 0.42)
 
 
 def set_blink(rig, k):
