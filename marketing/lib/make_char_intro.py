@@ -54,12 +54,12 @@ VOICES = {"doge": VOICE_DOGE, "alien": VOICE_ALIEN}
 # changing it re-synthesises). Both intros previously fell back to the neutral
 # DEFAULT (stability 0.42 / style 0.40) — i.e. the doge spoke in a CALM narrator
 # voice. Now:
-#   doge  -> GROWLY-HYPED: very low stability lets the leading "Grrrr" render as an
-#            actual snarl (not a politely-read "grr"), high style = excitable bravado.
+#   doge  -> COCKY/PLAYFUL: moderate stability (no more "Grrr" to snarl), high style
+#            for an excitable, silly-confident read. Grit comes from the FX, not here.
 #   alien -> SNIDE: expressive but composed, a hair slow = smug villain landing a jab.
 VOICE_SETTINGS = {
-    "doge":  {"stability": 0.18, "similarity_boost": 0.82, "style": 0.72,
-              "use_speaker_boost": True, "speed": 1.0},
+    "doge":  {"stability": 0.34, "similarity_boost": 0.82, "style": 0.7,
+              "use_speaker_boost": True, "speed": 1.03},
     "alien": {"stability": 0.42, "similarity_boost": 0.90, "style": 0.55,
               "use_speaker_boost": True, "speed": 0.95},
 }
@@ -67,11 +67,12 @@ VOICE_SETTINGS = {
 # Alien on the LEFT throws the jab; SpaceDoge on the RIGHT growls, then claps back.
 # The growl lives IN the doge's line ("Grrrr...") so the voice performs it — no
 # separate SFX layer (that read as a canned sound bolted on).
-# NOTE: no "Pffft" — TTS renders a raspberry as a horrible spoken "pff"; the scoff
-# now comes from the snide delivery + the alien voice FX instead.
+# No "Pffft"/"Grrr" spoken onomatopoeia (TTS renders them badly) and no cliché
+# doge-speak — the doge just talks, fun + a little silly. Scoff/grit come from the
+# delivery + voice FX.
 SCRIPT = [
     ("alien", "Ha! You could never land that rusty rocket on Mars, you dirty doge."),
-    ("doge",  "Grrrr, landings? Too easy. Much moon, very win!"),
+    ("doge",  "Imagine losing to a dog. Watch this."),
 ]
 
 
