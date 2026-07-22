@@ -45,10 +45,16 @@ restore_override() {
   [ -n "$OVR_BAK" ] && [ -f "$OVR_BAK" ] && mv "$OVR_BAK" "$OVERRIDE"
 }
 trap restore_override EXIT
-cat > "$OVERRIDE" <<'OVR'
+# The project ships window_width/height_override=1280x720, which OVERRIDES --resolution
+# (so a portrait MK_RES would silently render 1280x720). Force the window overrides to
+# match MK_RES here so portrait (1080x1920) actually renders portrait.
+RES_W="${RES%x*}"; RES_H="${RES#*x}"
+cat > "$OVERRIDE" <<OVR
 [display]
 
 window/size/mode=1
+window/size/window_width_override=$RES_W
+window/size/window_height_override=$RES_H
 OVR
 
 # --capture keeps telemetry/scores disabled even for non-gameplay scenes (the
