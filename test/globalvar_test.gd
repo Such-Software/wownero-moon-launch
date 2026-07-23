@@ -29,7 +29,7 @@ func before_test() -> void:
 	globalvar.best_stars = {}
 	globalvar.level_crypto_collected = 0
 	globalvar.level_fuel_remaining = 0.0
-	globalvar.level_easy_bounce_used = false
+	globalvar.level_bounces_used = 0
 	globalvar.has_checkpoint = false
 	globalvar.ads_removed = false
 	for key in globalvar.upgrades.keys():
@@ -42,51 +42,63 @@ func before_test() -> void:
 
 func test_spawn_interval_mult_easy() -> void:
 	globalvar.difficulty = globalvar.Difficulty.EASY
-	assert_float(globalvar.get_spawn_interval_mult()).is_equal(1.4)
+	assert_float(globalvar.get_spawn_interval_mult()).is_equal(1.8)
 
 func test_spawn_interval_mult_normal() -> void:
 	globalvar.difficulty = globalvar.Difficulty.NORMAL
-	assert_float(globalvar.get_spawn_interval_mult()).is_equal(1.0)
+	assert_float(globalvar.get_spawn_interval_mult()).is_equal(1.4)
 
 func test_spawn_interval_mult_hard() -> void:
 	globalvar.difficulty = globalvar.Difficulty.HARD
-	assert_float(globalvar.get_spawn_interval_mult()).is_equal(0.7)
+	assert_float(globalvar.get_spawn_interval_mult()).is_equal(1.0)
 
 func test_enemy_speed_mult_easy() -> void:
 	globalvar.difficulty = globalvar.Difficulty.EASY
-	assert_float(globalvar.get_enemy_speed_mult()).is_equal(0.8)
+	assert_float(globalvar.get_enemy_speed_mult()).is_equal(0.6)
 
 func test_enemy_speed_mult_normal() -> void:
 	globalvar.difficulty = globalvar.Difficulty.NORMAL
-	assert_float(globalvar.get_enemy_speed_mult()).is_equal(1.0)
+	assert_float(globalvar.get_enemy_speed_mult()).is_equal(0.8)
 
 func test_enemy_speed_mult_hard() -> void:
 	globalvar.difficulty = globalvar.Difficulty.HARD
-	assert_float(globalvar.get_enemy_speed_mult()).is_equal(1.2)
+	assert_float(globalvar.get_enemy_speed_mult()).is_equal(1.0)
 
 func test_fuel_drain_mult_easy() -> void:
 	globalvar.difficulty = globalvar.Difficulty.EASY
-	assert_float(globalvar.get_fuel_drain_mult()).is_equal(0.8)
+	assert_float(globalvar.get_fuel_drain_mult()).is_equal(0.6)
 
 func test_fuel_drain_mult_normal() -> void:
 	globalvar.difficulty = globalvar.Difficulty.NORMAL
-	assert_float(globalvar.get_fuel_drain_mult()).is_equal(1.0)
+	assert_float(globalvar.get_fuel_drain_mult()).is_equal(0.8)
 
 func test_fuel_drain_mult_hard() -> void:
 	globalvar.difficulty = globalvar.Difficulty.HARD
-	assert_float(globalvar.get_fuel_drain_mult()).is_equal(1.3)
+	assert_float(globalvar.get_fuel_drain_mult()).is_equal(1.0)
 
 func test_starting_fuel_mult_easy() -> void:
 	globalvar.difficulty = globalvar.Difficulty.EASY
-	assert_float(globalvar.get_starting_fuel_mult()).is_equal(1.2)
+	assert_float(globalvar.get_starting_fuel_mult()).is_equal(1.4)
 
 func test_starting_fuel_mult_normal() -> void:
 	globalvar.difficulty = globalvar.Difficulty.NORMAL
-	assert_float(globalvar.get_starting_fuel_mult()).is_equal(1.0)
+	assert_float(globalvar.get_starting_fuel_mult()).is_equal(1.2)
 
 func test_starting_fuel_mult_hard() -> void:
 	globalvar.difficulty = globalvar.Difficulty.HARD
-	assert_float(globalvar.get_starting_fuel_mult()).is_equal(0.9)
+	assert_float(globalvar.get_starting_fuel_mult()).is_equal(1.0)
+
+func test_bounce_allowance_easy() -> void:
+	globalvar.difficulty = globalvar.Difficulty.EASY
+	assert_int(globalvar.get_bounce_allowance()).is_equal(2)
+
+func test_bounce_allowance_normal() -> void:
+	globalvar.difficulty = globalvar.Difficulty.NORMAL
+	assert_int(globalvar.get_bounce_allowance()).is_equal(1)
+
+func test_bounce_allowance_hard() -> void:
+	globalvar.difficulty = globalvar.Difficulty.HARD
+	assert_int(globalvar.get_bounce_allowance()).is_equal(0)
 
 
 # ==========================================================================
@@ -185,28 +197,28 @@ func test_thrust_force_max_level() -> void:
 	assert_float(globalvar.get_thrust_force()).is_equal(600.0)
 
 func test_max_fuel_base() -> void:
-	# NORMAL difficulty (set in before_test) — mult is 1.0
-	assert_float(globalvar.get_max_fuel()).is_equal(200.0)
+	# NORMAL difficulty (set in before_test) uses the gentler 1.2x tank.
+	assert_float(globalvar.get_max_fuel()).is_equal(240.0)
 
 func test_max_fuel_level_5() -> void:
 	globalvar.upgrades["fuel_capacity"] = 5
-	assert_float(globalvar.get_max_fuel()).is_equal(400.0)
+	assert_float(globalvar.get_max_fuel()).is_equal(480.0)
 
 func test_max_fuel_easy_has_bigger_tank() -> void:
-	# Easy mode bakes the 1.2x multiplier into max_fuel itself.
+	# Easy mode bakes the 1.4x multiplier into max_fuel itself.
 	# This prevents the rocket from starting with >100% fuel and reporting
 	# bogus percentages on the Victory screen.
 	globalvar.difficulty = globalvar.Difficulty.EASY
-	assert_float(globalvar.get_max_fuel()).is_equal_approx(240.0, 0.001)
+	assert_float(globalvar.get_max_fuel()).is_equal_approx(280.0, 0.001)
 
-func test_max_fuel_hard_has_smaller_tank() -> void:
+func test_max_fuel_hard_uses_base_tank() -> void:
 	globalvar.difficulty = globalvar.Difficulty.HARD
-	assert_float(globalvar.get_max_fuel()).is_equal_approx(180.0, 0.001)
+	assert_float(globalvar.get_max_fuel()).is_equal_approx(200.0, 0.001)
 
 func test_max_fuel_easy_with_upgrades() -> void:
 	globalvar.difficulty = globalvar.Difficulty.EASY
 	globalvar.upgrades["fuel_capacity"] = 5
-	assert_float(globalvar.get_max_fuel()).is_equal_approx(480.0, 0.001)
+	assert_float(globalvar.get_max_fuel()).is_equal_approx(560.0, 0.001)
 
 func test_fuel_drain_base() -> void:
 	assert_float(globalvar.get_fuel_drain()).is_equal(8.0)
@@ -222,37 +234,37 @@ func test_fuel_drain_floor() -> void:
 
 func test_crash_speed_base_normal() -> void:
 	globalvar.difficulty = globalvar.Difficulty.NORMAL
-	assert_float(globalvar.get_crash_speed()).is_equal(100.0)
+	assert_float(globalvar.get_crash_speed()).is_equal(130.0)
 
 func test_crash_speed_base_easy() -> void:
 	globalvar.difficulty = globalvar.Difficulty.EASY
-	assert_float(globalvar.get_crash_speed()).is_equal(130.0)
+	assert_float(globalvar.get_crash_speed()).is_equal(160.0)
 
 func test_crash_speed_base_hard() -> void:
 	globalvar.difficulty = globalvar.Difficulty.HARD
-	assert_float(globalvar.get_crash_speed()).is_equal(85.0)
+	assert_float(globalvar.get_crash_speed()).is_equal(100.0)
 
 func test_crash_speed_upgraded_normal() -> void:
 	globalvar.upgrades["armor"] = 3
 	globalvar.difficulty = globalvar.Difficulty.NORMAL
-	assert_float(globalvar.get_crash_speed()).is_equal(250.0)
+	assert_float(globalvar.get_crash_speed()).is_equal(325.0)
 
 func test_landing_speed_base_normal() -> void:
 	globalvar.difficulty = globalvar.Difficulty.NORMAL
-	assert_float(globalvar.get_landing_speed()).is_equal(40.0)
+	assert_float(globalvar.get_landing_speed()).is_equal(56.0)
 
 func test_landing_speed_base_easy() -> void:
 	globalvar.difficulty = globalvar.Difficulty.EASY
-	assert_float(globalvar.get_landing_speed()).is_equal(56.0)
+	assert_float(globalvar.get_landing_speed()).is_equal(72.0)
 
 func test_landing_speed_base_hard() -> void:
 	globalvar.difficulty = globalvar.Difficulty.HARD
-	assert_float(globalvar.get_landing_speed()).is_equal(32.0)
+	assert_float(globalvar.get_landing_speed()).is_equal(40.0)
 
 func test_landing_speed_upgraded() -> void:
 	globalvar.upgrades["landing_gear"] = 3
 	globalvar.difficulty = globalvar.Difficulty.NORMAL
-	assert_float(globalvar.get_landing_speed()).is_equal(100.0)
+	assert_float(globalvar.get_landing_speed()).is_equal(140.0)
 
 func test_shield_hits_base() -> void:
 	assert_int(globalvar.get_shield_hits()).is_equal(0)
@@ -629,30 +641,30 @@ func test_has_next_level_false_at_max() -> void:
 func test_reset_level_stats() -> void:
 	globalvar.level_crypto_collected = 500
 	globalvar.level_fuel_remaining = 75.0
-	globalvar.level_easy_bounce_used = true
+	globalvar.level_bounces_used = 2
 	globalvar.has_checkpoint = true
 	globalvar.checkpoint_fuel = 100.0
 	globalvar.checkpoint_planet_name = "Mars"
 	globalvar.reset_level_stats()
 	assert_int(globalvar.level_crypto_collected).is_equal(0)
 	assert_float(globalvar.level_fuel_remaining).is_equal(0.0)
-	assert_bool(globalvar.level_easy_bounce_used).is_false()
+	assert_int(globalvar.level_bounces_used).is_equal(0)
 	assert_bool(globalvar.has_checkpoint).is_false()
 	assert_float(globalvar.checkpoint_fuel).is_equal(0.0)
 	assert_str(globalvar.checkpoint_planet_name).is_equal("")
 
 
-func test_easy_bounce_default_false() -> void:
-	# Per-run flag should default to false at scene reset (handled in before_test).
-	assert_bool(globalvar.level_easy_bounce_used).is_false()
+func test_bounces_used_defaults_to_zero() -> void:
+	# Per-run counter is reset in before_test.
+	assert_int(globalvar.level_bounces_used).is_equal(0)
 
 
-func test_easy_bounce_resets_independently() -> void:
-	# Setting and resetting just the bounce flag, with no other state changes,
+func test_bounces_used_resets_independently() -> void:
+	# Setting and resetting just the bounce counter, with no other state changes,
 	# should leave the rest of reset_level_stats's domain untouched.
-	globalvar.level_easy_bounce_used = true
+	globalvar.level_bounces_used = 1
 	globalvar.reset_level_stats()
-	assert_bool(globalvar.level_easy_bounce_used).is_false()
+	assert_int(globalvar.level_bounces_used).is_equal(0)
 
 
 func test_landings_increment_on_record_level_result() -> void:
