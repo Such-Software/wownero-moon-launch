@@ -10,8 +10,10 @@
 data_*/
 mono_crash.*.json
 
-# Export builds
-builds/
+# Export builds. Keep a tracked .gdignore so local exports are not re-imported
+# as project source on the next headless verification pass.
+builds/*
+!builds/.gdignore
 *.aab
 *.apk
 *.apk.idsig
@@ -90,7 +92,8 @@ rl/*.zip
 override.cfg
 
 # rendered video outputs (regenerable via render_level.sh / render_remote.sh)
-out/
+out/*
+!out/.gdignore
 
 # agent memory / session state (not part of the game)
 .claude/

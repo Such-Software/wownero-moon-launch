@@ -1,0 +1,63 @@
+name: Such Moon Launch verify
+
+# Secret-free and host-portable: the same gate runs for GitHub review and the
+# private such-git mirror. Signing and delivery live in a separate workflow.
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: such-moon-launch-verify-${{ github.ref }}
+  cancel-in-progress: true
+
+defaults:
+  run:
+    shell: bash
+
+env:
+  GODOT_VERSION: "4.6.1-stable"
+
+jobs:
+  verify:
+    runs-on: macos-latest
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+        env:
+          # such-git currently uses a self-signed certificate. Keep this
+          # exception scoped to the Node checkout action.
+          NODE_TLS_REJECT_UNAUTHORIZED: "0"
+        with:
+          fetch-depth: 1
+          lfs: false
+          submodules: false
+          persist-credentials: false
+
+      - name: Locate or install pinned Godot
+        run: |
+          set -euo pipefail
+          SYSTEM_GODOT="/Applications/Godot.app/Contents/MacOS/Godot"
+          CACHE="$HOME/Library/Caches/such-godot/$GODOT_VERSION"
+          CACHED_GODOT="$CACHE/Godot.app/Contents/MacOS/Godot"
+          EXPECTED_VERSION="${GODOT_VERSION/-/.}"
+
+          if [ -x "$SYSTEM_GODOT" ] && "$SYSTEM_GODOT" --version | grep -Fq "$EXPECTED_VERSION"; then
+            GODOT_BIN="$SYSTEM_GODOT"
+          else
+            if [ ! -x "$CACHED_GODOT" ]; then
+              mkdir -p "$CACHE"
+              curl -fL -o "$RUNNER_TEMP/godot.zip" \
+                "https://github.com/godotengine/godot/releases/download/$GODOT_VERSION/Godot_v${GODOT_VERSION}_macos.universal.zip"
+              unzip -q -o "$RUNNER_TEMP/godot.zip" -d "$CACHE"
+              rm -f "$RUNNER_TEMP/godot.zip"
+            fi
+            GODOT_BIN="$CACHED_GODOT"
+          fi
+
+          chmod +x "$GODOT_BIN"
+          "$GODOT_BIN" --version | grep -Fq "$EXPECTED_VERSION"
+          echo "GODOT_BIN=$GODOT_BIN" >> "$GITHUB_ENV"
+
+      - name: Verify code, tests, resources, and release contract
+        run: bash tools/ci/verify.sh
