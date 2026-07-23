@@ -1,0 +1,86 @@
+{
+  "schema_version": 1,
+  "app_name": "Such Moon Launch",
+  "artifact_name": "SuchMoonLaunch.ipa",
+  "bundle_id": "com.suchsoftware.suchmoonlaunch",
+  "export_preset": "iOS",
+  "godot_version": "4.6.1-stable",
+  "minimum_ios": "14.0",
+  "profile_name": "SuchMoonLaunch_AppStore",
+  "project_adapter": "godot",
+  "project_path": ".",
+  "team_id": "D8PL9F7X33",
+  "required_entitlements": {
+    "beta-reports-active": true,
+    "com.apple.developer.game-center": true
+  },
+  "required_payload_names": [
+    "GoogleService-Info.plist",
+    "PrivacyInfo.xcprivacy"
+  ],
+  "required_linked_symbols": [
+    "_admob_plugin_init",
+    "_bloomword_firebase_init",
+    "_register_godot_storekit2_types"
+  ],
+  "required_plugins": [
+    "AdmobPlugin",
+    "BloomwordFirebase",
+    "godot-storekit2"
+  ],
+  "tracked_release_inputs": [
+    "export_presets.cfg",
+    "project.godot",
+    "addons/AdmobPlugin/ios_export.cfg",
+    "ios/plugins/BloomwordFirebase.gdip",
+    "ios/plugins/godot-storekit2.gdip",
+    "ios/plugins/godot-storekit2.release.xcframework/Info.plist",
+    "ios/plugins/godot-storekit2.release.xcframework/ios-arm64/libgodot-storekit2.a"
+  ],
+  "seed": {
+    "hash_algorithm": "sha256-tree-v1",
+    "runner_root": "$HOME/Library/Caches/such-ios-sdks/such-moon-launch-ios",
+    "entries": [
+      {
+        "kind": "tree",
+        "path": "ios/framework",
+        "sha256": "e8dee2fea778d1b4eeddfb38a7c466c0c92ccb36222b7b1d475b8d64c33576c6"
+      },
+      {
+        "kind": "file",
+        "path": "ios/plugins/AdmobPlugin.gdip",
+        "sha256": "c6b8f2510e4e5052296e0d930e4298c1e0068bfaf8c5384ec8fad647a1c96a43"
+      },
+      {
+        "kind": "tree",
+        "path": "ios/plugins/AdmobPlugin.debug.xcframework",
+        "sha256": "47cccfc6312f3f51fee8c9722cb97cd0b30647943daad6c1d46f9a633dfdb153"
+      },
+      {
+        "kind": "tree",
+        "path": "ios/plugins/AdmobPlugin.release.xcframework",
+        "sha256": "2026f125ca40f41dd45711c2bbbabe66bdd31b622da537a3e108d68615da3f00"
+      },
+      {
+        "kind": "tree",
+        "path": "ios/plugins/BloomwordFirebase.debug.xcframework",
+        "sha256": "e52513d159623e323564dd415205cc52541afb2ba405fe5f6c0646b2b81e0833"
+      },
+      {
+        "kind": "tree",
+        "path": "ios/plugins/BloomwordFirebase.release.xcframework",
+        "sha256": "0dd8e6e1a645b26cd89ed4cfc4d3a7e30166dcc4c8394a5e9a52320379c339cf"
+      },
+      {
+        "kind": "file",
+        "path": "ios/plugins/GoogleService-Info.plist",
+        "sha256": "0d9fbaf6b6830e62361f485b3066a0844b615bd25d56643a6fd2df2e623fc1eb"
+      },
+      {
+        "kind": "file",
+        "path": "ios/GoogleService-Info.plist",
+        "sha256": "0d9fbaf6b6830e62361f485b3066a0844b615bd25d56643a6fd2df2e623fc1eb"
+      }
+    ]
+  }
+}

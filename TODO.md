@@ -44,6 +44,10 @@ After recreating apps above, swap the new IDs into:
 ### Build configuration
 - [ ] **Android** (`export_presets.cfg`): set `gradle_build/export_format=1` (AAB), `gradle_build/min_sdk=24`, `target_sdk=34`. Set launcher icons (`launcher_icons/main_192x192` + adaptive 432×432 from `art/branding/AppIcon_Cartoon-Astronaut.png`). Bump `version/code` and `version/name`.
 - [ ] **iOS** (`export_presets.cfg`): bundle id `com.suchsoftware.suchmoonlaunch`, team id, code-sign identity, provisioning profile, ALL icon sizes (use makeappicon.com from a 1024×1024 source). Enable In-App Purchase capability in the App ID at developer.apple.com.
+- [x] **CI code foundation**: portable push/PR verification plus an artifact-first,
+  fail-closed private-Mac iOS candidate/TestFlight workflow. External mirror,
+  seed, secrets, branch normalization, and first proof run remain in
+  [`CI.md`](CI.md).
 - [ ] **Privacy policy**: required by Google Play, App Store, and AdMob. Publish a static page (itch.io game page works) and link it in store listings + AdMob app settings. Should cover: device identifiers (AdMob, IAP), in-game nickname (leaderboard), gameplay events (telemetry → our own backend), no personal info collected.
 - [ ] **Itch.io**: rename project URL slug to `such-moon-launch` (ensure `https://suchsoftware.itch.io/such-moon-launch` resolves).
 
