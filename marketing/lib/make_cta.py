@@ -4,16 +4,19 @@
 and a short MP4 (gentle push-in) to tack onto the end of each video.
 
 Run: python3 marketing/lib/make_cta.py
-Out: marketing/out/_promo/cta.png, marketing/out/_promo/cta.mp4
+Out: ~/Build/scratch/such-moon-launch/marketing/<run-id>/_promo/
 """
 from __future__ import annotations
 import subprocess
 import sys
 from pathlib import Path
 
-sys.path.insert(0, "/Users/johnmurphy/src/such-graphics")
+sys.dont_write_bytecode = True
 HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE))
+from workspace_paths import marketing_run_root, such_graphics_source
+
+sys.path.insert(0, str(such_graphics_source()))
 
 from PIL import Image, ImageDraw, ImageFont
 import make_char_intro as base
@@ -23,7 +26,7 @@ MKT = HERE.parent
 ROOT = MKT.parent
 FONT = str(ROOT / "fonts" / "Computer Speak v0.3.ttf")
 ICON = str(ROOT / "art" / "branding" / "icon.png")
-OUT = MKT / "out" / "_promo"
+OUT = marketing_run_root() / "_promo"
 DUR, FPS = 2.6, 30
 
 YELLOW = (255, 205, 79)

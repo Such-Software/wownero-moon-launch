@@ -30,7 +30,7 @@
 #   RENDER_DISPLAY   GPU X display for hardware Vulkan    (default: :0)
 #   QA_LEVEL         level to render                      (default: 1)
 #   QA_SECONDS       clip length in seconds               (default: 10)
-#   QA_OUT_BASE      output base path (repo-relative ok)  (default: Build review space)
+#   QA_OUT_BASE      output base path below Build         (default: Build review space)
 #   QA_EXPECT_SIZE   expected WxH for the master          (default: 1920x1080)
 #   ...plus anything render_remote.sh honours (MK_RES, SML_SEED, GODOT_DRIVER, ...).
 #
@@ -38,6 +38,8 @@
 # godot or training locally.
 set -euo pipefail
 
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+source "$SCRIPT_DIR/workspace_paths.sh"
 # ---- config -----------------------------------------------------------------
 # Default to the GPU box (1080 Ti) on its real X display so we exercise the hardware
 # render path -- the same path the marketing renders ship on. Both are overridable so
@@ -46,21 +48,19 @@ export RENDER_HOST="${RENDER_HOST:-such-aigen-one}"
 export RENDER_DISPLAY="${RENDER_DISPLAY-:0}"
 
 PROJ="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
-cd "$PROJ"   # so repo-relative OUT_BASE resolves against the root and matches MASTER
+cd "$PROJ"
 LEVEL="${QA_LEVEL:-1}"
 SECONDS_LEN="${QA_SECONDS:-10}"
 BUILD_ROOT="${SUCH_BUILD_ROOT:-$HOME/Build}"
 RUN_ID="${SML_MARKETING_RUN_ID:-$(date -u +%Y%m%dT%H%M%SZ)}"
+sml_require_safe_run_id "$RUN_ID"
 OUT_BASE="${QA_OUT_BASE:-$BUILD_ROOT/review/such-moon-launch/marketing/$RUN_ID/qa_clip}"
+sml_require_build_output "$OUT_BASE"
 EXPECT_SIZE="${QA_EXPECT_SIZE:-1920x1080}"
 
 # render_remote.sh emits <base>_16x9.mp4 / _1x1.mp4 / _9x16.mp4; the 16x9 is the
 # full-res master we QA against.
-if [[ "$OUT_BASE" = /* ]]; then
-	MASTER="${OUT_BASE}_16x9.mp4"
-else
-	MASTER="${PROJ}/${OUT_BASE}_16x9.mp4"
-fi
+MASTER="${OUT_BASE}_16x9.mp4"
 
 echo "=========================================================================="
 echo " QA smoke-clip: Level ${LEVEL}, ${SECONDS_LEN}s  ->  ${OUT_BASE}_16x9.mp4"

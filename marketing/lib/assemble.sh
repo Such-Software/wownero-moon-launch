@@ -4,8 +4,9 @@
 # first, then concat (so mixed sources, e.g. Movie Maker .avi + .mp4, just work).
 #
 # Usage:
-#   assemble.sh --out out/myvid/final [--music bed.mp3] [--vo voice.wav] \
-#       [--music-gain 0.25] clip1.avi clip2.avi clip3.mp4 ...
+#   assemble.sh --out "$HOME/Build/scratch/such-moon-launch/marketing/myvid/final" \
+#       [--music bed.mp3] [--vo voice.wav] [--music-gain 0.25] \
+#       clip1.avi clip2.avi clip3.mp4 ...
 #
 # Audio:
 #   - no --vo, no --music : keep each clip's own audio.
@@ -22,6 +23,8 @@
 # master resolution (e.g. a 720p take) keeps the crops valid -- nothing is hardcoded to 1080.
 set -euo pipefail
 
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+source "$SCRIPT_DIR/workspace_paths.sh"
 OUT=""; MUSIC=""; VO=""; MUSIC_GAIN="0.25"
 OUT_RES="${MK_OUT_RES:-1920x1080}"; OUT_W="${OUT_RES%x*}"; OUT_H="${OUT_RES#*x}"
 FPS="${MK_FPS:-60}"
@@ -44,8 +47,12 @@ if [ -z "$OUT" ] || [ "${#CLIPS[@]}" -eq 0 ]; then
   echo "usage: assemble.sh --out <base> [--music f] [--vo f] clip1 clip2 ..." >&2
   exit 2
 fi
-mkdir -p "$(dirname "$OUT")"
-TMP="$(dirname "$OUT")/.assemble_tmp"; mkdir -p "$TMP"
+sml_require_build_output "$OUT"
+TMP="$(mktemp -d "$(dirname "$OUT")/.assemble_tmp.XXXXXX")"
+cleanup_tmp() {
+  rm -rf -- "$TMP"
+}
+trap cleanup_tmp EXIT
 
 # 1) normalize each clip to the master res/fps (1920x1080 60fps), silent video track only
 echo "[assemble] normalizing ${#CLIPS[@]} segment(s) at ${OUT_W}x${OUT_H} ${FPS}fps"
@@ -114,5 +121,6 @@ ffmpeg -y -loglevel error -i "$MASTER" \
   -c:v libx264 -pix_fmt yuv420p -crf 20 \
   -movflags +faststart -c:a aac "${OUT}_9x16.mp4"
 
-rm -rf "$TMP"
+cleanup_tmp
+trap - EXIT
 echo "[assemble] done: ${OUT}_16x9.mp4  ${OUT}_1x1.mp4  ${OUT}_9x16.mp4"

@@ -11,6 +11,8 @@ extends Node
 signal rewarded_ad_completed(success: bool)
 signal interstitial_closed
 
+const ExternalLinks = preload("res://game/net/ExternalLinks.gd")
+
 ## Platforms that are always ad-free (premium desktop builds)
 const AD_FREE_PLATFORMS := ["macOS", "Windows", "Linux"]
 
@@ -106,10 +108,10 @@ func _dbg(msg: String) -> void:
 	if _debug_hud:
 		_debug_hud.text = "\n".join(_debug_lines)
 
-const ITCH_URL := "https://suchsoftware.itch.io/such-moon-launch"
+const ITCH_URL := ExternalLinks.ITCH_URL
 ## The free web build funnels players to the monetized mobile apps.
-const APP_STORE_URL := "https://apps.apple.com/us/app/such-moon-launch/id6767909623"
-const PLAY_STORE_URL := "https://play.google.com/store/apps/details?id=com.suchsoftware.suchmoonlaunch"
+const APP_STORE_URL := ExternalLinks.APP_STORE_URL
+const PLAY_STORE_URL := ExternalLinks.PLAY_STORE_URL
 
 
 func _ready() -> void:

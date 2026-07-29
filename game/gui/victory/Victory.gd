@@ -1,6 +1,7 @@
 extends Node2D
 
 const BS = preload("res://game/gui/ButtonStyles.gd")
+const ExternalLinks = preload("res://game/net/ExternalLinks.gd")
 
 var finaltime: float
 var nowlevel: int
@@ -567,7 +568,4 @@ func _close_rate_prompt() -> void:
 
 
 func _get_store_url() -> String:
-	match OS.get_name():
-		"Android": return "https://play.google.com/store/apps/details?id=com.suchsoftware.suchmoonlaunch"
-		"iOS": return "https://apps.apple.com/app/such-moon-launch"
-		_: return "https://suchsoftware.itch.io/such-moon-launch"
+	return ExternalLinks.store_url(OS.get_name())

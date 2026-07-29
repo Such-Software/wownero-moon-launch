@@ -6,10 +6,18 @@
 #
 # usage: make_promo.sh <out.mp4> <music.mp3> <clip1> <clip2> ...
 set -euo pipefail
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+source "$SCRIPT_DIR/workspace_paths.sh"
 OUT="$1"; MUSIC="$2"; shift 2
+sml_require_build_output "$OUT"
 W=1080; H=1920; FPS=30
 VF="scale=$W:$H:force_original_aspect_ratio=decrease,pad=$W:$H:(ow-iw)/2:(oh-ih)/2,setsar=1,fps=$FPS"
-TMP="$(mktemp -d)"; LIST="$TMP/list.txt"; : > "$LIST"
+TMP="$(mktemp -d "$(dirname "$OUT")/.promo_tmp.XXXXXX")"
+cleanup_tmp() {
+  rm -rf -- "$TMP"
+}
+trap cleanup_tmp EXIT
+LIST="$TMP/list.txt"; : > "$LIST"
 i=0
 for c in "$@"; do
   n="$TMP/n$(printf '%02d' "$i").mp4"
@@ -32,5 +40,6 @@ ffmpeg -y -loglevel error -i "$CAT" -stream_loop -1 -i "$MUSIC" -filter_complex 
   "[1:a]volume=0.18,afade=t=out:st=${FOUT}:d=1.0[m];\
    [0:a][m]amix=inputs=2:duration=first:normalize=0,alimiter=limit=0.95[a]" \
   -map 0:v -map "[a]" -c:v copy -c:a aac -ar 48000 -movflags +faststart "$OUT"
-rm -rf "$TMP"
+cleanup_tmp
+trap - EXIT
 echo "OK $OUT ($(printf '%.1f' "$DUR")s)"

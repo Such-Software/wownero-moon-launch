@@ -59,6 +59,9 @@
   ],
   "tracked_release_inputs": [
     ".gitea/workflows/build-ios-testflight.yml",
+    "game/gui/menu/Menu.gd",
+    "game/gui/victory/Victory.gd",
+    "game/net/ExternalLinks.gd",
     "export_presets.cfg",
     "project.godot",
     "addons/AdmobPlugin/ios_export.cfg",
