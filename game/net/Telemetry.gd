@@ -40,6 +40,7 @@ var _http: HTTPRequest = null
 var _flush_timer: Timer = null
 var _initialized: bool = false
 var _transport_disabled: bool = false
+var _auth_failure_reported: bool = false
 
 
 func _ready() -> void:
@@ -109,6 +110,16 @@ func record_error(msg: String, fatal: bool = false) -> void:
 
 # --- Internal ---
 
+func _transport_secret() -> String:
+	return ScoreClient._get_hmac_secret()
+
+
+func _start_transport_request(
+		headers: PackedStringArray, json_str: String
+	) -> Error:
+	return _http.request(API_URL, headers, HTTPClient.METHOD_POST, json_str)
+
+
 func _flush() -> void:
 	if _buffer.is_empty():
 		return
@@ -133,14 +144,20 @@ func _flush() -> void:
 	var headers := PackedStringArray(["Content-Type: application/json"])
 
 	# HMAC sign — reuse ScoreClient's secret reconstruction.
-	var secret: String = ScoreClient._get_hmac_secret()
-	if secret != "":
-		var ts := str(int(Time.get_unix_time_from_system()))
-		var sig := ScoreClient._sign(secret, ts, json_str.to_utf8_buffer())
-		headers.append("X-Timestamp: " + ts)
-		headers.append("X-Signature: " + sig)
+	var secret: String = _transport_secret()
+	if secret == "":
+		# Keep the batch buffered and never open an unauthenticated connection.
+		_buffer = batch + _buffer
+		if not _auth_failure_reported:
+			_auth_failure_reported = true
+			push_error("Telemetry: refusing unsigned event upload")
+		return
+	var ts := str(int(Time.get_unix_time_from_system()))
+	var sig := ScoreClient._sign(secret, ts, json_str.to_utf8_buffer())
+	headers.append("X-Timestamp: " + ts)
+	headers.append("X-Signature: " + sig)
 
-	var err := _http.request(API_URL, headers, HTTPClient.METHOD_POST, json_str)
+	var err := _start_transport_request(headers, json_str)
 	if err != OK:
 		# Couldn't even start the request — re-enqueue and try next flush.
 		_buffer = batch + _buffer

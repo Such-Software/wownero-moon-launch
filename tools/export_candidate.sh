@@ -42,68 +42,90 @@ grep -Fq "4.6.1" <<<"$ACTUAL_VERSION" || {
   exit 1
 }
 
-BUILD_ROOT="${SUCH_BUILD_ROOT:-$HOME/Build}"
+BUILD_ROOT="${SUCH_BUILD_ROOT:-$HOME/Build/such-moon-launch}"
+mkdir -p "$BUILD_ROOT"
+BUILD_ROOT="$(cd "$BUILD_ROOT" && pwd)"
 SHA="$(git rev-parse HEAD)"
 RUN_ID="${SML_BUILD_RUN_ID:-$(date -u +%Y%m%dT%H%M%SZ)-${SHA:0:12}}"
-PRODUCT_DIR="$BUILD_ROOT/products/such-moon-launch/$RUN_ID"
-LOG_DIR="$BUILD_ROOT/logs/such-moon-launch/$RUN_ID"
+PRODUCT_DIR="$BUILD_ROOT/products/$RUN_ID"
+LOG_DIR="$BUILD_ROOT/logs/$RUN_ID"
 mkdir -p "$PRODUCT_DIR" "$LOG_DIR"
 
 cleanup_android_material() {
-  if [[ -n "${ANDROID_FIREBASE_LINK_TARGET:-}" &&
-        -L google-services.json &&
-        "$(readlink google-services.json)" == "$ANDROID_FIREBASE_LINK_TARGET" ]]; then
-    rm -f google-services.json
-  fi
+  case "${SML_FIREBASE_STAGE_DIR:-}" in
+    "${TMPDIR:-/tmp}"/sml-firebase-aar.*) rm -rf -- "$SML_FIREBASE_STAGE_DIR" ;;
+    "") ;;
+    *) echo "WARNING: refusing to remove unexpected Firebase staging directory." >&2 ;;
+  esac
 }
 
 if [[ "$PRESET" == "Android" ]]; then
-  KEYSTORE="${GODOT_ANDROID_KEYSTORE_RELEASE_PATH:-$HOME/keys/suchsoftware/keystores/wowneromoonlaunch/release.keystore}"
-  KEYSTORE_LEDGER="${SML_KEYSTORE_LEDGER:-$HOME/keys/suchsoftware/keystores/KEYSTORES.md}"
-  if [[ -z "${GODOT_ANDROID_KEYSTORE_RELEASE_USER:-}" ]]; then
-    GODOT_ANDROID_KEYSTORE_RELEASE_USER="$(
-      awk -F'|' '/wowneromoonlaunch\/release\.keystore/ {
-        gsub(/^[ \t]+|[ \t]+$/, "", $3)
-        gsub(/`/, "", $3)
-        print $3
-        exit
-      }' "$KEYSTORE_LEDGER"
-    )"
-  fi
-  if [[ -z "${GODOT_ANDROID_KEYSTORE_RELEASE_PASSWORD:-}" ]]; then
-    GODOT_ANDROID_KEYSTORE_RELEASE_PASSWORD="$(
-      awk -F'|' '/wowneromoonlaunch\/release\.keystore/ {
-        gsub(/^[ \t]+|[ \t]+$/, "", $4)
-        gsub(/`/, "", $4)
-        print $4
-        exit
-      }' "$KEYSTORE_LEDGER"
-    )"
-  fi
+  KEYSTORE="${GODOT_ANDROID_KEYSTORE_RELEASE_PATH:-}"
+  FIREBASE_CONFIG="${SML_ANDROID_GOOGLE_SERVICES_PATH:-}"
   [[ -f "$KEYSTORE" ]] || { echo "FATAL: Android release keystore not found." >&2; exit 1; }
-  [[ -n "$GODOT_ANDROID_KEYSTORE_RELEASE_USER" ]] || { echo "FATAL: Android release alias is empty." >&2; exit 1; }
-  [[ -n "$GODOT_ANDROID_KEYSTORE_RELEASE_PASSWORD" ]] || { echo "FATAL: Android release password is empty." >&2; exit 1; }
+  [[ -n "${GODOT_ANDROID_KEYSTORE_RELEASE_USER:-}" ]] || { echo "FATAL: Android release alias is empty." >&2; exit 1; }
+  [[ -n "${GODOT_ANDROID_KEYSTORE_RELEASE_PASSWORD:-}" ]] || { echo "FATAL: Android release password is empty." >&2; exit 1; }
+  [[ -f "$FIREBASE_CONFIG" ]] || { echo "FATAL: Vaultwarden-provisioned google-services.json not found." >&2; exit 1; }
   export GODOT_ANDROID_KEYSTORE_RELEASE_PATH="$KEYSTORE"
   export GODOT_ANDROID_KEYSTORE_RELEASE_USER
   export GODOT_ANDROID_KEYSTORE_RELEASE_PASSWORD
 
-  [[ -f android/google-services.json ]] || {
-    echo "FATAL: android/google-services.json is required for Android Firebase." >&2
+  python3 - "$FIREBASE_CONFIG" <<'PY'
+import json
+import sys
+
+with open(sys.argv[1], encoding="utf-8") as handle:
+    config = json.load(handle)
+project_id = config.get("project_info", {}).get("project_id")
+if project_id != "suchsoftwareapps":
+    raise SystemExit(
+        f"FATAL: Android Firebase project must be 'suchsoftwareapps', got {project_id!r}"
+    )
+matches = [
+    client
+    for client in config.get("client", [])
+    if client.get("client_info", {})
+    .get("android_client_info", {})
+    .get("package_name")
+    == "com.suchsoftware.suchmoonlaunch"
+]
+if len(matches) != 1:
+    raise SystemExit(
+        "FATAL: google-services.json must contain exactly one Such Moon Launch client"
+    )
+if not matches[0].get("client_info", {}).get("mobilesdk_app_id"):
+    raise SystemExit("FATAL: Such Moon Launch Firebase client has no mobilesdk_app_id")
+PY
+
+  BASE_FIREBASE_AAR="addons/BloomwordFirebase/bin/release/BloomwordFirebase-release.aar"
+  [[ -f "$BASE_FIREBASE_AAR" ]] || {
+    echo "FATAL: tracked BloomwordFirebase release AAR is missing." >&2
     exit 1
   }
-  if [[ -e google-services.json || -L google-services.json ]]; then
-    echo "FATAL: temporary root google-services.json path is already occupied." >&2
-    exit 1
-  fi
-  ANDROID_FIREBASE_LINK_TARGET="android/google-services.json"
-  ln -s "$ANDROID_FIREBASE_LINK_TARGET" google-services.json
+  FIREBASE_INTERMEDIATE="$BUILD_ROOT/intermediates/firebase/$RUN_ID"
+  SML_FIREBASE_STAGE_DIR="$(mktemp -d "${TMPDIR:-/tmp}/sml-firebase-aar.XXXXXX")"
   trap cleanup_android_material EXIT
+  mkdir -p "$FIREBASE_INTERMEDIATE" "$SML_FIREBASE_STAGE_DIR/assets"
+  SML_FIREBASE_ANDROID_AAR="$FIREBASE_INTERMEDIATE/BloomwordFirebase-release.aar"
+  cp "$BASE_FIREBASE_AAR" "$SML_FIREBASE_ANDROID_AAR"
+  cp "$FIREBASE_CONFIG" "$SML_FIREBASE_STAGE_DIR/assets/google-services.json"
+  (
+    cd "$SML_FIREBASE_STAGE_DIR"
+    zip -q -u "$SML_FIREBASE_ANDROID_AAR" assets/google-services.json
+  )
+  unzip -l "$SML_FIREBASE_ANDROID_AAR" | grep -Eq \
+    'assets/google-services\.json$' || {
+      echo "FATAL: prepared Firebase AAR has no packaged client config." >&2
+      exit 1
+    }
+  export SML_FIREBASE_ANDROID_AAR
 
   [[ -f android/build/build.gradle ]] || {
     echo "FATAL: install the Godot Android build template at android/build first." >&2
     exit 1
   }
-  export GRADLE_USER_HOME="$BUILD_ROOT/cache/gradle/such-moon-launch"
+  python3 tools/ci/prepare_android_template.py --root android/build
+  export GRADLE_USER_HOME="${GRADLE_USER_HOME:-$BUILD_ROOT/cache/gradle}"
 fi
 
 if [[ "${SML_SKIP_VERIFY:-0}" != "1" ]]; then

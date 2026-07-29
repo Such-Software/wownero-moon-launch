@@ -46,11 +46,14 @@ func upload_save() -> void:
 
 	# HMAC signing
 	var hmac_secret := ScoreClient._get_hmac_secret()
-	if hmac_secret != "":
-		var timestamp := str(int(Time.get_unix_time_from_system()))
-		var signature := ScoreClient._sign(hmac_secret, timestamp, json_str.to_utf8_buffer())
-		headers.append("X-Timestamp: " + timestamp)
-		headers.append("X-Signature: " + signature)
+	if hmac_secret == "":
+		push_error("CloudSave: refusing unsigned save upload")
+		save_uploaded.emit(false)
+		return
+	var timestamp := str(int(Time.get_unix_time_from_system()))
+	var signature := ScoreClient._sign(hmac_secret, timestamp, json_str.to_utf8_buffer())
+	headers.append("X-Timestamp: " + timestamp)
+	headers.append("X-Signature: " + signature)
 
 	var err := _upload_http.request(API_BASE + "/save",
 		headers, HTTPClient.METHOD_PUT, json_str)
@@ -79,11 +82,14 @@ func download_save() -> void:
 
 	# HMAC signing (GET /save now requires auth)
 	var hmac_secret := ScoreClient._get_hmac_secret()
-	if hmac_secret != "":
-		var timestamp := str(int(Time.get_unix_time_from_system()))
-		var signature := ScoreClient._sign(hmac_secret, timestamp, PackedByteArray())
-		headers.append("X-Timestamp: " + timestamp)
-		headers.append("X-Signature: " + signature)
+	if hmac_secret == "":
+		push_error("CloudSave: refusing unsigned save download")
+		save_downloaded.emit(false, {})
+		return
+	var timestamp := str(int(Time.get_unix_time_from_system()))
+	var signature := ScoreClient._sign(hmac_secret, timestamp, PackedByteArray())
+	headers.append("X-Timestamp: " + timestamp)
+	headers.append("X-Signature: " + signature)
 
 	var err := _download_http.request(url, headers)
 	if err != OK:

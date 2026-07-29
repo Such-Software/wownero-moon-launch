@@ -1,0 +1,599 @@
+name: Such Moon Launch Android candidate / Play internal
+
+# Gitea-only private-Linux release lane. A dispatch builds, signs, inspects,
+# checksums, and retains an AAB by default. Play delivery is an explicit,
+# main-only second phase using a Vaultwarden-provisioned service account.
+on:
+  workflow_dispatch:
+    inputs:
+      upload_to_play:
+        description: "Upload the inspected AAB to the Google Play internal track (main only)"
+        required: true
+        default: "false"
+        type: choice
+        options:
+          - "false"
+          - "true"
+
+concurrency:
+  group: such-moon-launch-android-delivery
+  cancel-in-progress: false
+
+defaults:
+  run:
+    shell: bash
+
+env:
+  GODOT_VERSION: "4.6.1-stable"
+  APP_NAME: "Such Moon Launch"
+  BUNDLE_ID: "com.suchsoftware.suchmoonlaunch"
+  FIREBASE_PROJECT_ID: "suchsoftwareapps"
+  MINIMUM_SDK: "24"
+  TARGET_SDK: "36"
+  BUILD_TOOLS_VERSION: "36.0.0"
+  BUNDLETOOL_VERSION: "1.18.3"
+  FASTLANE_VERSION: "2.237.0"
+
+jobs:
+  candidate:
+    # This label must map to exactly one locked-down Linux release runner.
+    runs-on: such-android-release
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          fetch-depth: 1
+          lfs: false
+          submodules: false
+          persist-credentials: false
+
+      - name: Initialize isolated Build workspace
+        run: |
+          set -euo pipefail
+          umask 077
+          BASE="$HOME/Build/such-moon-launch/ci"
+          mkdir -p "$BASE"
+          RUN_ROOT="$(mktemp -d "$BASE/android-${GITHUB_RUN_ID:-manual}-XXXXXX")"
+          PRODUCT_DIR="$RUN_ROOT/products"
+          LOG_DIR="$RUN_ROOT/logs"
+          SECRET_DIR="$(mktemp -d "$RUNNER_TEMP/such-moon-launch-android.XXXXXX")"
+          XDG_ROOT="$RUN_ROOT/xdg"
+          PROJECT_CACHE="$RUN_ROOT/project-cache"
+          TEMPLATE_DIR="$RUN_ROOT/android-template"
+          mkdir -p \
+            "$PRODUCT_DIR" "$LOG_DIR" "$PROJECT_CACHE" "$TEMPLATE_DIR" \
+            "$XDG_ROOT/data" "$XDG_ROOT/cache" "$XDG_ROOT/config"
+          chmod 700 "$RUN_ROOT" "$SECRET_DIR"
+          {
+            echo "SML_CI_BUILD_ROOT=$RUN_ROOT"
+            echo "SML_PRODUCT_DIR=$PRODUCT_DIR"
+            echo "SML_LOG_DIR=$LOG_DIR"
+            echo "SML_SECRET_DIR=$SECRET_DIR"
+            echo "SML_ANDROID_TEMPLATE_DIR=$TEMPLATE_DIR"
+            echo "SML_PROJECT_CACHE=$PROJECT_CACHE"
+            echo "SML_BUILD_ROOT=$RUN_ROOT"
+            echo "SUCH_BUILD_ROOT=$RUN_ROOT"
+            echo "GRADLE_USER_HOME=$HOME/Build/such-moon-launch/cache/gradle"
+            echo "XDG_DATA_HOME=$XDG_ROOT/data"
+            echo "XDG_CACHE_HOME=$XDG_ROOT/cache"
+            echo "XDG_CONFIG_HOME=$XDG_ROOT/config"
+          } >> "$GITHUB_ENV"
+          echo "Disposable run root: $RUN_ROOT"
+
+      - name: Validate request and committed release contract
+        env:
+          UPLOAD_TO_PLAY: ${{ inputs.upload_to_play }}
+        run: |
+          set -euo pipefail
+          python3 tools/ci/check_android_release_contract.py
+          case "$UPLOAD_TO_PLAY" in
+            true|false) ;;
+            *) echo "FATAL: upload_to_play must be true or false"; exit 1 ;;
+          esac
+          [ "${GITHUB_REF:-}" = "refs/heads/main" ] || {
+            echo "FATAL: signed Such Moon Launch candidates are allowed only from reviewed main."
+            echo "Current ref: ${GITHUB_REF:-unset}"
+            exit 1
+          }
+          echo "request accepted: ref=${GITHUB_REF:-unset} upload=$UPLOAD_TO_PLAY"
+
+      - name: Locate Godot and install verified Android templates
+        run: |
+          set -euo pipefail
+          CACHE="$HOME/Build/such-moon-launch/cache/toolchain-linux/$GODOT_VERSION"
+          ARCHIVE="$CACHE/Godot_v${GODOT_VERSION}_linux.x86_64.zip"
+          TEMPLATES_ARCHIVE="$CACHE/Godot_v${GODOT_VERSION}_export_templates.tpz"
+          GODOT_SHA512="a76fd0fe1d44a2dd6c065b6f7b434ad75f5593c07bda3d3017f8304f2d069acbcf0f39cb5d0976f0434b56e9ea852032ddbcbdb7e0ce1c75a47e1dacb6794bd7"
+          TEMPLATES_SHA512="d80001711c07973b1fd3e88077ba99644e19db7c9e52627e16f38a2937879f809f94dbd8493936fb8204908bbc57a521d41173dce5208061fe4c99772490c541"
+          EXPECTED_VERSION="${GODOT_VERSION/-/.}"
+          mkdir -p "$CACHE"
+
+          if [ ! -f "$ARCHIVE" ]; then
+            PARTIAL="$ARCHIVE.${GITHUB_RUN_ID:-manual}.partial"
+            curl --fail --location --proto '=https' --tlsv1.2 \
+              --output "$PARTIAL" \
+              "https://github.com/godotengine/godot/releases/download/$GODOT_VERSION/$(basename "$ARCHIVE")"
+            mv "$PARTIAL" "$ARCHIVE"
+          fi
+          printf '%s  %s\n' "$GODOT_SHA512" "$ARCHIVE" | sha512sum --check
+
+          GODOT_DIR="$SML_CI_BUILD_ROOT/toolchain/godot"
+          mkdir -p "$GODOT_DIR"
+          unzip -q "$ARCHIVE" -d "$GODOT_DIR"
+          GODOT_BIN="$GODOT_DIR/Godot_v${GODOT_VERSION}_linux.x86_64"
+          chmod +x "$GODOT_BIN"
+          "$GODOT_BIN" --version | grep -Fq "$EXPECTED_VERSION"
+          echo "GODOT_BIN=$GODOT_BIN" >> "$GITHUB_ENV"
+
+          if [ ! -f "$TEMPLATES_ARCHIVE" ]; then
+            PARTIAL="$TEMPLATES_ARCHIVE.${GITHUB_RUN_ID:-manual}.partial"
+            curl --fail --location --proto '=https' --tlsv1.2 \
+              --output "$PARTIAL" \
+              "https://github.com/godotengine/godot/releases/download/$GODOT_VERSION/$(basename "$TEMPLATES_ARCHIVE")"
+            mv "$PARTIAL" "$TEMPLATES_ARCHIVE"
+          fi
+          printf '%s  %s\n' "$TEMPLATES_SHA512" "$TEMPLATES_ARCHIVE" | sha512sum --check
+          TEMPLATE_VERSION="${GODOT_VERSION/-/.}"
+          TEMPLATE_STAGE="$SML_CI_BUILD_ROOT/toolchain/templates-stage"
+          TEMPLATE_DEST="$XDG_DATA_HOME/godot/export_templates/$TEMPLATE_VERSION"
+          mkdir -p "$TEMPLATE_STAGE" "$(dirname "$TEMPLATE_DEST")"
+          unzip -q "$TEMPLATES_ARCHIVE" -d "$TEMPLATE_STAGE"
+          mv "$TEMPLATE_STAGE/templates" "$TEMPLATE_DEST"
+          test -f "$TEMPLATE_DEST/android_source.zip"
+          unzip -q "$TEMPLATE_DEST/android_source.zip" -d "$SML_ANDROID_TEMPLATE_DIR"
+          test -f "$SML_ANDROID_TEMPLATE_DIR/build.gradle"
+          test -x "$SML_ANDROID_TEMPLATE_DIR/gradlew"
+          python3 tools/ci/prepare_android_template.py \
+            --root "$SML_ANDROID_TEMPLATE_DIR"
+
+          [ ! -e android/build ] && [ ! -L android/build ] || {
+            echo "FATAL: checkout unexpectedly contains android/build."
+            exit 1
+          }
+          [ ! -e .godot ] && [ ! -L .godot ] || {
+            echo "FATAL: checkout unexpectedly contains a project cache."
+            exit 1
+          }
+          mkdir -p android
+          ln -s "$SML_ANDROID_TEMPLATE_DIR" android/build
+          ln -s "$SML_PROJECT_CACHE" .godot
+
+      - name: Validate Java and Android SDK
+        run: |
+          set -euo pipefail
+          for tool in java javac keytool jarsigner; do
+            command -v "$tool" >/dev/null || {
+              echo "FATAL: required JDK tool is missing: $tool"
+              exit 1
+            }
+          done
+          JAVA_VERSION="$(java -version 2>&1 | head -1)"
+          JAVA_MAJOR="$(sed -nE 's/.*version "([0-9]+).*/\1/p' <<<"$JAVA_VERSION")"
+          [ "$JAVA_MAJOR" = "17" ] || {
+            echo "FATAL: Godot Android release runner requires JDK 17; found $JAVA_VERSION"
+            exit 1
+          }
+          SDK_ROOT="${ANDROID_HOME:-${ANDROID_SDK_ROOT:-}}"
+          [ -n "$SDK_ROOT" ] || { echo "FATAL: ANDROID_HOME/ANDROID_SDK_ROOT is unset."; exit 1; }
+          [ -f "$SDK_ROOT/platforms/android-$TARGET_SDK/android.jar" ] || {
+            echo "FATAL: Android SDK platform $TARGET_SDK is not installed."
+            exit 1
+          }
+          [ -x "$SDK_ROOT/build-tools/$BUILD_TOOLS_VERSION/aapt2" ] || {
+            echo "FATAL: Android SDK build tools $BUILD_TOOLS_VERSION are not installed."
+            exit 1
+          }
+          echo "ANDROID_HOME=$SDK_ROOT" >> "$GITHUB_ENV"
+          echo "ANDROID_SDK_ROOT=$SDK_ROOT" >> "$GITHUB_ENV"
+          echo "$JAVA_VERSION"
+          echo "Android SDK: $SDK_ROOT (target $TARGET_SDK)"
+
+      - name: Require and materialize Android secrets
+        env:
+          ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          ANDROID_GOOGLE_SERVICES_BASE64: ${{ secrets.ANDROID_GOOGLE_SERVICES_BASE64 }}
+          UPLOAD_TO_PLAY: ${{ inputs.upload_to_play }}
+          ANDROID_PLAY_SERVICE_ACCOUNT_JSON_BASE64: ${{ secrets.ANDROID_PLAY_SERVICE_ACCOUNT_JSON_BASE64 }}
+        run: |
+          set -euo pipefail
+          umask 077
+          for variable in \
+            ANDROID_KEYSTORE_BASE64 \
+            ANDROID_KEYSTORE_PASSWORD \
+            ANDROID_KEY_ALIAS \
+            ANDROID_GOOGLE_SERVICES_BASE64; do
+            [ -n "${!variable}" ] || {
+              echo "FATAL: $variable is not configured on this Gitea repository."
+              exit 1
+            }
+          done
+          if [ "$UPLOAD_TO_PLAY" = "true" ]; then
+            [ -n "$ANDROID_PLAY_SERVICE_ACCOUNT_JSON_BASE64" ] || {
+              echo "FATAL: ANDROID_PLAY_SERVICE_ACCOUNT_JSON_BASE64 is not configured."
+              exit 1
+            }
+          fi
+
+          KEYSTORE="$SML_SECRET_DIR/release.keystore"
+          GOOGLE_SERVICES="$SML_SECRET_DIR/google-services.json"
+          PLAY_KEY="$SML_SECRET_DIR/play-service-account.json"
+          printf '%s' "$ANDROID_KEYSTORE_BASE64" | openssl base64 -d -A > "$KEYSTORE"
+          printf '%s' "$ANDROID_GOOGLE_SERVICES_BASE64" | openssl base64 -d -A > "$GOOGLE_SERVICES"
+          if [ "$UPLOAD_TO_PLAY" = "true" ]; then
+            printf '%s' "$ANDROID_PLAY_SERVICE_ACCOUNT_JSON_BASE64" | \
+              openssl base64 -d -A > "$PLAY_KEY"
+          fi
+          chmod 600 "$KEYSTORE" "$GOOGLE_SERVICES"
+          [ "$UPLOAD_TO_PLAY" != "true" ] || chmod 600 "$PLAY_KEY"
+          {
+            echo "CI_ANDROID_KEYSTORE=$KEYSTORE"
+            echo "CI_ANDROID_GOOGLE_SERVICES=$GOOGLE_SERVICES"
+            echo "CI_ANDROID_PLAY_KEY=$PLAY_KEY"
+          } >> "$GITHUB_ENV"
+
+          python3 - "$GOOGLE_SERVICES" "$PLAY_KEY" "$UPLOAD_TO_PLAY" <<'PY'
+          import json
+          import pathlib
+          import sys
+
+          google_services = pathlib.Path(sys.argv[1])
+          play_key = pathlib.Path(sys.argv[2])
+          upload = sys.argv[3]
+          with google_services.open(encoding="utf-8") as handle:
+              config = json.load(handle)
+          if config.get("project_info", {}).get("project_id") != "suchsoftwareapps":
+              raise SystemExit("FATAL: wrong Android Firebase project")
+          matches = [
+              client
+              for client in config.get("client", [])
+              if client.get("client_info", {})
+              .get("android_client_info", {})
+              .get("package_name")
+              == "com.suchsoftware.suchmoonlaunch"
+          ]
+          if len(matches) != 1:
+              raise SystemExit("FATAL: expected exactly one Such Moon Launch Firebase client")
+          if not matches[0].get("client_info", {}).get("mobilesdk_app_id"):
+              raise SystemExit("FATAL: Firebase client has no mobilesdk_app_id")
+          if upload == "true":
+              with play_key.open(encoding="utf-8") as handle:
+                  account = json.load(handle)
+              required = ("client_email", "private_key", "token_uri")
+              if account.get("type") != "service_account" or any(
+                  not account.get(field) for field in required
+              ):
+                  raise SystemExit("FATAL: invalid Google Play service-account JSON")
+          PY
+
+      - name: Validate Android signing identity
+        env:
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+        run: |
+          set -euo pipefail
+          CERT_PEM="$SML_SECRET_DIR/android-signing-cert.pem"
+          keytool -J-Duser.language=en -J-Duser.country=US \
+            -list -v -keystore "$CI_ANDROID_KEYSTORE" \
+            -storepass "$ANDROID_KEYSTORE_PASSWORD" -alias "$ANDROID_KEY_ALIAS" \
+            > "$SML_LOG_DIR/keystore-entry.txt"
+          grep -Fq "Entry type: PrivateKeyEntry" "$SML_LOG_DIR/keystore-entry.txt" || {
+            echo "FATAL: Android signing alias is not a private-key entry."
+            exit 1
+          }
+          keytool -exportcert -rfc -keystore "$CI_ANDROID_KEYSTORE" \
+            -storepass "$ANDROID_KEYSTORE_PASSWORD" -alias "$ANDROID_KEY_ALIAS" \
+            -file "$CERT_PEM"
+          openssl x509 -in "$CERT_PEM" -checkend 2592000 -noout || {
+            echo "FATAL: Android signing certificate expires in less than 30 days."
+            exit 1
+          }
+          CERT_SHA256="$(openssl x509 -in "$CERT_PEM" -outform der | sha256sum | awk '{print $1}')"
+          echo "CI_ANDROID_CERT_SHA256=$CERT_SHA256" >> "$GITHUB_ENV"
+          echo "Android signing identity PASS (certificate SHA-256 $CERT_SHA256)"
+
+      - name: Import project and run the secret-free gate
+        run: bash tools/ci/verify.sh
+
+      - name: Build signed release AAB
+        env:
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+        run: |
+          set -euo pipefail
+          export GODOT_ANDROID_KEYSTORE_RELEASE_PATH="$CI_ANDROID_KEYSTORE"
+          export GODOT_ANDROID_KEYSTORE_RELEASE_USER="$ANDROID_KEY_ALIAS"
+          export GODOT_ANDROID_KEYSTORE_RELEASE_PASSWORD="$ANDROID_KEYSTORE_PASSWORD"
+          export SML_ANDROID_GOOGLE_SERVICES_PATH="$CI_ANDROID_GOOGLE_SERVICES"
+          SML_SKIP_VERIFY=1 SML_BUILD_RUN_ID=candidate \
+            bash tools/export_candidate.sh Android 2>&1 | tee "$SML_LOG_DIR/android-export-wrapper.log"
+          AAB="$SML_CI_BUILD_ROOT/products/candidate/SuchMoonLaunch.aab"
+          [ -s "$AAB" ] || { echo "FATAL: expected AAB is missing or empty."; exit 1; }
+          cp "$SML_CI_BUILD_ROOT/products/candidate/provenance.txt" "$SML_PRODUCT_DIR/"
+          cp "$SML_CI_BUILD_ROOT/products/candidate/SHA256SUMS" "$SML_PRODUCT_DIR/"
+          cp "$AAB" "$SML_PRODUCT_DIR/SuchMoonLaunch.aab"
+          echo "AAB=$SML_PRODUCT_DIR/SuchMoonLaunch.aab" >> "$GITHUB_ENV"
+
+      - name: Install verified bundletool
+        run: |
+          set -euo pipefail
+          CACHE="$HOME/Build/such-moon-launch/cache/bundletool/$BUNDLETOOL_VERSION"
+          JAR="$CACHE/bundletool-all-$BUNDLETOOL_VERSION.jar"
+          SHA256="a099cfa1543f55593bc2ed16a70a7c67fe54b1747bb7301f37fdfd6d91028e29"
+          mkdir -p "$CACHE"
+          if [ ! -f "$JAR" ]; then
+            PARTIAL="$JAR.${GITHUB_RUN_ID:-manual}.partial"
+            curl --fail --location --proto '=https' --tlsv1.2 \
+              --output "$PARTIAL" \
+              "https://github.com/google/bundletool/releases/download/$BUNDLETOOL_VERSION/$(basename "$JAR")"
+            mv "$PARTIAL" "$JAR"
+          fi
+          printf '%s  %s\n' "$SHA256" "$JAR" | sha256sum --check
+          echo "BUNDLETOOL_JAR=$JAR" >> "$GITHUB_ENV"
+
+      - name: Inspect AAB identity, signature, manifest, and Firebase payload
+        run: |
+          set -euo pipefail
+          java -jar "$BUNDLETOOL_JAR" validate --bundle="$AAB" \
+            2>&1 | tee "$SML_LOG_DIR/bundletool-validate.log"
+          java -jar "$BUNDLETOOL_JAR" dump manifest --bundle="$AAB" --module=base \
+            > "$SML_LOG_DIR/AndroidManifest.xml"
+          java -jar "$BUNDLETOOL_JAR" dump config --bundle="$AAB" \
+            > "$SML_LOG_DIR/BundleConfig.pb.txt"
+
+          jarsigner -J-Duser.language=en -J-Duser.country=US \
+            -verify -verbose -certs "$AAB" \
+            > "$SML_LOG_DIR/jarsigner-verify.log" 2>&1
+          grep -Fq "jar verified." "$SML_LOG_DIR/jarsigner-verify.log" || {
+            echo "FATAL: jarsigner did not positively verify the AAB."
+            exit 1
+          }
+          AAB_CERT="$SML_CI_BUILD_ROOT/inspection/aab-signer.pem"
+          mkdir -p "$(dirname "$AAB_CERT")"
+          keytool -printcert -rfc -jarfile "$AAB" > "$AAB_CERT"
+          AAB_CERT_SHA256="$(
+            openssl x509 -in "$AAB_CERT" -outform der | sha256sum | awk '{print $1}'
+          )"
+          [ "$AAB_CERT_SHA256" = "$CI_ANDROID_CERT_SHA256" ] || {
+            echo "FATAL: AAB signer does not match the reviewed release keystore."
+            exit 1
+          }
+
+          python3 - \
+            "$SML_LOG_DIR/AndroidManifest.xml" \
+            "$SML_LOG_DIR/BundleConfig.pb.txt" \
+            ci/android-app.json <<'PY'
+          import json
+          import pathlib
+          import sys
+          import xml.etree.ElementTree as ET
+
+          manifest_path = pathlib.Path(sys.argv[1])
+          config_path = pathlib.Path(sys.argv[2])
+          contract = json.loads(pathlib.Path(sys.argv[3]).read_text(encoding="utf-8"))
+          root = ET.parse(manifest_path).getroot()
+          android = "{http://schemas.android.com/apk/res/android}"
+          expected = {
+              "package": (root.get("package"), contract["bundle_id"]),
+              "compileSdkVersion": (
+                  root.get(android + "compileSdkVersion"),
+                  contract["android_toolchain"]["compile_sdk"],
+              ),
+              "versionCode": (root.get(android + "versionCode"), contract["version_code"]),
+              "versionName": (root.get(android + "versionName"), contract["version_name"]),
+          }
+          uses_sdk = root.find("uses-sdk")
+          if uses_sdk is None:
+              raise SystemExit("FATAL: final AAB manifest has no uses-sdk")
+          expected.update(
+              {
+                  "minSdkVersion": (
+                      uses_sdk.get(android + "minSdkVersion"),
+                      contract["minimum_sdk"],
+                  ),
+                  "targetSdkVersion": (
+                      uses_sdk.get(android + "targetSdkVersion"),
+                      contract["target_sdk"],
+                  ),
+              }
+          )
+          for label, (actual, wanted) in expected.items():
+              if actual != wanted:
+                  raise SystemExit(
+                      f"FATAL: final AAB {label}: expected {wanted!r}, got {actual!r}"
+                  )
+          manifest_text = manifest_path.read_text(encoding="utf-8")
+          for marker in contract["required_manifest_markers"]:
+              if marker not in manifest_text:
+                  raise SystemExit(f"FATAL: final AAB manifest is missing {marker}")
+          config_text = config_path.read_text(encoding="utf-8")
+          alignment = contract["bundle_page_alignment"]
+          if f'"alignment": "{alignment}"' not in config_text:
+              raise SystemExit(
+                  f"FATAL: final AAB does not declare {alignment} page alignment"
+              )
+          print(
+              "AAB identity, native-plugin markers, and 16 KB page alignment: PASS"
+          )
+          PY
+
+          EMBEDDED_CONFIG="$SML_CI_BUILD_ROOT/inspection/google-services.json"
+          unzip -p "$AAB" base/assets/google-services.json > "$EMBEDDED_CONFIG"
+          python3 - "$EMBEDDED_CONFIG" <<'PY'
+          import json
+          import pathlib
+
+          config = json.loads(pathlib.Path(__import__("sys").argv[1]).read_text())
+          if config.get("project_info", {}).get("project_id") != "suchsoftwareapps":
+              raise SystemExit("FATAL: embedded Firebase project is wrong")
+          matches = [
+              client
+              for client in config.get("client", [])
+              if client.get("client_info", {})
+              .get("android_client_info", {})
+              .get("package_name")
+              == "com.suchsoftware.suchmoonlaunch"
+          ]
+          if len(matches) != 1:
+              raise SystemExit("FATAL: embedded Firebase config has no exact app client")
+          print("embedded Android Firebase config: PASS")
+          PY
+
+      - name: Record candidate provenance
+        env:
+          SOURCE_SHA: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import hashlib
+          import json
+          import os
+          import pathlib
+          import platform
+          import subprocess
+
+          aab = pathlib.Path(os.environ["AAB"])
+          contract_path = pathlib.Path("ci/android-app.json")
+          contract = json.loads(contract_path.read_text())
+          payload = {
+              "schema_version": 1,
+              "app": os.environ["APP_NAME"],
+              "bundle_id": os.environ["BUNDLE_ID"],
+              "source_sha": os.environ.get("SOURCE_SHA", ""),
+              "source_ref": os.environ.get("GITHUB_REF", ""),
+              "version": contract["version_name"],
+              "version_code": contract["version_code"],
+              "minimum_sdk": contract["minimum_sdk"],
+              "target_sdk": contract["target_sdk"],
+              "firebase_project_id": contract["firebase_project_id"],
+              "play_games_project_id": contract["play_games_project_id"],
+              "bundle_page_alignment": contract["bundle_page_alignment"],
+              "signing_certificate_sha256": os.environ["CI_ANDROID_CERT_SHA256"],
+              "godot_version": os.environ["GODOT_VERSION"],
+              "java": subprocess.check_output(
+                  ["java", "-version"], stderr=subprocess.STDOUT, text=True
+              ).splitlines()[0],
+              "runner": platform.platform(),
+              "aab": str(aab),
+              "aab_size_bytes": aab.stat().st_size,
+              "aab_sha256": hashlib.sha256(aab.read_bytes()).hexdigest(),
+              "android_contract_sha256": hashlib.sha256(contract_path.read_bytes()).hexdigest(),
+          }
+          destination = pathlib.Path(os.environ["SML_PRODUCT_DIR"]) / "provenance.json"
+          destination.write_text(
+              json.dumps(payload, indent=2, sort_keys=True) + "\n",
+              encoding="utf-8",
+          )
+          PY
+          cat "$SML_PRODUCT_DIR/provenance.json"
+
+      - name: Retain signed candidate
+        uses: actions/upload-artifact@ff15f0306b3f739f7b6fd43fb5d26cd321bd4de5 # v3.2.1
+        with:
+          name: such-moon-launch-android-${{ github.sha }}
+          path: |
+            ${{ env.SML_PRODUCT_DIR }}/SuchMoonLaunch.aab
+            ${{ env.SML_PRODUCT_DIR }}/SHA256SUMS
+            ${{ env.SML_PRODUCT_DIR }}/provenance.json
+            ${{ env.SML_PRODUCT_DIR }}/provenance.txt
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Upload inspected AAB to Google Play internal
+        if: ${{ inputs.upload_to_play == 'true' }}
+        env:
+          FASTLANE_DISABLE_COLORS: "1"
+          FASTLANE_SKIP_UPDATE_CHECK: "1"
+        run: |
+          set -euo pipefail
+          command -v fastlane >/dev/null || {
+            echo "FATAL: release runner must preinstall fastlane $FASTLANE_VERSION."
+            exit 1
+          }
+          INSTALLED_FASTLANE="$(fastlane --version | sed -nE 's/.*fastlane ([0-9.]+).*/\1/p' | tail -1)"
+          [ "$INSTALLED_FASTLANE" = "$FASTLANE_VERSION" ] || {
+            echo "FATAL: expected fastlane $FASTLANE_VERSION, found ${INSTALLED_FASTLANE:-unknown}."
+            exit 1
+          }
+
+          COMMON=(
+            --aab "$AAB"
+            --package_name "$BUNDLE_ID"
+            --json_key "$CI_ANDROID_PLAY_KEY"
+            --track internal
+            --release_status completed
+            --skip_upload_apk true
+            --skip_upload_metadata true
+            --skip_upload_images true
+            --skip_upload_screenshots true
+          )
+          fastlane supply "${COMMON[@]}" --validate_only true \
+            2>&1 | tee "$SML_LOG_DIR/play-validate.log"
+          fastlane supply "${COMMON[@]}" \
+            2>&1 | tee "$SML_LOG_DIR/play-upload.log"
+          grep -Fq "Successfully finished the upload to Google Play" \
+            "$SML_LOG_DIR/play-upload.log" || {
+              echo "FATAL: fastlane exited successfully without a positive Play upload marker."
+              exit 1
+            }
+
+          python3 - <<'PY'
+          import datetime
+          import hashlib
+          import json
+          import os
+          import pathlib
+
+          aab = pathlib.Path(os.environ["AAB"])
+          contract = json.loads(pathlib.Path("ci/android-app.json").read_text())
+          receipt = {
+              "schema_version": 1,
+              "bundle_id": os.environ["BUNDLE_ID"],
+              "version": contract["version_name"],
+              "version_code": contract["version_code"],
+              "track": "internal",
+              "release_status": "completed",
+              "uploaded": True,
+              "aab_sha256": hashlib.sha256(aab.read_bytes()).hexdigest(),
+              "source_sha": os.environ.get("GITHUB_SHA", ""),
+              "source_ref": os.environ.get("GITHUB_REF", ""),
+              "uploaded_utc": datetime.datetime.now(datetime.timezone.utc)
+              .replace(microsecond=0)
+              .isoformat()
+              .replace("+00:00", "Z"),
+          }
+          output = pathlib.Path(os.environ["SML_PRODUCT_DIR"]) / "play-internal-receipt.json"
+          output.write_text(json.dumps(receipt, indent=2, sort_keys=True) + "\n")
+          PY
+          cat "$SML_PRODUCT_DIR/play-internal-receipt.json"
+
+      - name: Retain Play receipt
+        if: ${{ always() && inputs.upload_to_play == 'true' }}
+        uses: actions/upload-artifact@ff15f0306b3f739f7b6fd43fb5d26cd321bd4de5 # v3.2.1
+        with:
+          name: such-moon-launch-play-internal-${{ github.sha }}
+          path: |
+            ${{ env.SML_PRODUCT_DIR }}/play-internal-receipt.json
+            ${{ env.SML_LOG_DIR }}/play-validate.log
+            ${{ env.SML_LOG_DIR }}/play-upload.log
+          if-no-files-found: warn
+          retention-days: 30
+
+      - name: Cleanup Android secret material and source links
+        if: always()
+        run: |
+          set +e
+          if [ -L android/build ] && \
+             [ "$(readlink android/build)" = "${SML_ANDROID_TEMPLATE_DIR:-unset}" ]; then
+            rm -f android/build
+          fi
+          if [ -L .godot ] && \
+             [ "$(readlink .godot)" = "${SML_PROJECT_CACHE:-unset}" ]; then
+            rm -f .godot
+          fi
+          case "${SML_SECRET_DIR:-}" in
+            "$RUNNER_TEMP"/such-moon-launch-android.*) rm -rf -- "$SML_SECRET_DIR" ;;
+            "") ;;
+            *) echo "WARNING: refusing to remove unexpected secret directory: $SML_SECRET_DIR" ;;
+          esac

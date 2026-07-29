@@ -1,0 +1,61 @@
+name: Such Moon Launch verify
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: such-moon-launch-verify-${{ github.ref }}
+  cancel-in-progress: true
+
+defaults:
+  run:
+    shell: bash
+
+env:
+  GODOT_VERSION: "4.6.1-stable"
+
+jobs:
+  verify:
+    runs-on: macos-latest
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          fetch-depth: 1
+          lfs: false
+          submodules: false
+          persist-credentials: false
+
+      - name: Locate or install pinned Godot
+        run: |
+          set -euo pipefail
+          SYSTEM_GODOT="/Applications/Godot.app/Contents/MacOS/Godot"
+          CACHE="$HOME/Build/such-moon-launch/cache/toolchain/$GODOT_VERSION"
+          CACHED_GODOT="$CACHE/Godot.app/Contents/MacOS/Godot"
+          ARCHIVE="$CACHE/Godot_v${GODOT_VERSION}_macos.universal.zip"
+          GODOT_SHA512="59c7fc792c9a7a9b3c877b43fc6bdedfa3618e90f0d7d5fa77edb8d3bd64568af19bdfa6ecc8ec3eeaa17ad9cb65f7c93760de83b485ae4a33a679e730f7ffd9"
+          EXPECTED_VERSION="${GODOT_VERSION/-/.}"
+
+          if [ -x "$SYSTEM_GODOT" ] && "$SYSTEM_GODOT" --version | grep -Fq "$EXPECTED_VERSION"; then
+            GODOT_BIN="$SYSTEM_GODOT"
+          else
+            if [ ! -x "$CACHED_GODOT" ]; then
+              mkdir -p "$CACHE"
+              curl --fail --location --proto '=https' --tlsv1.2 \
+                --output "$ARCHIVE.partial" \
+                "https://github.com/godotengine/godot/releases/download/$GODOT_VERSION/$(basename "$ARCHIVE")"
+              mv "$ARCHIVE.partial" "$ARCHIVE"
+              printf '%s  %s\n' "$GODOT_SHA512" "$ARCHIVE" | shasum -a 512 --check
+              unzip -q -o "$ARCHIVE" -d "$CACHE"
+            fi
+            GODOT_BIN="$CACHED_GODOT"
+          fi
+
+          chmod +x "$GODOT_BIN"
+          "$GODOT_BIN" --version | grep -Fq "$EXPECTED_VERSION"
+          echo "GODOT_BIN=$GODOT_BIN" >> "$GITHUB_ENV"
+
+      - name: Verify code, tests, resources, and release contract
+        run: bash tools/ci/verify.sh
