@@ -400,6 +400,15 @@ func _is_tilt_mode() -> bool:
 func _apply_portrait_view() -> void:
 	if not has_node("Camera2D"):
 		return
+	# Promo/B-roll capture hook: SML_CAM_ZOOM forces a fixed, tighter camera zoom than
+	# the (deliberately wide, for playability) portrait default. Guarded by the env var
+	# so production is untouched — same pattern as SML_DIFF.
+	var cap_zoom := OS.get_environment("SML_CAM_ZOOM")
+	if cap_zoom != "":
+		var cz := cap_zoom.to_float()
+		if cz > 0.0:
+			$Camera2D.zoom = Vector2(cz, cz)
+			return
 	var ws := DisplayServer.window_get_size()
 	if ws.y > ws.x:  # portrait
 		var z := 0.65 / globalvar.ui_scale()

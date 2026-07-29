@@ -114,9 +114,6 @@ def build():
     # open-face astronaut helmet, opaque (robust on alpha film — no glass z-sort).
     sphere("helmet", (0, 0.82, 0.22), (1.46, 1.42, 1.52), HELMET, 0.18,
            parent=root)
-    # a soft highlight streak up-left on the dome
-    sphere("helmet_hi", (-0.62, -0.30, 1.15), (0.34, 0.10, 0.20),
-           (1.0, 1.0, 1.0), 0.1, parent=root)
 
     # SUIT — white shoulders below; an orange chest control panel + a light button
     sphere("suit", (0, 0.05, -2.15), (1.55, 1.0, 0.95), SUIT, 0.4, parent=root)
@@ -126,15 +123,17 @@ def build():
     sphere("chest_btn", (0, -0.94, -1.66), (0.10, 0.06, 0.10),
            (0.99, 0.88, 0.72), 0.3, parent=root)
 
-    # EARS — upright pointy Shiba ears on top, poking out over the open helmet.
-    # Elongated tapered spheres tilted outward; a dark inner ear proud in front.
+    # EARS — ONE upright pointy Shiba ear per side, poking out over the open helmet.
+    # The dark inner ear is nested ON THE FRONT of the outer ear (same axis, smaller,
+    # further forward) so it reads as inner-ear detail, NOT a second ear.
     for sx, sgn in ((-0.52, -1), (0.52, 1)):
+        rot = (0, math.radians(18) * sgn, math.radians(6) * sgn)
         ear = sphere(f"ear_{sgn}", (sx, -0.28, 0.98), (0.22, 0.13, 0.52), DOGE,
                      0.5, parent=root)
-        ear.rotation_euler = (0, math.radians(18) * sgn, math.radians(6) * sgn)
-        inr = sphere(f"ear_in_{sgn}", (sx * 1.02, -0.40, 0.94),
-                     (0.11, 0.07, 0.32), DOGE_D, 0.55, parent=root)
-        inr.rotation_euler = (0, math.radians(18) * sgn, math.radians(6) * sgn)
+        ear.rotation_euler = rot
+        inr = sphere(f"ear_in_{sgn}", (sx, -0.37, 0.99), (0.105, 0.055, 0.31),
+                     DOGE_D, 0.55, parent=root)
+        inr.rotation_euler = rot
 
     # HEAD — rounded tan doge head (front is -Y)
     sphere("head", (0, 0, 0), (1.06, 0.94, 1.02), DOGE, 0.5, sub=0.05, parent=root)
@@ -204,7 +203,7 @@ def build_mouth(root):
     interior = sphere("mouth_in", (0, 0.03, 0), (0.17, 0.05, 0.05), MOUTH_IN, 1.0,
                       parent=m)
     tongue = sphere("tongue", (0, 0.01, -0.04), (0.12, 0.04, 0.03), TONGUE, 0.5,
-                    sub=0.15, parent=m)
+                    parent=m)
     up = c3d.bezier_tube("lip_up", DOG_UPPER, 0.015, DOG_LIP, m)
     lo = c3d.bezier_tube("lip_lo", DOG_LOWER, 0.016, DOG_LIP, m)
     return dict(kind="dog", root=m, interior=interior, tongue=tongue, up=up, lo=lo,
@@ -234,9 +233,16 @@ def set_blink(rig, k):
 
 
 def lights_and_cam():
-    bpy.ops.object.camera_add(location=(0, -8.6, -0.10),
+    # SG3D_CLOSEUP pushes the camera in on the face (longer lens = flatter, flattering)
+    # for a solo HOOK shot; the default is the wide duo framing (unchanged).
+    if os.environ.get("SG3D_CLOSEUP"):
+        _cam_loc, _lens = (0, -6.1, 0.12), 90.0   # ears in frame, flatter lens
+    else:
+        _cam_loc, _lens = (0, -8.6, -0.10), 50.0
+    bpy.ops.object.camera_add(location=_cam_loc,
                               rotation=(math.radians(90), 0, 0))
     bpy.context.scene.camera = bpy.context.active_object
+    bpy.context.scene.camera.data.lens = _lens
     bpy.ops.object.light_add(type="AREA", location=(-3.4, -4.2, 4.2))
     k = bpy.context.active_object
     k.data.energy = 1150

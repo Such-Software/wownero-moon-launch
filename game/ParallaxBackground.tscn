@@ -4,9 +4,9 @@
 
 [sub_resource type="ShaderMaterial" id="1"]
 shader = ExtResource("1")
-shader_parameter/star_density = 0.014
+shader_parameter/star_density = 0.02
 shader_parameter/twinkle_speed = 2.5
-shader_parameter/brightness = 1.7
+shader_parameter/brightness = 2.1
 shader_parameter/scroll_offset = Vector2(0, 0)
 
 ; The procedural starfield shader is SCREEN_UV-based, so it only needs a rect that

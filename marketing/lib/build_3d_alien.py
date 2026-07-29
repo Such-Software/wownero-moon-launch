@@ -202,9 +202,16 @@ def set_blink(rig, k):
 
 
 def lights_and_cam():
-    bpy.ops.object.camera_add(location=(0, -8.4, 0.18),
+    # SG3D_CLOSEUP pushes the camera in on the face for a solo HOOK shot; the default
+    # is the wide duo framing (unchanged).
+    if os.environ.get("SG3D_CLOSEUP"):
+        _cam_loc, _lens = (0, -5.4, 0.10), 80.0
+    else:
+        _cam_loc, _lens = (0, -8.4, 0.18), 50.0
+    bpy.ops.object.camera_add(location=_cam_loc,
                               rotation=(math.radians(90), 0, 0))
     bpy.context.scene.camera = bpy.context.active_object
+    bpy.context.scene.camera.data.lens = _lens
     bpy.ops.object.light_add(type="AREA", location=(-3.4, -4.2, 4.2))
     k = bpy.context.active_object
     k.data.energy = 1150

@@ -121,6 +121,52 @@ def talk_breath(t, speaker, events, ramp=0.45):
     return w
 
 
+# Per-character voice FX — make the VO weirder + grungier. rubberband PITCH-shifts
+# while PRESERVING duration, so the Rhubarb lip-sync cues still line up. Tunable.
+#   doge  -> deep + gritty (pitch down, bitcrush, drive) = grungy growly dog.
+#   alien -> higher + metallic warble (pitch up, flanger, crush) = weird/otherworldly.
+VOICE_FX = {
+    "doge":  "rubberband=pitch=0.84,acrusher=bits=6:samples=1:mode=log:mix=0.5,"
+             "alimiter=limit=0.92",
+    "alien": "rubberband=pitch=1.11,flanger=delay=6:depth=3:regen=7:speed=1.3,"
+             "acrusher=bits=7:samples=1:mode=log:mix=0.4,alimiter=limit=0.92",
+}
+
+
+def grunge_clips(events, clips, work):
+    """Apply each speaker's weird/grungy FX chain to its VO clip and return a new
+    (start, file) list. rubberband keeps clip duration, so lip-sync is unaffected.
+    Falls back to the clean clip on any ffmpeg failure."""
+    fxdir = work / "_fx"
+    fxdir.mkdir(parents=True, exist_ok=True)
+    out = []
+    for ev, (st, mp3) in zip(events, clips):
+        chain = VOICE_FX.get(ev.speaker)
+        if not chain:
+            out.append((st, mp3))
+            continue
+        # Probe the clean duration and force the FX clip to match EXACTLY (apad fills
+        # if rubberband shortened it, -t trims) so the lip-sync cues stay aligned.
+        dur = subprocess.run(
+            ["ffprobe", "-v", "error", "-show_entries", "format=duration",
+             "-of", "default=nk=1:nw=1", str(mp3)],
+            capture_output=True, text=True).stdout.strip()
+        dst = fxdir / f"{ev.speaker}_{Path(mp3).stem}.wav"
+        try:
+            args = ["ffmpeg", "-y", "-loglevel", "error", "-i", str(mp3),
+                    "-af", chain + ",apad"]
+            if dur:
+                args += ["-t", dur]
+            args.append(str(dst))
+            subprocess.run(args, check=True)
+            out.append((st, dst))
+            print(f"  [fx] {ev.speaker}: {chain.split(',')[0]}")
+        except Exception as e:
+            print(f"  [fx] {ev.speaker} failed ({e}); using clean VO")
+            out.append((st, mp3))
+    return out
+
+
 def main():
     OUT.mkdir(parents=True, exist_ok=True)
     WORK.mkdir(parents=True, exist_ok=True)
@@ -130,6 +176,7 @@ def main():
                    lead_in=0.35, gap=0.45, settings=base.VOICE_SETTINGS)
     placements = [(perf, 0.0)]
     events, clips = flatten_placements(placements)
+    clips = grunge_clips(events, clips, WORK)   # weird + grungy per-character VO
     total = max(e.end for e in events) + TAIL
     print(f"timeline {total:.1f}s · {len(events)} lines")
 
