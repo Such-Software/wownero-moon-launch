@@ -78,9 +78,9 @@ trap cleanup_transient_links EXIT
 set -o pipefail
 "$GODOT_BIN" --headless --path . --editor --quit 2>&1 | tee "$LOG_ROOT/import.log"
 if grep -Eiq \
-  'SCRIPT ERROR|PARSE ERROR|Error importing|Failed to (load|open).*(res://|resource)|Cannot open.*res://' \
+  '(^|[[:space:]])ERROR:|Unicode parsing error|^Error loading configuration|SCRIPT ERROR|PARSE ERROR|Error importing|Failed to (load|open).*(res://|resource)|Cannot open.*res://' \
   "$LOG_ROOT/import.log"; then
-  echo "FATAL: Godot import reported a script, resource, or import error." >&2
+  echo "FATAL: Godot import reported an engine, script, resource, or import error." >&2
   exit 1
 fi
 

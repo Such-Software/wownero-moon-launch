@@ -731,8 +731,8 @@ func _ready():
 	# load_game() below; this call just sets a sane pre-load default.
 	apply_orientation()
 
-	# WEB-ONLY: point the global fallback font at the pixel UI font (whose
-	# import declares Symbols2 + Emoji fallbacks) so symbol/emoji glyphs
+	# WEB-ONLY: point the global fallback font at the pixel UI font and attach
+	# Symbols2 + Emoji as loaded Font resources so symbol/emoji glyphs
 	# (★ ☆ 🪨 💰 🔒) render in-browser. The browser runtime has no system
 	# fonts, so default-font labels otherwise show tofu boxes for these.
 	# Mobile/desktop are untouched: they keep the engine-default (sans) font
@@ -740,7 +740,12 @@ func _ready():
 	# default-font label at once (menu, shop, leaderboard, HUD, victory) with
 	# no per-label edits and no change to the native builds.
 	if OS.get_name() == "Web":
-		ThemeDB.fallback_font = load("res://fonts/Computer Speak v0.3.ttf")
+		var web_font: Font = load("res://fonts/Computer Speak v0.3.ttf")
+		web_font.fallbacks = [
+			load("res://fonts/NotoSansSymbols2-Regular.ttf"),
+			load("res://fonts/NotoEmoji-Regular.ttf"),
+		]
+		ThemeDB.fallback_font = web_font
 
 	# Route background-music players onto a dedicated "Music" bus as they enter
 	# the tree, so the Options music toggle works in every scene without editing
