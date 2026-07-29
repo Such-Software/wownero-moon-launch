@@ -1,0 +1,32 @@
+{
+  "schema_version": 1,
+  "app_id": "moon_launch",
+  "contract_version": 1,
+  "contract_source_commit": "60adf625944d4d764e12d1242cc0cac5e65ac1b8",
+  "source_commit": null,
+  "minimum_nakama_version": "3.40.0",
+  "runtime_types": {
+    "package": "nakama-runtime",
+    "version": "1.47.0"
+  },
+  "compiler": {
+    "package": "typescript",
+    "version": "5.9.3",
+    "target": "ES5",
+    "module": "none"
+  },
+  "runtime": {
+    "file": "index.js",
+    "sha256": null
+  },
+  "migrations": {
+    "file": "migrations.sql",
+    "schema_version": 1,
+    "sha256": null
+  },
+  "tests": {
+    "directory": "test-results",
+    "status": null,
+    "files": []
+  }
+}

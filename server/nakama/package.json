@@ -1,0 +1,15 @@
+{
+  "name": "such-moon-launch-nakama-runtime",
+  "version": "1.0.0",
+  "private": true,
+  "description": "App Platform v1 runtime for Such Moon Launch",
+  "license": "UNLICENSED",
+  "scripts": {
+    "typecheck": "tsc --project tsconfig.json --noEmit",
+    "build": "tsc --project tsconfig.json"
+  },
+  "devDependencies": {
+    "nakama-runtime": "https://github.com/heroiclabs/nakama-common/archive/refs/tags/v1.47.0.tar.gz",
+    "typescript": "5.9.3"
+  }
+}
