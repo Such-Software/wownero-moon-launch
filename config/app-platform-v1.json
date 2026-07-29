@@ -1,0 +1,87 @@
+{
+  "$schema": "https://such.software/contracts/app-platform/v1/consumer-config.schema.json",
+  "contract_version": 1,
+  "app_id": "moon_launch",
+  "runtime": "godot",
+  "contract_pin": {
+    "repo": "docs",
+    "commit": "60adf625944d4d764e12d1242cc0cac5e65ac1b8"
+  },
+  "brand": {
+    "repo": "such-graphics",
+    "commit": "2d15861",
+    "pack_id": "wownero",
+    "projection_lock_sha256": "4c684c369d81ff0b8012fc78410fbec72341f8d2f16408ff23b6071bec78be96"
+  },
+  "services": {
+    "nakama": {
+      "activation": "disabled",
+      "minimum_version": "3.40.0",
+      "endpoint_env": "SUCH_APP_NAKAMA_ENDPOINT"
+    },
+    "identity": {
+      "activation": "disabled",
+      "flow": "oidc_authorization_code_pkce",
+      "issuer_env": "SUCH_APP_OIDC_ISSUER",
+      "client_id_env": "SUCH_APP_OIDC_CLIENT_ID",
+      "methods": [
+        "email_password",
+        "ethereum_siwe",
+        "smirk_nostr"
+      ]
+    },
+    "entitlements": {
+      "activation": "disabled",
+      "authority": "such-entitlement-ledger-v1"
+    }
+  },
+  "distribution_profiles": {
+    "official_ios": {
+      "wallet_auth": true,
+      "external_digital_checkout": false,
+      "crypto_purchase_surface": false
+    },
+    "official_android": {
+      "wallet_auth": true,
+      "external_digital_checkout": false,
+      "crypto_purchase_surface": false
+    },
+    "sideload_android": {
+      "wallet_auth": true,
+      "external_digital_checkout": true,
+      "crypto_purchase_surface": true
+    },
+    "web": {
+      "wallet_auth": true,
+      "external_digital_checkout": true,
+      "crypto_purchase_surface": true
+    }
+  },
+  "features": {
+    "room_quiz": "disabled",
+    "nearby_p2p": "disabled"
+  },
+  "official_artifact_scan_roots": [
+    "game",
+    "project.godot",
+    "ios"
+  ],
+  "release_evidence": {
+    "identity": {
+      "status": "missing",
+      "reference": null
+    },
+    "nakama_restore": {
+      "status": "missing",
+      "reference": null
+    },
+    "entitlement_replay": {
+      "status": "missing",
+      "reference": null
+    },
+    "native_products": {
+      "status": "missing",
+      "reference": null
+    }
+  }
+}

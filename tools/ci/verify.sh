@@ -4,6 +4,8 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 cd "$ROOT"
 
+python3 tools/check_app_platform.py --expect-app moon_launch
+python3 tools/ci/check_app_platform_baseline.py
 python3 tools/ci/check_release_contract.py
 python3 tools/ci/check_android_release_contract.py
 
@@ -28,19 +30,29 @@ VERIFY_ID="${SML_VERIFY_RUN_ID:-${GITHUB_RUN_ID:-local}-${GITHUB_RUN_ATTEMPT:-0}
 LOG_ROOT="$BUILD_ROOT/tests/$VERIFY_ID"
 REPORT_ROOT="$LOG_ROOT/reports"
 REPORT_LINK=".sml-ci-reports"
-mkdir -p "$LOG_ROOT" "$REPORT_ROOT"
+PROJECT_CACHE="$LOG_ROOT/project-cache"
+PROJECT_CACHE_LINK=".godot"
+mkdir -p "$LOG_ROOT" "$REPORT_ROOT" "$PROJECT_CACHE"
 if [[ -e "$REPORT_LINK" || -L "$REPORT_LINK" ]]; then
   echo "FATAL: temporary GdUnit report link is already occupied." >&2
   exit 1
 fi
+if [[ -e "$PROJECT_CACHE_LINK" || -L "$PROJECT_CACHE_LINK" ]]; then
+  echo "FATAL: source checkout already contains a Godot project cache." >&2
+  exit 1
+fi
 ln -s "$REPORT_ROOT" "$REPORT_LINK"
+ln -s "$PROJECT_CACHE" "$PROJECT_CACHE_LINK"
 
-cleanup_report_link() {
+cleanup_transient_links() {
   if [[ -L "$REPORT_LINK" && "$(readlink "$REPORT_LINK")" == "$REPORT_ROOT" ]]; then
     rm -f "$REPORT_LINK"
   fi
+  if [[ -L "$PROJECT_CACHE_LINK" && "$(readlink "$PROJECT_CACHE_LINK")" == "$PROJECT_CACHE" ]]; then
+    rm -f "$PROJECT_CACHE_LINK"
+  fi
 }
-trap cleanup_report_link EXIT
+trap cleanup_transient_links EXIT
 
 set -o pipefail
 "$GODOT_BIN" --headless --path . --editor --quit 2>&1 | tee "$LOG_ROOT/import.log"

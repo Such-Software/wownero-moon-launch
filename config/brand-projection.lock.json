@@ -1,0 +1,13 @@
+{
+  "contract_version": 1,
+  "files": {
+    "brand.css": "96d9455828ec19c4d710498521de420fbdd50f02d6a7c4084e7f02e8a9858edd",
+    "brand.json": "1da85d4d7a1ad071004d47bfd3b03d658a4427644391c561de646a044385e3d1",
+    "brand_tokens.dart": "c4067df6d78677d78a653f78f18fdff25759dca2680ca50d88ae09a42452ade9",
+    "design_tokens.gd": "e69f2d60e1ad6df420ec17f82f7534d715836d9fb07cbc195de25213323ff8a4"
+  },
+  "generator_version": "0.1.0",
+  "pack_id": "wownero",
+  "pack_version": "1.0.0",
+  "source_commit": "2d15861"
+}
