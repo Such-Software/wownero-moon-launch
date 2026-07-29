@@ -10,6 +10,7 @@ python3 tools/ci/check_nakama_runtime.py
 python3 tools/ci/check_nakama_godot_sdk.py
 python3 tools/ci/check_release_contract.py
 python3 tools/ci/check_android_release_contract.py
+python3 tools/ci/check_marketing_workspace.py
 
 if [[ "${SML_SKIP_NAKAMA_BUILD:-0}" != "1" ]]; then
   bash tools/ci/build_nakama_runtime.sh

@@ -16,7 +16,8 @@
 #
 # Env:
 #   RENDER_HOST       ssh host alias            (default: deb)
-#   RENDER_REMOTE_DIR project dir on the host   (default: moonlaunch-render, ~ relative)
+#   RENDER_REMOTE_DIR disposable source staging below ~/Build on host
+#                     (default: Build/such-moon-launch/remote-render/source, ~ relative)
 #   GODOT_REMOTE      godot binary path on host (default: $HOME/godot/Godot_v4.6.1-stable_linux.x86_64)
 #   GODOT_DRIVER      "" = Godot default (Vulkan); set "opengl3" for GL. On xvfb this is
 #                     software (lavapipe/llvmpipe); on a RENDER_DISPLAY GPU box it is hardware.
@@ -32,9 +33,11 @@
 #   SML_RL_DETERMINISTIC  1 = greedy RL policy (default under capture); set "" for variance
 set -euo pipefail
 
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+source "$SCRIPT_DIR/workspace_paths.sh"
 PROJ="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 HOST="${RENDER_HOST:-deb}"
-REMOTE_DIR="${RENDER_REMOTE_DIR:-moonlaunch-render}"
+REMOTE_DIR="${RENDER_REMOTE_DIR:-Build/such-moon-launch/remote-render/source}"
 GODOT_REMOTE="${GODOT_REMOTE:-\$HOME/godot/Godot_v4.6.1-stable_linux.x86_64}"
 DRIVER="${GODOT_DRIVER:-}"
 # Default capture resolution. SML_PORTRAIT=1 flips the default to native 9:16
@@ -64,12 +67,17 @@ LEVEL="${1:-1}"
 DURATION="${2:-15}"
 BUILD_ROOT="${SUCH_BUILD_ROOT:-$HOME/Build}"
 RUN_ID="${SML_MARKETING_RUN_ID:-$(date -u +%Y%m%dT%H%M%SZ)}"
+sml_require_safe_run_id "$RUN_ID"
 OUT_BASE="${3:-$BUILD_ROOT/scratch/such-moon-launch/marketing/$RUN_ID/remote_level_${LEVEL}}"
+sml_require_build_output "$OUT_BASE"
 FRAMES=$((DURATION * 60))
 SCENE="${SML_SCENE:-res://game/levels/${LEVEL}/Level${LEVEL}.tscn}"   # SML_SCENE overrides for menu/warp/etc.
 AUTOPILOT_FLAG="--autopilot"; [ -n "${SML_NO_AUTOPILOT:-}" ] && AUTOPILOT_FLAG=""   # SML_NO_AUTOPILOT=1 for non-gameplay scenes
 DRIVER_ARG=""; [ -n "$DRIVER" ] && DRIVER_ARG="--rendering-driver $DRIVER"
-REMOTE_AVI="/tmp/ml_render_${LEVEL}.avi"
+REMOTE_OUTPUT_DIR="Build/such-moon-launch/remote-render/output/$RUN_ID"
+REMOTE_AVI="$REMOTE_OUTPUT_DIR/ml_render_${LEVEL}.avi"
+sml_require_remote_build_path "$REMOTE_DIR"
+sml_require_remote_build_path "$REMOTE_OUTPUT_DIR"
 
 # Rendering backend. Default: xvfb (virtual framebuffer = software GL; works on any
 # headless box, e.g. the lavapipe 'deb' host). If RENDER_DISPLAY is set (e.g. ':0' on a
@@ -93,6 +101,7 @@ if ! ssh -o ConnectTimeout=12 -o BatchMode=yes "$HOST" 'true' 2>/dev/null; then
   exit 3
 fi
 
+ssh "$HOST" "mkdir -p '$REMOTE_DIR' '$REMOTE_OUTPUT_DIR'"
 echo "[remote-render] syncing project -> $HOST:$REMOTE_DIR ..."
 # Exclude everything not needed to RENDER a level. builds/ alone is ~3.6GB of
 # exported APK/IPA artifacts; android/ios are mobile build dirs. --delete-excluded
@@ -113,12 +122,11 @@ echo "[remote-render] rendering Level $LEVEL ($FRAMES frames @ 60fps, $RES) via 
 # Pass the hybrid-pilot env through so we can render the RL-piloted run (SML_RL_LAND=1).
 RL_ENV="SML_RL_LAND='${SML_RL_LAND:-}' SML_RL_DETERMINISTIC='${SML_RL_DETERMINISTIC:-1}' SML_SEED='${SML_SEED:-1337}' SML_DIFF='${SML_DIFF:-}'"
 ssh "$HOST" "cd '$REMOTE_DIR' && $RL_ENV $LAUNCH $GODOT_REMOTE $DRIVER_ARG \
-  --path . --resolution $RES --write-movie '$REMOTE_AVI' \
+  --path . --resolution $RES --write-movie \"\$HOME/$REMOTE_AVI\" \
   --quit-after $FRAMES --capture $AUTOPILOT_FLAG '$SCENE' 2>&1 \
   | grep -E 'frames at|Done recording|RL landing ENABLED|SCRIPT ERROR' || true"
 
 echo "[remote-render] pulling video back ..."
-mkdir -p "$(dirname "$OUT_BASE")"
 LOCAL_AVI="${OUT_BASE}.source.avi"
 rsync -az "$HOST:$REMOTE_AVI" "$LOCAL_AVI"
 

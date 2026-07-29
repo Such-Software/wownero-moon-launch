@@ -12,14 +12,19 @@
 #
 # Examples:
 #   # gameplay (autopilot flies it):
-#   capture.sh res://game/levels/1/Level1.tscn out/seg_01.avi 900 --autopilot
+#   capture.sh res://game/levels/1/Level1.tscn \
+#     "$HOME/Build/scratch/such-moon-launch/marketing/take-001/seg_01.avi" \
+#     900 --autopilot
 #   # 3D mascot (env vars configure Stage3D):
 #   MK_GLB=res://marketing/assets/characters/doge.glb MK_CAPTION="wow" \
-#     capture.sh res://marketing/stage/Stage3D.tscn out/seg_02.avi 300
+#     capture.sh res://marketing/stage/Stage3D.tscn \
+#       "$HOME/Build/scratch/such-moon-launch/marketing/take-001/seg_02.avi" 300
 #
 # Frames are at 60fps (Movie Maker default), so 300 frames = 5s of video.
 set -euo pipefail
 
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+source "$SCRIPT_DIR/workspace_paths.sh"
 GODOT="${GODOT:-/Applications/Godot.app/Contents/MacOS/Godot}"
 PROJ="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 RES="${MK_RES:-1920x1080}"
@@ -29,7 +34,7 @@ if [ "$#" -lt 3 ]; then
   exit 2
 fi
 SCENE="$1"; OUT="$2"; FRAMES="$3"; shift 3
-mkdir -p "$(dirname "$OUT")"
+sml_require_build_output "$OUT"
 
 echo "[capture] $SCENE -> $OUT (${FRAMES}f @ ${RES})"
 

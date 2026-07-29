@@ -2,6 +2,7 @@ extends Control
 
 const BS = preload("res://game/gui/ButtonStyles.gd")
 const MENU_FONT := preload("res://fonts/Computer Speak v0.3.ttf")
+const ExternalLinks = preload("res://game/net/ExternalLinks.gd")
 
 var _level_select_visible := false
 var _level_select_container: VBoxContainer = null
@@ -886,6 +887,16 @@ func _show_options_popup() -> void:
 	# Separator
 	var sep2 := HSeparator.new()
 	vbox.add_child(sep2)
+
+	# Keep the policy accessible inside the app, not only in store metadata.
+	var privacy_btn := Button.new()
+	privacy_btn.text = "Privacy Policy"
+	privacy_btn.custom_minimum_size = Vector2(240, 32)
+	BS.apply_space_style(privacy_btn, Color.CYAN)
+	privacy_btn.pressed.connect(
+		func(): OS.shell_open(ExternalLinks.PRIVACY_POLICY_URL)
+	)
+	vbox.add_child(privacy_btn)
 
 	# Reset Progress button
 	var reset_btn := Button.new()

@@ -30,6 +30,28 @@ channel, storefront, Wownero theme projection, OIDC shop client, catalog
 namespace, outbox credential, and isolated restore proof before activation.
 The app never derives any real identifier from `moon_launch`.
 
+## Shop theme handoff
+
+The registry-pinned Wownero projection is generated from Such Graphics commit
+token `2d15861`. Keep the generated provisioner input outside this source
+worktree:
+
+```bash
+cd "$HOME/src/such-graphics"
+PYTHONDONTWRITEBYTECODE=1 PYTHONPATH=. \
+  python3 -m such_graphics project-brand packs/wownero \
+    --source-commit 2d15861 \
+    --out "$HOME/Build/such-moon-launch/brand/2d15861"
+sha256sum "$HOME/Build/such-moon-launch/brand/2d15861/brand.lock.json"
+```
+
+The required lock SHA-256 is
+`4c684c369d81ff0b8012fc78410fbec72341f8d2f16408ff23b6071bec78be96`.
+Provisioning must reject any other projection. The inactive Medusa
+provisioner still requires the real intended shop domain; no tenant, channel,
+client, domain, catalog, price, payment, or offer identifier may be invented
+from this handoff.
+
 ## Client and commerce boundaries
 
 Native login will use the system browser with Authorization Code, S256 PKCE,

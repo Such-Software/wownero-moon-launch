@@ -22,14 +22,18 @@ from pathlib import Path
 
 import bpy
 
+sys.dont_write_bytecode = True
+HERE = Path(__file__).resolve().parent
+sys.path.insert(0, str(HERE))
+from workspace_paths import marketing_run_root, such_graphics_source
+
 # Reuse the such-graphics creature3d engine's articulated bezier lips for the MOUTH
 # (real reshaping lips, not scaled pill-ellipsoids). All of the alien's own head /
 # antenna geometry below is unchanged.
-sys.path.insert(0, "/Users/johnmurphy/src/such-graphics")
+sys.path.insert(0, str(such_graphics_source()))
 from such_graphics import creature3d as c3d
 
-SP = Path("/private/tmp/claude-501/-Users-johnmurphy-src-WowneroMoonLaunch/"
-          "0801bcd3-399b-4237-b990-4df8be9a0d81/scratchpad")
+SP = marketing_run_root() / "_procedural_3d"
 MODE = sys.argv[-1] if sys.argv[-1] in ("still", "talk", "alpha", "hero") else "still"
 
 GREEN = (0.44, 0.75, 0.29)       # martian green
@@ -254,6 +258,7 @@ def lights_and_cam():
 
 
 def main():
+    SP.mkdir(parents=True, exist_ok=True)
     rig = build()
     set_mouth(rig, SHAPES["X"])
     lights_and_cam()

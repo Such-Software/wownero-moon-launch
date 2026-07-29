@@ -6,10 +6,10 @@ captions and background (make_char_intro + make_char_intro_3d); just a single ac
 These are the openers for the three videos (doge hook, alien hook, duo).
 
 Run:
-  PYTHONPATH=/Users/johnmurphy/src/such-graphics RHUBARB=/Users/johnmurphy/.local/bin/rhubarb \
+  SML_MARKETING_RUN_ID=character-hooks \
     python3 marketing/lib/make_char_hook.py [doge|alien|all]
 
-Output: marketing/out/hook_<char>.mp4 (+ .scene.m4a)
+Output: ~/Build/scratch/such-moon-launch/marketing/character-hooks/
 """
 from __future__ import annotations
 
@@ -21,9 +21,12 @@ import subprocess
 import sys
 from pathlib import Path
 
-sys.path.insert(0, "/Users/johnmurphy/src/such-graphics")
+sys.dont_write_bytecode = True
 HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE))
+from workspace_paths import marketing_run_root, such_graphics_source
+
+sys.path.insert(0, str(such_graphics_source()))
 
 from PIL import Image, ImageDraw
 
@@ -36,7 +39,7 @@ import make_char_intro_3d as duo        # BLENDER, VOICE_FX, grunge_clips
 
 BLENDER = duo.BLENDER
 MKT = HERE.parent
-OUT = MKT / "out"
+OUT = marketing_run_root()
 WORK = OUT / "_hook_work"
 W, H, FPS, TAIL = 1080, 1920, 30, 0.7
 

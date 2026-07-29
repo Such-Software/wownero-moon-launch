@@ -14,13 +14,12 @@ viseme cues, idle otherwise), cached by content hash, then composited per frame.
 Model: scripts/make_duo3d_video.py in vegan-IQ.
 
 Run:
-  PYTHONPATH=/Users/johnmurphy/src/such-graphics \
-  RHUBARB=/Users/johnmurphy/.local/bin/rhubarb \
+  SML_MARKETING_RUN_ID=char-intro-3d \
   python3 marketing/lib/make_char_intro_3d.py
 
 Output:
-  marketing/out/char_intro_3d.mp4        (video + muxed audio)
-  marketing/out/char_intro_3d.scene.m4a  (audio side-file)
+  ~/Build/scratch/such-moon-launch/marketing/char-intro-3d/char_intro_3d.mp4
+  (+ renderer audio and disposable working files in the same run directory)
 """
 from __future__ import annotations
 
@@ -32,9 +31,16 @@ import subprocess
 import sys
 from pathlib import Path
 
-sys.path.insert(0, "/Users/johnmurphy/src/such-graphics")
+sys.dont_write_bytecode = True
 HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE))
+from workspace_paths import (
+    blender_executable,
+    marketing_run_root,
+    such_graphics_source,
+)
+
+sys.path.insert(0, str(such_graphics_source()))
 
 from PIL import Image
 
@@ -45,9 +51,9 @@ from such_graphics.subtitles import CaptionStyle, draw_caption
 # reuse the 2D intro's script, voices, and space background verbatim
 import make_char_intro as base
 
-BLENDER = "/Applications/Blender.app/Contents/MacOS/Blender"
+BLENDER = blender_executable()
 MKT = HERE.parent
-OUT = MKT / "out"
+OUT = marketing_run_root()
 WORK = OUT / "_char_intro_3d_work"
 
 W, H = 1080, 1920

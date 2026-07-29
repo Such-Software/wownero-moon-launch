@@ -35,6 +35,9 @@
   ],
   "tracked_release_inputs": [
     ".gitea/workflows/build-android-candidate.yml",
+    "game/gui/menu/Menu.gd",
+    "game/gui/victory/Victory.gd",
+    "game/net/ExternalLinks.gd",
     "addons/AdmobPlugin/android_export.cfg",
     "addons/AdmobPlugin/bin/release/AdmobPlugin-release.aar",
     "addons/BloomwordFirebase/bin/release/BloomwordFirebase-release.aar",

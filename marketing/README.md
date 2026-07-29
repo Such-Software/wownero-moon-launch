@@ -55,6 +55,12 @@ README, manifest, SHA256SUMS, byte counts, review evidence, and verifier.
 `source/`, `work/`, `deliveries/`, and `archive/` are the only project-level
 lifecycle directories.
 
+The Python character generators use the same boundary. Set
+`SML_MARKETING_RUN_ID` for a named run, `SUCH_GRAPHICS_SRC` only to another
+real checkout below `~/src`, and `SML_BLENDER_BIN` when Blender is not on
+`PATH`. `SML_MARKETING_RUN_ROOT`, when needed, must remain below
+`SUCH_BUILD_ROOT`, which itself must remain below `~/Build`.
+
 1. Write `videos/<name>/storyboard.md` (shots, captions, timing, VO lines).
 2. Set a Build workspace and capture each segment there:
    - `MEDIA_RUN="${SUCH_BUILD_ROOT:-$HOME/Build}/scratch/such-moon-launch/marketing/draft-001"`
@@ -162,7 +168,8 @@ One-liner (from the such-graphics repo):
 ```
 python scripts/capture-wownero-gameplay.py \
   --host deb --scene res://game/levels/1/Level1.tscn \
-  --size 1080x1920 --frames 1080 --slingshot -o /tmp/l1_portrait.mp4
+  --size 1080x1920 --frames 1080 --slingshot \
+  -o "$HOME/Build/scratch/such-moon-launch/marketing/l1-portrait/l1_portrait.mp4"
 ```
 
 This yields a native 1080x1920 clip with the rocket + target actually framed for

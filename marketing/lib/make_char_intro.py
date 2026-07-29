@@ -7,16 +7,15 @@ PROOF built on such-graphics' talking-scene renderer — the app here owns only 
 two puppets, the space background, the staging and the dialogue; the lip-sync
 compositing, captions and audio live in `such_graphics.scene`.
 
-Run (lipsync.py reads the ElevenLabs key from env or the key files directly, and
-finds rhubarb on PATH / ~/.local/bin; the exports below just make it explicit):
+Run (the approved secret broker supplies ElevenLabs credentials and rhubarb is
+found on PATH / ~/.local/bin):
 
-  PYTHONPATH=/Users/johnmurphy/src/such-graphics \
-  RHUBARB=/Users/johnmurphy/.local/bin/rhubarb \
+  SML_MARKETING_RUN_ID=char-intro \
   python3 marketing/lib/make_char_intro.py
 
 Output:
-  marketing/out/char_intro_1.mp4            (video + muxed audio)
-  marketing/out/char_intro_1.scene.m4a      (audio side-file the renderer emits)
+  ~/Build/scratch/such-moon-launch/marketing/char-intro/char_intro_1.mp4
+  (+ renderer audio and disposable working files in the same run directory)
 """
 from __future__ import annotations
 
@@ -24,7 +23,12 @@ import random
 import sys
 from pathlib import Path
 
-sys.path.insert(0, "/Users/johnmurphy/src/such-graphics")
+sys.dont_write_bytecode = True
+HERE = Path(__file__).resolve().parent
+sys.path.insert(0, str(HERE))
+from workspace_paths import marketing_run_root, such_graphics_source
+
+sys.path.insert(0, str(such_graphics_source()))
 
 from PIL import Image, ImageDraw
 
@@ -33,10 +37,9 @@ from such_graphics.puppet import Puppet
 from such_graphics.scene import Actor, render_talking_scene
 from such_graphics.subtitles import CaptionStyle
 
-HERE = Path(__file__).resolve().parent          # marketing/lib
 MKT = HERE.parent                               # marketing
 CHARS = MKT / "characters"
-OUT = MKT / "out"
+OUT = marketing_run_root()
 WORK = OUT / "_char_intro_work"
 
 W, H = 1080, 1920
