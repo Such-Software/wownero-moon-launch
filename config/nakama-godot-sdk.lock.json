@@ -1,0 +1,27 @@
+{
+  "schema_version": 1,
+  "upstream": "https://github.com/heroiclabs/nakama-godot",
+  "tag": "v3.4.0",
+  "commit": "14b7f7078a9822c15b0424624e4c883c87730cee",
+  "archive_sha256": "b4a24adf027637a42ece8f09f240aa91ed5ba006dbdfd1ba48a1cbe92e0b1e34",
+  "files": {
+    "LICENSE.txt": "8c6db340475136df3c1201d458fa5755698eace76e510471ecc9d857d6083dac",
+    "Nakama.gd": "d90a05f9adb6f1cb78266e2aa10f69de9213dceadcb9298fda6b96986b47dfb3",
+    "api/NakamaAPI.gd": "0e52ee92b44e5fc47957400996ad35b0f8b731d225cc49dfc44f75e617adeca9",
+    "api/NakamaRTAPI.gd": "55d07cd39d11fef05479e3a31b4e3dc66c48aa1e37930102d6c5234a339a8921",
+    "api/NakamaRTMessage.gd": "38bc9317eaae0eb0b28fc1bd26584566836a97accda79fed18dcf49c8137a2c1",
+    "api/NakamaSession.gd": "b0d0d6dbd1ba1cb0caa54d78a675b52e19253857757a724239c46947cf323829",
+    "api/NakamaStorageObjectId.gd": "bc158c7ce654341473a493de3a139c993126a4443fa4ffcbb6db5dc7d1ac043b",
+    "api/NakamaWriteStorageObject.gd": "cbbec982bd0265dde73554eaf7515c662baac9d92480d44c6877ed74a84b7ad7",
+    "client/NakamaClient.gd": "26d825d0d57072c0cb0c1a24afc21ac845b4c533233a206564d5786f5749f89e",
+    "client/NakamaHTTPAdapter.gd": "143f077343146afb85a4150e13015e631e3f0bcc67606c4b3691944b1812a3d1",
+    "socket/NakamaSocket.gd": "92e52159ffe1a53f10c4bf0b6391e539bd1cb5af01c47654ffa9a22de82b1a52",
+    "socket/NakamaSocketAdapter.gd": "893d9f434c636842b586a096cd45fd679c48d5b81871955b359432b58a19ea9f",
+    "utils/NakamaAsyncResult.gd": "5a116a8a6780ddeeb19da2253a1cdbcbc02b13adfe0df29ad380ac61bb506fa9",
+    "utils/NakamaException.gd": "914b5d2b799557acd16f9908cb54d22afed22df06ce57e88b686fd812382f2f9",
+    "utils/NakamaLogger.gd": "c5545a4c7cef300432a90325b3887ca9cb4bc0fba3baffe35bbcdd5a9f547f7d",
+    "utils/NakamaMultiplayerBridge.gd": "e49a2297058761d3b89cf172cb271756d730a589c1337d4bca372ee29e8fee63",
+    "utils/NakamaMultiplayerPeer.gd": "f7772dd87cdd922f25338eb3b9a8a2c8c8d2758c36307ffaee6a4b70621af288",
+    "utils/NakamaSerializer.gd": "eebe2df4a332cbf2a3cd56bef8a1b0267c0546479618bf88345a4696eb28d2e5"
+  }
+}

@@ -20,12 +20,16 @@ REQUIRED_RPCS = {
     "app_platform_prepare_guest_claim",
     "app_platform_claim_guest",
     "app_entitlement_projection",
+    "moon_launch_room_register",
+    "moon_launch_room_resolve",
+    "moon_launch_room_close",
 }
 REQUIRED_TABLES = {
     "such_platform_identity",
     "such_platform_entitlement",
     "such_platform_guest_claim",
     "such_platform_migration_operation",
+    "such_moon_launch_friendly_room",
 }
 
 
@@ -83,6 +87,11 @@ def main() -> None:
         fail("runtime manifest contract pin drift")
     if manifest.get("minimum_nakama_version") != "3.40.0":
         fail("runtime manifest Nakama floor drift")
+    if (
+        manifest.get("schema_version") != 2
+        or manifest.get("migrations", {}).get("schema_version") != 2
+    ):
+        fail("runtime manifest schema version drift")
     if manifest.get("runtime", {}).get("sha256") is not None:
         fail("runtime digest must be injected during the Build render")
     if manifest.get("migrations", {}).get("sha256") is not None:

@@ -234,6 +234,91 @@ BEGIN
 END;
 $test$;
 
+DO $test$
+DECLARE
+    guest_count integer;
+    second_guest_count integer;
+    invalid_room_rejected boolean := false;
+BEGIN
+    INSERT INTO such_moon_launch_friendly_room (
+        room_code,
+        match_id,
+        host_user_id,
+        protocol_version,
+        max_players,
+        expires_at
+    ) VALUES (
+        'MN2P42',
+        'relayed.match-postgres',
+        '11111111-1111-4111-8111-111111111111',
+        1,
+        2,
+        now() + interval '10 minutes'
+    );
+
+    UPDATE such_moon_launch_friendly_room
+       SET guest_user_id = COALESCE(
+               guest_user_id,
+               '22222222-2222-4222-8222-222222222222'
+           ),
+           updated_at = now()
+     WHERE room_code = 'MN2P42'
+       AND state = 'OPEN'
+       AND expires_at > now()
+       AND host_user_id <> '22222222-2222-4222-8222-222222222222'
+       AND (
+           guest_user_id IS NULL
+           OR guest_user_id = '22222222-2222-4222-8222-222222222222'
+       );
+    GET DIAGNOSTICS guest_count = ROW_COUNT;
+
+    UPDATE such_moon_launch_friendly_room
+       SET guest_user_id = COALESCE(
+               guest_user_id,
+               '33333333-3333-4333-8333-333333333333'
+           ),
+           updated_at = now()
+     WHERE room_code = 'MN2P42'
+       AND state = 'OPEN'
+       AND expires_at > now()
+       AND host_user_id <> '33333333-3333-4333-8333-333333333333'
+       AND (
+           guest_user_id IS NULL
+           OR guest_user_id = '33333333-3333-4333-8333-333333333333'
+       );
+    GET DIAGNOSTICS second_guest_count = ROW_COUNT;
+
+    IF guest_count <> 1 OR second_guest_count <> 0 THEN
+        RAISE EXCEPTION 'friendly room guest reservation was not atomic';
+    END IF;
+
+    UPDATE such_moon_launch_friendly_room
+       SET state = 'EXPIRED',
+           closed_at = COALESCE(closed_at, now()),
+           updated_at = now()
+     WHERE room_code = 'MN2P42';
+
+    BEGIN
+        INSERT INTO such_moon_launch_friendly_room (
+            room_code,
+            match_id,
+            host_user_id,
+            expires_at
+        ) VALUES (
+            'IO0110',
+            'relayed.match-invalid',
+            '11111111-1111-4111-8111-111111111111',
+            now() + interval '10 minutes'
+        );
+    EXCEPTION WHEN check_violation THEN
+        invalid_room_rejected := true;
+    END;
+    IF NOT invalid_room_rejected THEN
+        RAISE EXCEPTION 'ambiguous room code alphabet was accepted';
+    END IF;
+END;
+$test$;
+
 ROLLBACK;
 
 \echo 'PASS PostgreSQL migration and replay integration'

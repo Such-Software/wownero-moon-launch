@@ -19,4 +19,16 @@ function InitModule(
     "app_entitlement_projection",
     moonRpcEntitlementProjection
   );
+  initializer.registerRpc(
+    "moon_launch_room_register",
+    moonRpcRoomRegister
+  );
+  initializer.registerRpc(
+    "moon_launch_room_resolve",
+    moonRpcRoomResolve
+  );
+  initializer.registerRpc(
+    "moon_launch_room_close",
+    moonRpcRoomClose
+  );
 }

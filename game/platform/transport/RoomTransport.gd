@@ -24,6 +24,28 @@ enum Status {
 const PROTOCOL_VERSION := 1
 const MAX_PAYLOAD_BYTES := 4096
 const MAX_CHANNEL_LENGTH := 32
+const ENVELOPE_KEYS := [
+	"protocol_version",
+	"channel",
+	"sequence",
+	"payload",
+]
+const FORBIDDEN_PAYLOAD_KEYS := {
+	"apple": true,
+	"email": true,
+	"entitlement": true,
+	"google": true,
+	"id_token": true,
+	"jwt": true,
+	"nostr": true,
+	"purchase": true,
+	"receipt": true,
+	"session_id": true,
+	"siwe": true,
+	"subject_id": true,
+	"transaction_id": true,
+	"user_id": true,
+}
 
 var status: Status = Status.IDLE
 
@@ -72,16 +94,65 @@ static func make_envelope(channel: StringName, sequence: int, payload: Dictionar
 
 
 static func validate_envelope(envelope: Dictionary) -> StringName:
-	if int(envelope.get("protocol_version", -1)) != PROTOCOL_VERSION:
+	if envelope.size() != ENVELOPE_KEYS.size():
+		return &"shape"
+	for key in ENVELOPE_KEYS:
+		if not envelope.has(key):
+			return &"shape"
+	if not _is_json_integer(envelope["protocol_version"]):
 		return &"protocol_version"
-	var channel := str(envelope.get("channel", ""))
-	if channel.is_empty() or channel.length() > MAX_CHANNEL_LENGTH:
+	if int(envelope["protocol_version"]) != PROTOCOL_VERSION:
+		return &"protocol_version"
+	if not envelope["channel"] is String:
 		return &"channel"
-	if int(envelope.get("sequence", 0)) < 1:
+	var channel: String = envelope["channel"]
+	if (
+		channel.is_empty()
+		or channel.length() > MAX_CHANNEL_LENGTH
+		or not _channel_pattern().search(channel)
+	):
+		return &"channel"
+	if not _is_json_integer(envelope["sequence"]) or int(envelope["sequence"]) < 1:
 		return &"sequence"
-	if not envelope.get("payload") is Dictionary:
+	if not envelope["payload"] is Dictionary:
 		return &"payload"
+	if _contains_forbidden_payload(envelope["payload"]):
+		return &"forbidden_payload"
 	var encoded := JSON.stringify(envelope).to_utf8_buffer()
 	if encoded.size() > MAX_PAYLOAD_BYTES:
 		return &"oversized"
 	return &""
+
+
+static func _channel_pattern() -> RegEx:
+	var pattern := RegEx.new()
+	pattern.compile("^[a-z][a-z0-9_]{0,31}$")
+	return pattern
+
+
+static func _contains_forbidden_payload(value: Variant, depth := 0) -> bool:
+	if depth > 8:
+		return true
+	if value is Dictionary:
+		for key in value:
+			var normalized := str(key).to_snake_case().to_lower()
+			if FORBIDDEN_PAYLOAD_KEYS.has(normalized):
+				return true
+			if _contains_forbidden_payload(value[key], depth + 1):
+				return true
+	elif value is Array:
+		for item in value:
+			if _contains_forbidden_payload(item, depth + 1):
+				return true
+	return false
+
+
+static func _is_json_integer(value: Variant) -> bool:
+	return (
+		value is int
+		or (
+			value is float
+			and is_finite(value)
+			and value == floor(value)
+		)
+	)

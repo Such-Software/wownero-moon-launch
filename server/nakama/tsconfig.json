@@ -17,6 +17,7 @@
   },
   "files": [
     "src/platform.ts",
+    "src/rooms.ts",
     "src/init.ts"
   ]
 }

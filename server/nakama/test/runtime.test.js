@@ -30,7 +30,7 @@ function completeContext(overrides = {}) {
   const context = {
     env: {
       APP_ID: "moon_launch",
-      APP_SCHEMA_VERSION: "1",
+      APP_SCHEMA_VERSION: "2",
       APP_RUNTIME_SOURCE_COMMIT: "a".repeat(40),
       APP_RUNTIME_SHA256: "b".repeat(64),
       APP_MIGRATION_SHA256: "c".repeat(64),
@@ -108,6 +108,29 @@ class FakeNakama {
 
   sqlExec(query, args = []) {
     this.execCalls.push({query, args});
+    if (
+      query.includes("SET state = 'EXPIRED'") &&
+      this.room &&
+      this.room.state === "OPEN" &&
+      Date.parse(this.room.expires_at) <= Date.now()
+    ) {
+      this.room.state = "EXPIRED";
+      this.room.closed_at = this.room.closed_at || new Date().toISOString();
+      return {rowsAffected: 1};
+    }
+    if (query.includes("SET state = 'CLOSED'")) {
+      if (
+        this.room &&
+        this.room.room_code === args[0] &&
+        this.room.host_user_id === args[1] &&
+        this.room.state === "OPEN"
+      ) {
+        this.room.state = "CLOSED";
+        this.room.closed_at = new Date().toISOString();
+        return {rowsAffected: 1};
+      }
+      return {rowsAffected: 0};
+    }
     return {rowsAffected: this.options.execRowsAffected ?? 1};
   }
 
@@ -116,7 +139,7 @@ class FakeNakama {
     if (query.includes("such_platform_schema_migration")) {
       return this.options.migrationMissing
         ? []
-        : [{migration_id: "001_app_platform_v1"}];
+        : [{migration_id: "002_friendly_room"}];
     }
     if (query.includes("FROM users WHERE custom_id")) {
       return [{user_id: "11111111-1111-4111-8111-111111111111"}];
@@ -127,6 +150,11 @@ class FakeNakama {
     if (query.includes("FROM such_platform_apply_entitlement_event")) {
       return this.applyEntitlement(args);
     }
+    if (
+      query.includes("SELECT 1 AS found FROM such_platform_entitlement e")
+    ) {
+      return this.options.premium ? [{found: 1}] : [];
+    }
     if (query.includes("FROM such_platform_entitlement e")) {
       return this.options.capabilities || [];
     }
@@ -136,7 +164,74 @@ class FakeNakama {
         merge_result_hash: "d".repeat(64)
       }];
     }
+    if (
+      query.includes("FROM such_moon_launch_friendly_room") &&
+      query.includes("WHERE match_id")
+    ) {
+      return (
+        this.room &&
+        this.room.match_id === args[0] &&
+        this.room.host_user_id === args[1] &&
+        this.room.state === "OPEN" &&
+        Date.parse(this.room.expires_at) > Date.now()
+      ) ? [Object.assign({}, this.room)] : [];
+    }
+    if (query.includes("INSERT INTO such_moon_launch_friendly_room")) {
+      if (this.options.roomInsertConflict || this.room) {
+        return [];
+      }
+      this.room = {
+        room_code: args[0],
+        match_id: args[1],
+        host_user_id: args[2],
+        guest_user_id: null,
+        protocol_version: args[3],
+        max_players: args[4],
+        state: "OPEN",
+        expires_at: args[5],
+        closed_at: null
+      };
+      return [Object.assign({}, this.room)];
+    }
+    if (
+      query.includes("FROM such_moon_launch_friendly_room") &&
+      query.includes("WHERE room_code")
+    ) {
+      return (
+        this.room &&
+        this.room.room_code === args[0] &&
+        this.room.state === "OPEN" &&
+        Date.parse(this.room.expires_at) > Date.now()
+      ) ? [Object.assign({}, this.room)] : [];
+    }
+    if (
+      query.includes("UPDATE such_moon_launch_friendly_room") &&
+      query.includes("guest_user_id = COALESCE")
+    ) {
+      if (
+        this.room &&
+        this.room.room_code === args[0] &&
+        this.room.state === "OPEN" &&
+        Date.parse(this.room.expires_at) > Date.now() &&
+        this.room.host_user_id !== args[1] &&
+        (
+          this.room.guest_user_id === null ||
+          this.room.guest_user_id === args[1]
+        )
+      ) {
+        this.room.guest_user_id = args[1];
+        return [Object.assign({}, this.room)];
+      }
+      return [];
+    }
     throw new Error(`Unexpected SQL query: ${query}`);
+  }
+
+  matchGet(matchId) {
+    if (typeof this.options.matchGet === "function") {
+      return this.options.matchGet(matchId);
+    }
+    return this.options.match || null;
   }
 
   applyEntitlement(args) {
@@ -277,7 +372,10 @@ test("registers the complete common App Platform surface", () => {
       "app_platform_entitlements",
       "app_platform_health",
       "app_platform_prepare_guest_claim",
-      "app_platform_readiness"
+      "app_platform_readiness",
+      "moon_launch_room_close",
+      "moon_launch_room_register",
+      "moon_launch_room_resolve"
     ].sort()
   );
   assert.equal(typeof hooks.beforeAuthenticateCustom, "function");
@@ -316,7 +414,7 @@ test("readiness and build info require exact pins and applied schema", () => {
     rpcs.get("app_platform_build_info")(context, logger, nk, "")
   );
   assert.equal(build.app_id, "moon_launch");
-  assert.equal(build.schema_version, 1);
+  assert.equal(build.schema_version, 2);
   assert.equal(build.source_commit, "a".repeat(40));
 
   const unpinned = completeContext();
@@ -605,6 +703,188 @@ test("guest claim hashes the proof and delegates the atomic merge", () => {
   assert.equal(response.merge_result_hash, "d".repeat(64));
 });
 
+test("friendly room hosting is Premium-gated and verifies a relayed match", () => {
+  const hostId = "11111111-1111-4111-8111-111111111111";
+  const matchId = "relayed.match-01";
+  const payload = JSON.stringify({
+    match_id: matchId,
+    protocol_version: 1,
+    max_players: 2
+  });
+
+  const free = initialize(new FakeNakama({
+    match: {matchId, authoritative: false, size: 1, label: ""}
+  }));
+  assert.throws(
+    () => free.rpcs.get("moon_launch_room_register")(
+      completeContext({userId: hostId}),
+      free.logger,
+      free.nk,
+      payload
+    ),
+    (error) => error.code === 7
+  );
+
+  const premium = initialize(new FakeNakama({
+    premium: true,
+    match: {matchId, authoritative: false, size: 1, label: ""}
+  }));
+  const descriptor = JSON.parse(
+    premium.rpcs.get("moon_launch_room_register")(
+      completeContext({userId: hostId}),
+      premium.logger,
+      premium.nk,
+      payload
+    )
+  );
+  assert.match(descriptor.room_code, /^[A-HJ-NP-Z2-9]{6}$/);
+  assert.equal(descriptor.match_id, matchId);
+  assert.equal(descriptor.protocol_version, 1);
+  assert.equal(descriptor.max_players, 2);
+  assert.deepEqual(Object.keys(descriptor).sort(), [
+    "expires_at",
+    "match_id",
+    "max_players",
+    "protocol_version",
+    "room_code"
+  ]);
+  assert.doesNotMatch(JSON.stringify(descriptor), /user|premium|purchase/);
+
+  const authoritative = initialize(new FakeNakama({
+    premium: true,
+    match: {matchId, authoritative: true, size: 1, label: ""}
+  }));
+  assert.throws(
+    () => authoritative.rpcs.get("moon_launch_room_register")(
+      completeContext({userId: hostId}),
+      authoritative.logger,
+      authoritative.nk,
+      payload
+    ),
+    (error) => error.code === 5
+  );
+});
+
+test("free authenticated guests resolve once and hosts close their rooms", () => {
+  const hostId = "11111111-1111-4111-8111-111111111111";
+  const guestId = "22222222-2222-4222-8222-222222222222";
+  const otherId = "33333333-3333-4333-8333-333333333333";
+  const matchId = "relayed.match-02";
+  const nk = new FakeNakama({
+    premium: true,
+    match: {matchId, authoritative: false, size: 1, label: ""}
+  });
+  const {rpcs, logger} = initialize(nk);
+  const descriptor = JSON.parse(
+    rpcs.get("moon_launch_room_register")(
+      completeContext({userId: hostId}),
+      logger,
+      nk,
+      JSON.stringify({
+        match_id: matchId,
+        protocol_version: 1,
+        max_players: 2
+      })
+    )
+  );
+  const codePayload = JSON.stringify({room_code: descriptor.room_code});
+
+  const joined = JSON.parse(
+    rpcs.get("moon_launch_room_resolve")(
+      completeContext({userId: guestId}),
+      logger,
+      nk,
+      codePayload
+    )
+  );
+  assert.equal(joined.match_id, matchId);
+  assert.equal(nk.room.guest_user_id, guestId);
+
+  assert.throws(
+    () => rpcs.get("moon_launch_room_resolve")(
+      completeContext({userId: otherId}),
+      logger,
+      nk,
+      codePayload
+    ),
+    (error) => error.code === 9
+  );
+  assert.throws(
+    () => rpcs.get("moon_launch_room_close")(
+      completeContext({userId: guestId}),
+      logger,
+      nk,
+      codePayload
+    ),
+    (error) => error.code === 5
+  );
+  assert.deepEqual(
+    JSON.parse(
+      rpcs.get("moon_launch_room_close")(
+        completeContext({userId: hostId}),
+        logger,
+        nk,
+        codePayload
+      )
+    ),
+    {closed: true}
+  );
+  assert.equal(nk.room.state, "CLOSED");
+});
+
+test("room requests reject expiry, host self-join, and oversized payloads", () => {
+  const hostId = "11111111-1111-4111-8111-111111111111";
+  const matchId = "relayed.match-03";
+  const nk = new FakeNakama({
+    premium: true,
+    match: {matchId, authoritative: false, size: 1, label: ""}
+  });
+  const {rpcs, logger} = initialize(nk);
+  const descriptor = JSON.parse(
+    rpcs.get("moon_launch_room_register")(
+      completeContext({userId: hostId}),
+      logger,
+      nk,
+      JSON.stringify({
+        match_id: matchId,
+        protocol_version: 1,
+        max_players: 2
+      })
+    )
+  );
+  const codePayload = JSON.stringify({room_code: descriptor.room_code});
+  assert.throws(
+    () => rpcs.get("moon_launch_room_resolve")(
+      completeContext({userId: hostId}),
+      logger,
+      nk,
+      codePayload
+    ),
+    (error) => error.code === 9
+  );
+  nk.room.expires_at = new Date(Date.now() - 1000).toISOString();
+  assert.throws(
+    () => rpcs.get("moon_launch_room_resolve")(
+      completeContext({
+        userId: "22222222-2222-4222-8222-222222222222"
+      }),
+      logger,
+      nk,
+      codePayload
+    ),
+    (error) => error.code === 5
+  );
+  assert.throws(
+    () => rpcs.get("moon_launch_room_register")(
+      completeContext({userId: hostId}),
+      logger,
+      nk,
+      "x".repeat(1025)
+    ),
+    (error) => error.code === 3
+  );
+});
+
 test("migration bundle is ordered, transactional, additive, and repeatable", () => {
   assert.match(migrationSource, /\\set ON_ERROR_STOP on/);
   assert.match(migrationSource, /\bBEGIN;/);
@@ -613,7 +893,8 @@ test("migration bundle is ordered, transactional, additive, and repeatable", () 
     "such_platform_identity",
     "such_platform_entitlement",
     "such_platform_guest_claim",
-    "such_platform_migration_operation"
+    "such_platform_migration_operation",
+    "such_moon_launch_friendly_room"
   ]) {
     assert.match(
       migrationSource,

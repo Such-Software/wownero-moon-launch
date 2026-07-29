@@ -21,6 +21,7 @@ config/icon="res://art/branding/icon.png"
 
 [autoload]
 
+Nakama="*res://addons/com.heroiclabs.nakama/Nakama.gd"
 globalvar="*res://globalvar.gd"
 HintService="*res://game/HintService.gd"
 HazardHints="*res://game/HazardHints.gd"

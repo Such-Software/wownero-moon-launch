@@ -7,6 +7,7 @@ cd "$ROOT"
 python3 tools/check_app_platform.py --expect-app moon_launch
 python3 tools/ci/check_app_platform_baseline.py
 python3 tools/ci/check_nakama_runtime.py
+python3 tools/ci/check_nakama_godot_sdk.py
 python3 tools/ci/check_release_contract.py
 python3 tools/ci/check_android_release_contract.py
 
