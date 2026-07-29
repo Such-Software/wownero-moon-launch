@@ -2,12 +2,12 @@ name: Such Moon Launch iOS candidate / TestFlight
 
 # Private-Mac release lane. A dispatch builds, signs, inspects, checksums, and
 # retains an IPA by default. TestFlight delivery requires both an explicit
-# upload choice and a new positive build number on refs/heads/main.
+# upload choice and a new positive build number on the protected delivery branch.
 on:
   workflow_dispatch:
     inputs:
       upload_to_testflight:
-        description: "Upload the inspected IPA to TestFlight (main only)"
+        description: "Upload the inspected IPA to TestFlight (protected master only)"
         required: true
         default: "false"
         type: choice
@@ -16,6 +16,11 @@ on:
           - "true"
       build_number:
         description: "Positive iOS build number; required and above the committed baseline for upload"
+        required: false
+        default: ""
+        type: string
+      beta_group:
+        description: "Optional exact internal TestFlight group name after Apple processing"
         required: false
         default: ""
         type: string
@@ -40,6 +45,10 @@ jobs:
   candidate:
     runs-on: macos-latest
     timeout-minutes: 75
+    outputs:
+      did_upload: ${{ steps.release_identity.outputs.did_upload }}
+      build_number: ${{ steps.release_identity.outputs.build_number }}
+      marketing_version: ${{ steps.release_identity.outputs.marketing_version }}
     steps:
       - uses: actions/checkout@v4
         env:
@@ -70,12 +79,12 @@ jobs:
             exit 1
           fi
 
-          [ "${GITHUB_REF:-}" = "refs/heads/main" ] || {
-            echo "FATAL: signed Such Moon Launch candidates are allowed only from the reviewed Builds main ref."
-            echo "Current ref: ${GITHUB_REF:-unset}"
-            exit 1
-          }
           if [ "$UPLOAD_TO_TESTFLIGHT" = "true" ]; then
+            [ "${GITHUB_REF:-}" = "refs/heads/master" ] || {
+              echo "FATAL: TestFlight delivery is allowed only from refs/heads/master."
+              echo "Current ref: ${GITHUB_REF:-unset}"
+              exit 1
+            }
             [ -n "$REQUESTED_BUILD_NUMBER" ] || {
               echo "FATAL: TestFlight upload requires an explicit, reviewed, never-before-used build_number."
               exit 1
@@ -275,8 +284,10 @@ jobs:
           echo "CI_ASC_KEY_PATH=$P8" >> "$GITHUB_ENV"
 
       - name: Resolve iOS build number
+        id: release_identity
         env:
           REQUESTED_BUILD_NUMBER: ${{ inputs.build_number }}
+          UPLOAD_TO_TESTFLIGHT: ${{ inputs.upload_to_testflight }}
         run: |
           set -euo pipefail
           BUILD_NUMBER="$REQUESTED_BUILD_NUMBER"
@@ -293,6 +304,9 @@ jobs:
           [ -n "$SHORT_VERSION" ] || { echo "FATAL: iOS marketing version is empty"; exit 1; }
           echo "IOS_BUILD_NUMBER=$BUILD_NUMBER" >> "$GITHUB_ENV"
           echo "IOS_SHORT_VERSION=$SHORT_VERSION" >> "$GITHUB_ENV"
+          echo "did_upload=$UPLOAD_TO_TESTFLIGHT" >> "$GITHUB_OUTPUT"
+          echo "build_number=$BUILD_NUMBER" >> "$GITHUB_OUTPUT"
+          echo "marketing_version=$SHORT_VERSION" >> "$GITHUB_OUTPUT"
           echo "iOS identity requested: $SHORT_VERSION ($BUILD_NUMBER)"
 
       - name: Import project and run the secret-free gate
@@ -310,96 +324,16 @@ jobs:
           shasum -a 256 "$OUT" | tee "$OUT.sha256"
           echo "IPA=$OUT" >> "$GITHUB_ENV"
 
-      - name: Inspect signed IPA identity, signature, entitlements, and payload
+      - name: Inspect final signed IPA against the app contract
         run: |
           set -euo pipefail
-          INSPECT="$RUNNER_TEMP/ipa-inspect"
-          rm -rf "$INSPECT"
-          mkdir -p "$INSPECT"
-          unzip -q "$IPA" -d "$INSPECT"
-          APP="$(find "$INSPECT/Payload" -maxdepth 1 -type d -name '*.app' -print -quit)"
-          [ -n "$APP" ] || { echo "FATAL: IPA has no .app payload."; exit 1; }
-          INFO="$APP/Info.plist"
-          [ -f "$INFO" ] || { echo "FATAL: app has no Info.plist."; exit 1; }
-
-          read_plist() { /usr/libexec/PlistBuddy -c "Print :$1" "$INFO"; }
-          ACTUAL_BUNDLE="$(read_plist CFBundleIdentifier)"
-          ACTUAL_VERSION="$(read_plist CFBundleShortVersionString)"
-          ACTUAL_BUILD="$(read_plist CFBundleVersion)"
-          ACTUAL_MINIMUM="$(read_plist MinimumOSVersion)"
-          EXECUTABLE_NAME="$(read_plist CFBundleExecutable)"
-          EXECUTABLE="$APP/$EXECUTABLE_NAME"
-          echo "IPA identity: $ACTUAL_BUNDLE $ACTUAL_VERSION ($ACTUAL_BUILD), iOS $ACTUAL_MINIMUM+"
-          [ "$ACTUAL_BUNDLE" = "$BUNDLE_ID" ] || { echo "FATAL: wrong IPA bundle identifier."; exit 1; }
-          [ "$ACTUAL_VERSION" = "$IOS_SHORT_VERSION" ] || { echo "FATAL: wrong IPA marketing version."; exit 1; }
-          [ "$ACTUAL_BUILD" = "$IOS_BUILD_NUMBER" ] || { echo "FATAL: wrong IPA build number."; exit 1; }
-          [ "$ACTUAL_MINIMUM" = "$MINIMUM_IOS" ] || { echo "FATAL: wrong IPA minimum iOS."; exit 1; }
-          [ -x "$EXECUTABLE" ] || { echo "FATAL: IPA executable is missing."; exit 1; }
-          [ -s "$APP/embedded.mobileprovision" ] || { echo "FATAL: embedded provisioning profile is missing."; exit 1; }
-
-          codesign --verify --deep --strict --verbose=2 "$APP"
-          ENTITLEMENTS="$RUNNER_TEMP/signed-entitlements.plist"
-          codesign -d --entitlements :- "$APP" > "$ENTITLEMENTS"
-          python3 - "$ENTITLEMENTS" "$TEAM_ID" "$BUNDLE_ID" <<'PY'
-          import plistlib
-          import sys
-
-          path, team, bundle = sys.argv[1:]
-          with open(path, "rb") as handle:
-              entitlements = plistlib.load(handle)
-          expected = {
-              "application-identifier": f"{team}.{bundle}",
-              "com.apple.developer.team-identifier": team,
-              "beta-reports-active": True,
-              "com.apple.developer.game-center": True,
-          }
-          for key, value in expected.items():
-              if entitlements.get(key) != value:
-                  raise SystemExit(
-                      f"FATAL: signed entitlement {key}: expected {value!r}, "
-                      f"got {entitlements.get(key)!r}"
-                  )
-          print("signed entitlements: PASS")
-          PY
-
-          EMBEDDED_PLIST="$RUNNER_TEMP/embedded-profile.plist"
-          security cms -D -i "$APP/embedded.mobileprovision" > "$EMBEDDED_PLIST"
-          EMBEDDED_UUID="$(/usr/libexec/PlistBuddy -c 'Print :UUID' "$EMBEDDED_PLIST")"
-          [ "$EMBEDDED_UUID" = "$CI_PROFILE_UUID" ] || {
-            echo "FATAL: signed app embeds a different provisioning profile."
-            exit 1
-          }
-
-          python3 - "$APP" ci/ios-app.json <<'PY'
-          import json
-          import pathlib
-          import sys
-
-          app = pathlib.Path(sys.argv[1])
-          contract = json.loads(pathlib.Path(sys.argv[2]).read_text())
-          names = {path.name for path in app.rglob("*") if path.is_file()}
-          for required in contract["required_payload_names"]:
-              if required not in names:
-                  raise SystemExit(f"FATAL: required signed payload is missing: {required}")
-              print(f"payload PASS: {required}")
-          PY
-
-          SYMBOLS_FILE="$RUNNER_TEMP/native-symbols.txt"
-          nm -gU "$EXECUTABLE" > "$SYMBOLS_FILE"
-          python3 - "$SYMBOLS_FILE" ci/ios-app.json <<'PY'
-          import json
-          import pathlib
-          import sys
-
-          symbols = pathlib.Path(sys.argv[1]).read_text(errors="replace")
-          contract = json.loads(pathlib.Path(sys.argv[2]).read_text())
-          for required in contract["required_linked_symbols"]:
-              if required not in symbols:
-                  raise SystemExit(f"FATAL: required native plugin symbol is missing: {required}")
-              print(f"native link PASS: {required}")
-          PY
-
-          echo "CI_APP_PATH=$APP" >> "$GITHUB_ENV"
+          python3 ci/ios-release/inspect_ipa.py \
+            --ipa "$IPA" \
+            --contract ci/ios-app.json \
+            --expected-version "$IOS_SHORT_VERSION" \
+            --expected-build "$IOS_BUILD_NUMBER" \
+            --expected-profile-uuid "$CI_PROFILE_UUID" \
+            --output build/ios/ipa-inspection.json
 
       - name: Record candidate provenance
         env:
@@ -434,6 +368,10 @@ jobs:
               "ipa_size_bytes": ipa.stat().st_size,
               "ipa_sha256": hashlib.sha256(ipa.read_bytes()).hexdigest(),
               "ios_contract_sha256": hashlib.sha256(contract_path.read_bytes()).hexdigest(),
+              "ios_release_tool_version": pathlib.Path("ci/ios-release/VERSION").read_text().strip(),
+              "ios_release_tooling": json.loads(
+                  pathlib.Path("ci/ios-release/tooling.json").read_text()
+              ),
           }
           pathlib.Path("build/ios/provenance.json").write_text(
               json.dumps(payload, indent=2, sort_keys=True) + "\n",
@@ -451,6 +389,7 @@ jobs:
           path: |
             build/ios/SuchMoonLaunch.ipa
             build/ios/SuchMoonLaunch.ipa.sha256
+            build/ios/ipa-inspection.json
             build/ios/provenance.json
           if-no-files-found: error
           retention-days: 30
@@ -471,48 +410,22 @@ jobs:
           set -e
           cat "$LOG"
 
-          if ! grep -qiE 'No errors uploading|UPLOAD SUCCEEDED|successfully uploaded' "$LOG"; then
-            echo "FATAL: altool did not report positive upload acceptance (exit $RC)."
-            exit 1
-          fi
-          if grep -qiE '(^|[^A-Z])(ERROR|FAILED|FAILURE)([^A-Z]|$)' "$LOG"; then
-            echo "FATAL: altool emitted an error/failure marker despite a success-like line."
-            exit 1
-          fi
-
-          DELIVERY_UUID="$(sed -nE \
-            's/.*(Delivery UUID|RequestUUID|Request UUID)[^0-9A-Fa-f]*([0-9A-Fa-f-]{36}).*/\2/p' \
-            "$LOG" | head -1)"
-          export DELIVERY_UUID
-          python3 - <<'PY'
-          import hashlib
-          import json
-          import os
-          import pathlib
-
-          ipa = pathlib.Path(os.environ["IPA"])
-          receipt = {
-              "schema_version": 1,
-              "accepted": True,
-              "app": os.environ["APP_NAME"],
-              "bundle_id": os.environ["BUNDLE_ID"],
-              "source_sha": os.environ.get("GITHUB_SHA", ""),
-              "source_ref": os.environ.get("GITHUB_REF", ""),
-              "version": os.environ["IOS_SHORT_VERSION"],
-              "build_number": os.environ["IOS_BUILD_NUMBER"],
-              "ipa_sha256": hashlib.sha256(ipa.read_bytes()).hexdigest(),
-              "delivery_uuid": os.environ.get("DELIVERY_UUID", ""),
-          }
-          pathlib.Path("build/ios/testflight-receipt.json").write_text(
-              json.dumps(receipt, indent=2, sort_keys=True) + "\n",
-              encoding="utf-8",
-          )
-          PY
           cp "$LOG" build/ios/altool-upload.log
+          python3 ci/ios-release/parse_altool_upload.py \
+            --log build/ios/altool-upload.log \
+            --output build/ios/testflight-receipt.json \
+            --ipa "$IPA" \
+            --app "$APP_NAME" \
+            --bundle-id "$BUNDLE_ID" \
+            --version "$IOS_SHORT_VERSION" \
+            --build-number "$IOS_BUILD_NUMBER" \
+            --source-sha "${GITHUB_SHA:-}" \
+            --source-ref "${GITHUB_REF:-}" \
+            --exit-code "$RC"
           cat build/ios/testflight-receipt.json
 
       - name: Retain TestFlight receipt
-        if: ${{ inputs.upload_to_testflight == 'true' }}
+        if: ${{ always() && inputs.upload_to_testflight == 'true' }}
         uses: actions/upload-artifact@v3
         env:
           NODE_TLS_REJECT_UNAUTHORIZED: "0"
@@ -531,3 +444,62 @@ jobs:
           [ -z "${CI_KEYCHAIN_PATH:-}" ] || security delete-keychain "$CI_KEYCHAIN_PATH" 2>/dev/null
           [ -z "${CI_PROFILE_PATH:-}" ] || rm -f "$CI_PROFILE_PATH"
           [ -z "${CI_ASC_KEY_PATH:-}" ] || rm -f "$CI_ASC_KEY_PATH"
+
+  verify_app_store_connect:
+    name: Verify asynchronous Apple processing
+    needs: candidate
+    if: ${{ needs.candidate.outputs.did_upload == 'true' }}
+    runs-on: macos-latest
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+        env:
+          NODE_TLS_REJECT_UNAUTHORIZED: "0"
+        with:
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: Materialize short-lived App Store Connect key
+        env:
+          APPLE_API_KEY_P8_BASE64: ${{ secrets.APPLE_API_KEY_P8_BASE64 }}
+          APPLE_KEY_ID: ${{ secrets.APPLE_KEY_ID }}
+        run: |
+          set -euo pipefail
+          KEY="$RUNNER_TEMP/AuthKey_${APPLE_KEY_ID}.p8"
+          printf '%s' "$APPLE_API_KEY_P8_BASE64" | openssl base64 -d -A > "$KEY"
+          openssl pkey -in "$KEY" -noout
+          echo "APPLE_API_KEY_PATH=$KEY" >> "$GITHUB_ENV"
+
+      - name: Wait for TestFlight readiness and compliance
+        env:
+          APPLE_KEY_ID: ${{ secrets.APPLE_KEY_ID }}
+          APPLE_ISSUER_ID: ${{ secrets.APPLE_ISSUER_ID }}
+          BETA_GROUP: ${{ inputs.beta_group }}
+          BUILD_NUMBER: ${{ needs.candidate.outputs.build_number }}
+          MARKETING_VERSION: ${{ needs.candidate.outputs.marketing_version }}
+        run: |
+          set -euo pipefail
+          mkdir -p build/ios
+          args=()
+          [ -z "$BETA_GROUP" ] || args=(--beta-group "$BETA_GROUP")
+          python3 ci/ios-release/verify_app_store_connect.py \
+            --contract ci/ios-app.json \
+            --build-number "$BUILD_NUMBER" \
+            --marketing-version "$MARKETING_VERSION" \
+            --output build/ios/app-store-connect-receipt.json \
+            "${args[@]}"
+
+      - name: Retain App Store Connect processing receipt
+        if: always()
+        uses: actions/upload-artifact@v3
+        env:
+          NODE_TLS_REJECT_UNAUTHORIZED: "0"
+        with:
+          name: such-moon-launch-asc-${{ github.sha }}-build-${{ needs.candidate.outputs.build_number }}
+          path: build/ios/app-store-connect-receipt.json
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Remove App Store Connect key
+        if: always()
+        run: rm -f "${APPLE_API_KEY_PATH:-$RUNNER_TEMP/nonexistent}"

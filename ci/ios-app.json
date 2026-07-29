@@ -10,6 +10,25 @@
   "project_adapter": "godot",
   "project_path": ".",
   "team_id": "D8PL9F7X33",
+  "uses_non_exempt_encryption": false,
+  "privacy_manifest_required": true,
+  "candidate_default": true,
+  "delivery_branch": "master",
+  "allowed_entitlements": [
+    "application-identifier",
+    "beta-reports-active",
+    "com.apple.developer.game-center",
+    "com.apple.developer.team-identifier",
+    "get-task-allow",
+    "keychain-access-groups"
+  ],
+  "forbidden_entitlements": [
+    "aps-environment",
+    "com.apple.developer.associated-domains",
+    "com.apple.developer.icloud-services",
+    "com.apple.developer.in-app-payments",
+    "com.apple.developer.networking.networkextension"
+  ],
   "required_entitlements": {
     "beta-reports-active": true,
     "com.apple.developer.game-center": true
