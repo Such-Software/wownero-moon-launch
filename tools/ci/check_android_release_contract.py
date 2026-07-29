@@ -164,6 +164,17 @@ def main() -> int:
             if f'"{plugin}"' not in enabled_plugins:
                 fail(f"required Android editor plugin is not enabled: {plugin}")
 
+        require_equal(
+            unquote(
+                project.get("autoload", {}).get("GodotPlayGameServices")
+            ),
+            (
+                "*res://addons/GodotPlayGameServices/scripts/autoloads/"
+                "godot_play_game_services.gd"
+            ),
+            "Google Play Games autoload",
+        )
+
         for relative in contract.get("tracked_release_inputs", []):
             if not (repo / relative).is_file():
                 fail(f"tracked Android release input is missing: {relative}")

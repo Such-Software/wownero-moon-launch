@@ -24,7 +24,9 @@ func _ready() -> void:
 
 func _load_config() -> void:
 	var err := _config.load(CONFIG_FILE_NAME)
-	if err != OK:
+	# A developer-local editor setting is optional. Release builds get the
+	# committed project ID from tools/ci/prepare_android_template.py.
+	if err != OK and err != ERR_FILE_NOT_FOUND:
 		printerr("Error loading configuration for Game Services! Error: %s" % err)
 
 func _save_config() -> void:
