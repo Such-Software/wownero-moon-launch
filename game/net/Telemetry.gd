@@ -39,9 +39,13 @@ var _buffer: Array = []          # pending events (each: {name, params})
 var _http: HTTPRequest = null
 var _flush_timer: Timer = null
 var _initialized: bool = false
+var _transport_disabled: bool = false
 
 
 func _ready() -> void:
+	# Unit tests exercise buffering semantics but must never contact production.
+	_transport_disabled = OS.get_environment("SML_TEST_MODE") == "1"
+
 	_http = HTTPRequest.new()
 	_http.request_completed.connect(_on_http_completed)
 	add_child(_http)
@@ -107,6 +111,10 @@ func record_error(msg: String, fatal: bool = false) -> void:
 
 func _flush() -> void:
 	if _buffer.is_empty():
+		return
+	if _transport_disabled:
+		# Drain like production without opening a socket.
+		_buffer = _buffer.slice(mini(MAX_BUFFER, _buffer.size()))
 		return
 	if _http == null:
 		return

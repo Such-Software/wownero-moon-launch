@@ -5,8 +5,8 @@
 # committing -- one command in, PASS/CHECK summary out.
 #
 # What it does:
-#   1) render_remote.sh 1 10 out/qa_clip   -> renders L1 for 10s on the GPU box and
-#      pulls back out/qa_clip_16x9.mp4 (+ _1x1 / _9x16). Defaults target the 1080 Ti
+#   1) render_remote.sh 1 10 -> renders L1 for 10s on the GPU box and pulls the
+#      three social formats into Build review space. Defaults target the 1080 Ti
 #      box (such-aigen-one, display :0) for hardware Vulkan at 1080p; override via env.
 #   2) QA the 16x9 master. Preferred: the such-graphics `video-qa` gate
 #      (docs: ~/src/docs/harnesses/video-generation-harness.md), which checks size and
@@ -23,14 +23,14 @@
 #   marketing/lib/qa_clip.sh                       # GPU box (such-aigen-one :0), L1, 10s
 #   RENDER_HOST=deb RENDER_DISPLAY= marketing/lib/qa_clip.sh   # software xvfb fallback
 #   QA_SECONDS=15 marketing/lib/qa_clip.sh         # longer take
-#   QA_OUT_BASE=out/qa_myfix marketing/lib/qa_clip.sh
+#   QA_OUT_BASE="$HOME/Build/review/such-moon-launch/qa_myfix" marketing/lib/qa_clip.sh
 #
 # Env:
 #   RENDER_HOST      ssh host alias for the render box   (default: such-aigen-one)
 #   RENDER_DISPLAY   GPU X display for hardware Vulkan    (default: :0)
 #   QA_LEVEL         level to render                      (default: 1)
 #   QA_SECONDS       clip length in seconds               (default: 10)
-#   QA_OUT_BASE      output base path (repo-relative ok)  (default: out/qa_clip)
+#   QA_OUT_BASE      output base path (repo-relative ok)  (default: Build review space)
 #   QA_EXPECT_SIZE   expected WxH for the master          (default: 1920x1080)
 #   ...plus anything render_remote.sh honours (MK_RES, SML_SEED, GODOT_DRIVER, ...).
 #
@@ -49,12 +49,18 @@ PROJ="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 cd "$PROJ"   # so repo-relative OUT_BASE resolves against the root and matches MASTER
 LEVEL="${QA_LEVEL:-1}"
 SECONDS_LEN="${QA_SECONDS:-10}"
-OUT_BASE="${QA_OUT_BASE:-out/qa_clip}"
+BUILD_ROOT="${SUCH_BUILD_ROOT:-$HOME/Build}"
+RUN_ID="${SML_MARKETING_RUN_ID:-$(date -u +%Y%m%dT%H%M%SZ)}"
+OUT_BASE="${QA_OUT_BASE:-$BUILD_ROOT/review/such-moon-launch/marketing/$RUN_ID/qa_clip}"
 EXPECT_SIZE="${QA_EXPECT_SIZE:-1920x1080}"
 
 # render_remote.sh emits <base>_16x9.mp4 / _1x1.mp4 / _9x16.mp4; the 16x9 is the
 # full-res master we QA against.
-MASTER="${PROJ}/${OUT_BASE}_16x9.mp4"
+if [[ "$OUT_BASE" = /* ]]; then
+	MASTER="${OUT_BASE}_16x9.mp4"
+else
+	MASTER="${PROJ}/${OUT_BASE}_16x9.mp4"
+fi
 
 echo "=========================================================================="
 echo " QA smoke-clip: Level ${LEVEL}, ${SECONDS_LEN}s  ->  ${OUT_BASE}_16x9.mp4"

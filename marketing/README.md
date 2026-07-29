@@ -41,18 +41,29 @@ marketing/
     <name>/
       storyboard.md    the script / shot list / timing for one video
       build.sh         captures its segments + calls assemble.sh
-  out/                 rendered outputs (git-ignored)
+  out/                 legacy rendered outputs (git-ignored; migrate to Build)
 ```
 
 ## Make a video
 
+New renders default to
+`${SUCH_BUILD_ROOT:-$HOME/Build}/scratch/such-moon-launch/marketing/<run-id>`.
+Keep work-in-progress outside Seafile. After human review, promote an accepted,
+immutable delivery to
+`~/Seafile/Marketing Media/such-moon-launch/deliveries/YYYY-MM-DD-slug/` with a
+README, manifest, SHA256SUMS, byte counts, review evidence, and verifier.
+`source/`, `work/`, `deliveries/`, and `archive/` are the only project-level
+lifecycle directories.
+
 1. Write `videos/<name>/storyboard.md` (shots, captions, timing, VO lines).
-2. Capture each segment to `out/<name>/seg_NN.*`:
-   - gameplay: `lib/capture.sh res://game/levels/1/Level1.tscn out/<name>/seg_01.avi 900 --autopilot`
+2. Set a Build workspace and capture each segment there:
+   - `MEDIA_RUN="${SUCH_BUILD_ROOT:-$HOME/Build}/scratch/such-moon-launch/marketing/draft-001"`
+   - `mkdir -p "$MEDIA_RUN"`
+   - gameplay: `lib/capture.sh res://game/levels/1/Level1.tscn "$MEDIA_RUN/seg_01.avi" 900 --autopilot`
    - mascot:   `MK_GLB=res://marketing/assets/characters/doge.glb MK_CAPTION="much altitude" \`
-               `  lib/capture.sh res://marketing/stage/Stage3D.tscn out/<name>/seg_02.avi 300`
-3. Assemble: `lib/assemble.sh --out out/<name>/final --music assets/music/bed.mp3 \`
-   `  --vo assets/vo/<name>.wav out/<name>/seg_01.avi out/<name>/seg_02.avi ...`
+               `  lib/capture.sh res://marketing/stage/Stage3D.tscn "$MEDIA_RUN/seg_02.avi" 300`
+3. Assemble: `lib/assemble.sh --out "$MEDIA_RUN/final" --music assets/music/bed.mp3 \`
+   `  --vo assets/vo/<name>.wav "$MEDIA_RUN/seg_01.avi" "$MEDIA_RUN/seg_02.avi" ...`
 4. Posts come out as `final_16x9.mp4`, `final_1x1.mp4`, `final_9x16.mp4`.
 
 ## 3D mascots (Meshy.ai workflow)
@@ -64,7 +75,7 @@ marketing/
 2. Export **GLB**. Drop it in `assets/characters/` (Godot imports `.glb` natively
    and brings its AnimationPlayer).
 3. Film it: `MK_GLB=res://marketing/assets/characters/doge.glb MK_ANIM=idle \`
-   `  MK_CAPTION="wow" lib/capture.sh res://marketing/stage/Stage3D.tscn out.avi 300`.
+   `  MK_CAPTION="wow" lib/capture.sh res://marketing/stage/Stage3D.tscn "$MEDIA_RUN/mascot.avi" 300`.
    `Stage3D` auto-frames the model, lights it, plays `MK_ANIM` (or the first
    animation), and shows the caption. Tune with `MK_CAM_DIST`, `MK_BG`, `MK_SPIN`.
 
@@ -166,7 +177,7 @@ resolution to **native 9:16 (1080x1920)** and — because it already forwards
 **no crop/upscale** step added:
 
 ```
-SML_PORTRAIT=1 marketing/lib/render_remote.sh 1 15 out/l1_portrait
+SML_MARKETING_RUN_ID=l1-portrait SML_PORTRAIT=1 marketing/lib/render_remote.sh 1 15
 ```
 
 This is deliberately only the **resolution + assembly** half of the job. It is the
@@ -205,4 +216,5 @@ HUD at portrait aspect — `MobileUI.gd` positions by viewport size
   captures never touch the live backend.
 - `marketing/` is a dev tool. Add it to the export-exclude filter before shipping
   a build so these scenes/GLBs don't bloat the app.
-- `out/` is git-ignored; large GLBs/music probably should be too (see `.gitignore`).
+- `out/` is retained only for legacy compatibility. Use Build scratch/review
+  space for new generated media and promote only approved deliveries to Seafile.

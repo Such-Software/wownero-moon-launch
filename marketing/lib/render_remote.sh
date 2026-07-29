@@ -10,9 +10,9 @@
 #   marketing/lib/render_remote.sh <level> <seconds> [out_base]
 # Examples:
 #   marketing/lib/render_remote.sh 1 15
-#   RENDER_HOST=deb GODOT_DRIVER=opengl3 marketing/lib/render_remote.sh 3 20 out/l3
+#   RENDER_HOST=deb GODOT_DRIVER=opengl3 marketing/lib/render_remote.sh 3 20
 #   # GPU render on the 1080 Ti box (hardware Vulkan, fast; best for 1080p60):
-#   RENDER_HOST=such-aigen-one RENDER_DISPLAY=:0 marketing/lib/render_remote.sh 1 10 out/gpu1
+#   RENDER_HOST=such-aigen-one RENDER_DISPLAY=:0 marketing/lib/render_remote.sh 1 10
 #
 # Env:
 #   RENDER_HOST       ssh host alias            (default: deb)
@@ -60,7 +60,11 @@ else
   RES="${MK_RES:-1920x1080}"   # 1080p end-to-end; override for a faster/smaller take
 fi
 
-LEVEL="${1:-1}"; DURATION="${2:-15}"; OUT_BASE="${3:-out/remote_level_${LEVEL}}"
+LEVEL="${1:-1}"
+DURATION="${2:-15}"
+BUILD_ROOT="${SUCH_BUILD_ROOT:-$HOME/Build}"
+RUN_ID="${SML_MARKETING_RUN_ID:-$(date -u +%Y%m%dT%H%M%SZ)}"
+OUT_BASE="${3:-$BUILD_ROOT/scratch/such-moon-launch/marketing/$RUN_ID/remote_level_${LEVEL}}"
 FRAMES=$((DURATION * 60))
 SCENE="${SML_SCENE:-res://game/levels/${LEVEL}/Level${LEVEL}.tscn}"   # SML_SCENE overrides for menu/warp/etc.
 AUTOPILOT_FLAG="--autopilot"; [ -n "${SML_NO_AUTOPILOT:-}" ] && AUTOPILOT_FLAG=""   # SML_NO_AUTOPILOT=1 for non-gameplay scenes
@@ -114,12 +118,13 @@ ssh "$HOST" "cd '$REMOTE_DIR' && $RL_ENV $LAUNCH $GODOT_REMOTE $DRIVER_ARG \
   | grep -E 'frames at|Done recording|RL landing ENABLED|SCRIPT ERROR' || true"
 
 echo "[remote-render] pulling video back ..."
-mkdir -p "$PROJ/out"
-rsync -az "$HOST:$REMOTE_AVI" "$PROJ/out/.remote_${LEVEL}.avi"
+mkdir -p "$(dirname "$OUT_BASE")"
+LOCAL_AVI="${OUT_BASE}.source.avi"
+rsync -az "$HOST:$REMOTE_AVI" "$LOCAL_AVI"
 
 echo "[remote-render] assembling social formats locally ..."
 # Forward the capture resolution so a downscaled take ($RES) stays that size through
 # assembly instead of being upscaled back to the 1080p master default.
-MK_OUT_RES="$RES" "$PROJ/marketing/lib/assemble.sh" --out "$OUT_BASE" "$PROJ/out/.remote_${LEVEL}.avi"
-rm -f "$PROJ/out/.remote_${LEVEL}.avi"
+MK_OUT_RES="$RES" "$PROJ/marketing/lib/assemble.sh" --out "$OUT_BASE" "$LOCAL_AVI"
+rm -f "$LOCAL_AVI"
 echo "[remote-render] DONE -> ${OUT_BASE}_16x9.mp4  ${OUT_BASE}_1x1.mp4  ${OUT_BASE}_9x16.mp4"

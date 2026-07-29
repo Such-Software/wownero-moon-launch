@@ -29,6 +29,9 @@ func _ready():
 func upload_save() -> void:
 	## Upload current savegame to the cloud. Call after level completion,
 	## upgrade purchase, or skin unlock.
+	if OS.get_environment("SML_TEST_MODE") == "1":
+		save_uploaded.emit(false)
+		return
 	if not is_instance_valid(_upload_http):
 		return  # Not ready yet (called before _ready)
 	var save_data = globalvar.get_save_data()
@@ -68,6 +71,9 @@ func _on_upload_completed(result: int, response_code: int, _headers: PackedStrin
 
 func download_save() -> void:
 	## Download cloud save for the current device_uuid.
+	if OS.get_environment("SML_TEST_MODE") == "1":
+		save_downloaded.emit(false, {})
+		return
 	var url := "%s/save?device_uuid=%s" % [API_BASE, globalvar.device_uuid]
 	var headers := PackedStringArray()
 

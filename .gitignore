@@ -14,6 +14,7 @@ mono_crash.*.json
 # as project source on the next headless verification pass.
 builds/*
 !builds/.gdignore
+/build/
 *.aab
 *.apk
 *.apk.idsig
@@ -24,7 +25,7 @@ builds/*
 *.pck
 
 # Android build artifacts
-android/build/
+/android/build
 android/.build_version
 
 # OS/editor junk
@@ -71,6 +72,7 @@ ios/framework/
 # Firebase client config (contains client API keys; unused until the Firebase
 # SDK is integrated in v1.1.0). Kept locally, out of version control.
 android/google-services.json
+/google-services.json
 ios/GoogleService-Info.plist
 
 # marketing renders + heavy source assets

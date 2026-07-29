@@ -34,7 +34,7 @@ if grep -Eiq \
   exit 1
 fi
 
-"$GODOT_BIN" --headless --path . \
+SML_TEST_MODE=1 "$GODOT_BIN" --headless --path . \
   -s addons/gdUnit4/bin/GdUnitCmdTool.gd \
   --add "res://test/" --ignoreHeadlessMode 2>&1 | tee "$LOG_ROOT/gdunit.log"
 

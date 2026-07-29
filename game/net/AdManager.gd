@@ -43,25 +43,16 @@ const ADMOB_IDS_TEST := {
 	"rewarded_ios": "ca-app-pub-3940256099942544/1712485313",
 }
 
-## Remote ad-config flag. Fetched once at launch on RELEASE mobile builds.
-## Lets us ship a build that shows TEST ads (so the App Store reviewer always
-## sees ads and approves) and then flip to REAL ads AFTER the app is published
-## by editing the hosted JSON — no new build/review needed.
-const AD_CONFIG_URL := "https://api.such.software/v1/moonlaunch/adconfig"
+## Debug builds use Google's test inventory. Release builds are pinned to the
+## registered production units and never fall back to test inventory.
+var _use_test_ads: bool = false
 
-## SAFE DEFAULT: test ads. The remote flag can only ever UPGRADE to real ads on
-## a successful fetch that explicitly reads false. Any failure (404, offline,
-## malformed JSON, timeout) leaves this true, so the reviewer is guaranteed to
-## see ads. Debug builds also stay true (test ads for sideload testing).
-var _use_test_ads: bool = true
-
-## Resolved against _use_test_ads each access. Stable by the time ads load
-## because we resolve the flag before _init_admob() on release builds.
+## Resolved against _use_test_ads each access.
 var ADMOB_IDS: Dictionary:
 	get:
 		return ADMOB_IDS_TEST if _use_test_ads else ADMOB_IDS_REAL
 
-## Guards against double-init when both the fetch callback and any fallback fire.
+## Guards against double initialization.
 var _admob_init_started: bool = false
 
 ## Whether a rewarded ad is currently in-flight (between request and result)
@@ -132,33 +123,13 @@ func _ready() -> void:
 		_setup_web_bridge()
 	elif _is_mobile:
 		if OS.is_debug_build():
-			# Debug sideloads always use test ads; no remote fetch.
+			# Debug sideloads always use test ads.
+			_use_test_ads = true
 			_init_admob_once()
 		else:
-			# Release: let the hosted flag decide test-vs-real, then init.
-			_fetch_ad_config_then_init()
-
-
-## Fetch the remote ad-config flag, then initialize AdMob. Always initializes
-## (with test ads as the safe default) even if the fetch fails for any reason.
-func _fetch_ad_config_then_init() -> void:
-	var http := HTTPRequest.new()
-	http.timeout = 3.0  # 3s is plenty for a 50-byte GET; failure -> test ads
-	add_child(http)
-	http.request_completed.connect(func(result: int, code: int, _headers, body: PackedByteArray):
-		if result == HTTPRequest.RESULT_SUCCESS and code == 200:
-			var parsed = JSON.parse_string(body.get_string_from_utf8())
-			if parsed is Dictionary:
-				var key := "ios_use_test_ads" if _platform == "iOS" else "android_use_test_ads"
-				_use_test_ads = bool(parsed.get(key, true))
-		_dbg("adconfig use_test=%s (result=%s code=%s)" % [_use_test_ads, result, code])
-		http.queue_free()
-		_init_admob_once()
-	)
-	var err := http.request(AD_CONFIG_URL)
-	if err != OK:
-		_dbg("adconfig request() failed err=%s -> test ads" % err)
-		_init_admob_once()
+			# Release inventory is a committed, reviewable binary choice.
+			_use_test_ads = false
+			_init_admob_once()
 
 
 func _init_admob_once() -> void:
