@@ -6,8 +6,16 @@ cd "$ROOT"
 
 python3 tools/check_app_platform.py --expect-app moon_launch
 python3 tools/ci/check_app_platform_baseline.py
+python3 tools/ci/check_nakama_runtime.py
 python3 tools/ci/check_release_contract.py
 python3 tools/ci/check_android_release_contract.py
+
+if [[ "${SML_SKIP_NAKAMA_BUILD:-0}" != "1" ]]; then
+  bash tools/ci/build_nakama_runtime.sh
+fi
+if [[ -n "${SML_POSTGRES_TEST_IMAGE:-}" ]]; then
+  bash tools/ci/test_nakama_postgres.sh
+fi
 
 GODOT_BIN="${GODOT_BIN:-${GODOT:-}}"
 if [[ -z "$GODOT_BIN" ]]; then
@@ -25,30 +33,43 @@ grep -Fq "4.6.1" <<<"$ACTUAL_VERSION" || {
   exit 1
 }
 
-BUILD_ROOT="${SML_BUILD_ROOT:-${SUCH_BUILD_ROOT:-$HOME/Build/such-moon-launch}}"
+BUILD_ROOT="${SML_BUILD_ROOT:-${SML_CI_BUILD_ROOT:-${SUCH_BUILD_ROOT:-$HOME/Build/such-moon-launch}}}"
 VERIFY_ID="${SML_VERIFY_RUN_ID:-${GITHUB_RUN_ID:-local}-${GITHUB_RUN_ATTEMPT:-0}}"
 LOG_ROOT="$BUILD_ROOT/tests/$VERIFY_ID"
 REPORT_ROOT="$LOG_ROOT/reports"
 REPORT_LINK=".sml-ci-reports"
 PROJECT_CACHE="$LOG_ROOT/project-cache"
 PROJECT_CACHE_LINK=".godot"
-mkdir -p "$LOG_ROOT" "$REPORT_ROOT" "$PROJECT_CACHE"
+OWNS_PROJECT_CACHE_LINK=0
+mkdir -p "$LOG_ROOT" "$REPORT_ROOT"
 if [[ -e "$REPORT_LINK" || -L "$REPORT_LINK" ]]; then
   echo "FATAL: temporary GdUnit report link is already occupied." >&2
   exit 1
 fi
 if [[ -e "$PROJECT_CACHE_LINK" || -L "$PROJECT_CACHE_LINK" ]]; then
-  echo "FATAL: source checkout already contains a Godot project cache." >&2
-  exit 1
+  if [[ -n "${SML_PROJECT_CACHE:-}" &&
+        -L "$PROJECT_CACHE_LINK" &&
+        "$(readlink "$PROJECT_CACHE_LINK")" == "$SML_PROJECT_CACHE" ]]; then
+    PROJECT_CACHE="$SML_PROJECT_CACHE"
+    echo "Using runner-managed Godot project cache ($PROJECT_CACHE)"
+  else
+    echo "FATAL: source checkout already contains an unmanaged Godot project cache." >&2
+    exit 1
+  fi
+else
+  mkdir -p "$PROJECT_CACHE"
+  ln -s "$PROJECT_CACHE" "$PROJECT_CACHE_LINK"
+  OWNS_PROJECT_CACHE_LINK=1
 fi
 ln -s "$REPORT_ROOT" "$REPORT_LINK"
-ln -s "$PROJECT_CACHE" "$PROJECT_CACHE_LINK"
 
 cleanup_transient_links() {
   if [[ -L "$REPORT_LINK" && "$(readlink "$REPORT_LINK")" == "$REPORT_ROOT" ]]; then
     rm -f "$REPORT_LINK"
   fi
-  if [[ -L "$PROJECT_CACHE_LINK" && "$(readlink "$PROJECT_CACHE_LINK")" == "$PROJECT_CACHE" ]]; then
+  if [[ "$OWNS_PROJECT_CACHE_LINK" == "1" &&
+        -L "$PROJECT_CACHE_LINK" &&
+        "$(readlink "$PROJECT_CACHE_LINK")" == "$PROJECT_CACHE" ]]; then
     rm -f "$PROJECT_CACHE_LINK"
   fi
 }

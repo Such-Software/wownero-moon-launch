@@ -14,7 +14,7 @@ friendly room slice and merge invariants are recorded in
 | Concern | Planned value | Current status |
 | --- | --- | --- |
 | App ID | `moon_launch` | registered |
-| Nakama project | `such-moon-launch` | disabled; no runtime promoted |
+| Nakama project | `such-moon-launch` | disabled; private runtime source present, no runtime promoted |
 | Database | `nakama_moon_launch` | disabled |
 | Backup tag | `nakama-moon-launch` | disabled |
 | Shop label | Such Moon Launch Shop | planned |
@@ -59,6 +59,49 @@ Seafile, a command line, or a new file under `~/keys`.
 Existing `~/keys` files remain intact until each value has a uniquely named
 Vaultwarden replacement, unattended-use path, independent recovery proof, and
 accepted rotation. Their existence is not permission to read or copy them.
+
+## Private runtime artifacts
+
+`server/nakama` implements the common App Platform v1 runtime surface against
+the Nakama 3.40.0 / runtime-types 1.47.0 compatibility pair. It includes the
+one-use IdP ticket hook, readiness and build metadata, neutral entitlement
+reads, independently signed ordered entitlement projection, hash-only
+guest-claim proofs, the Moon Launch merge invariants, and recoverable guest
+tombstones.
+
+The checked-in build entry point installs and compiles only inside Build:
+
+```bash
+bash tools/ci/build_nakama_runtime.sh
+```
+
+It rejects uncommitted runtime inputs and writes the immutable bundle to:
+
+```text
+~/Build/such-moon-launch/nakama/<source-commit>/
+  index.js
+  migrations.sql
+  runtime-manifest.json
+  SHA256SUMS
+  test-results/
+```
+
+Runtime and migration SHA-256 fields are computed independently. No
+`node_modules`, compiler output, npm cache, test report, or generated manifest
+belongs in the source worktree.
+
+The protected integration lane supplies a reviewed immutable PostgreSQL image
+and runs:
+
+```bash
+SML_POSTGRES_TEST_IMAGE='<registry/image@sha256:...>' \
+  bash tools/ci/test_nakama_postgres.sh
+```
+
+This applies the migration bundle twice in a disposable tmpfs database and
+exercises grant, duplicate, conflicting sequence, revoke, reinstate, full
+projection convergence, guest merge, idempotent claim replay, and guest
+tombstone preservation. A mutable image is never accepted by CI.
 
 ## Promotion gates
 

@@ -1,5 +1,7 @@
 # Godot 4 - generated files
 .godot/
+server/nakama/node_modules/
+server/nakama/dist/
 .import/
 
 # Godot uid files (auto-generated)

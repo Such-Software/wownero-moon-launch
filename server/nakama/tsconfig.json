@@ -1,0 +1,22 @@
+{
+  "compilerOptions": {
+    "target": "ES5",
+    "module": "none",
+    "lib": [
+      "ES5",
+      "ES2015.Core"
+    ],
+    "types": [
+      "nakama-runtime"
+    ],
+    "strict": true,
+    "noImplicitAny": true,
+    "noFallthroughCasesInSwitch": true,
+    "removeComments": true,
+    "outFile": "dist/index.js"
+  },
+  "files": [
+    "src/platform.ts",
+    "src/init.ts"
+  ]
+}
