@@ -1,0 +1,52 @@
+{
+  "schema_version": 1,
+  "app_name": "Such Moon Launch",
+  "artifact_name": "SuchMoonLaunch.aab",
+  "bundle_id": "com.suchsoftware.suchmoonlaunch",
+  "export_preset": "Android",
+  "firebase_project_id": "suchsoftwareapps",
+  "godot_version": "4.6.1-stable",
+  "minimum_sdk": "24",
+  "target_sdk": "36",
+  "version_code": "15",
+  "version_name": "1.3.0",
+  "play_games_project_id": "412379035812",
+  "bundle_page_alignment": "PAGE_ALIGNMENT_16K",
+  "android_toolchain": {
+    "android_gradle_plugin": "8.9.1",
+    "build_tools": "36.0.0",
+    "compile_sdk": "36",
+    "gradle": "8.11.1"
+  },
+  "required_editor_plugins": [
+    "res://addons/AdmobPlugin/plugin.cfg",
+    "res://addons/BloomwordFirebase/plugin.cfg",
+    "res://addons/GodotGooglePlayBilling/plugin.cfg",
+    "res://addons/GodotPlayGameServices/plugin.cfg"
+  ],
+  "required_aab_paths": [
+    "base/assets/google-services.json"
+  ],
+  "required_manifest_markers": [
+    "AdmobPlugin",
+    "BloomwordFirebase",
+    "GodotGooglePlayBilling",
+    "GodotPlayGameServices"
+  ],
+  "tracked_release_inputs": [
+    ".gitea/workflows/build-android-candidate.yml",
+    "addons/AdmobPlugin/android_export.cfg",
+    "addons/AdmobPlugin/bin/release/AdmobPlugin-release.aar",
+    "addons/BloomwordFirebase/bin/release/BloomwordFirebase-release.aar",
+    "addons/BloomwordFirebase/export_plugin.gd",
+    "addons/GodotGooglePlayBilling/bin/release/GodotGooglePlayBilling-release.aar",
+    "addons/GodotGooglePlayBilling/export_plugin.gd",
+    "addons/GodotPlayGameServices/bin/release/GodotPlayGameServices-release.aar",
+    "addons/GodotPlayGameServices/export_plugin.gd",
+    "export_presets.cfg",
+    "project.godot",
+    "tools/ci/check_android_release_contract.py",
+    "tools/ci/prepare_android_template.py",
+    "tools/export_candidate.sh"
+  ]
+}

@@ -1,8 +1,9 @@
 name: Such Moon Launch iOS candidate / TestFlight
 
-# Private-Mac release lane. A dispatch builds, signs, inspects, checksums, and
-# retains an IPA by default. TestFlight delivery requires both an explicit
-# upload choice and a new positive build number on refs/heads/main.
+# Gitea-only private-Mac release lane. A dispatch builds, signs, inspects,
+# checksums, and retains an IPA by default. TestFlight delivery additionally
+# requires an unused build number, successful Apple processing, and assignment
+# to the configured internal tester group.
 on:
   workflow_dispatch:
     inputs:
@@ -38,19 +39,45 @@ env:
 
 jobs:
   candidate:
-    runs-on: macos-latest
-    timeout-minutes: 75
+    # This label must map to exactly one locked-down Apple Silicon release Mac.
+    # Do not map it to a shared or hosted runner.
+    runs-on: such-m5-release
+    timeout-minutes: 120
     steps:
-      - uses: actions/checkout@v4
-        env:
-          # Temporary such-git self-signed-certificate exception, scoped to
-          # this Node action rather than arbitrary downloads or Apple calls.
-          NODE_TLS_REJECT_UNAUTHORIZED: "0"
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
           fetch-depth: 1
           lfs: false
           submodules: false
           persist-credentials: false
+
+      - name: Initialize isolated Build workspace
+        run: |
+          set -euo pipefail
+          umask 077
+          BASE="$HOME/Build/such-moon-launch/ci"
+          mkdir -p "$BASE"
+          RUN_ROOT="$(mktemp -d "$BASE/run-${GITHUB_RUN_ID:-manual}-XXXXXX")"
+          PRODUCT_DIR="$RUN_ROOT/products"
+          LOG_DIR="$RUN_ROOT/logs"
+          PROJECT_CACHE="$RUN_ROOT/project-cache"
+          SECRET_DIR="$(mktemp -d "$RUNNER_TEMP/such-moon-launch-signing.XXXXXX")"
+          mkdir -p "$PRODUCT_DIR" "$LOG_DIR" "$PROJECT_CACHE"
+          chmod 700 "$RUN_ROOT" "$SECRET_DIR"
+          [ ! -e .godot ] && [ ! -L .godot ] || {
+            echo "FATAL: checkout unexpectedly contains a project cache."
+            exit 1
+          }
+          ln -s "$PROJECT_CACHE" .godot
+          {
+            echo "SML_CI_BUILD_ROOT=$RUN_ROOT"
+            echo "SML_PRODUCT_DIR=$PRODUCT_DIR"
+            echo "SML_LOG_DIR=$LOG_DIR"
+            echo "SML_PROJECT_CACHE=$PROJECT_CACHE"
+            echo "SML_SECRET_DIR=$SECRET_DIR"
+            echo "SML_BUILD_ROOT=$HOME/Build/such-moon-launch"
+          } >> "$GITHUB_ENV"
+          echo "Disposable run root: $RUN_ROOT"
 
       - name: Validate request and committed release contract
         env:
@@ -92,7 +119,7 @@ jobs:
       - name: Verify and overlay declared iOS seed
         run: |
           set -euo pipefail
-          SEED="$HOME/Library/Caches/such-ios-sdks/such-moon-launch-ios"
+          SEED="$HOME/Build/such-moon-launch/cache/ios-seed"
           python3 tools/ci/seed_manifest.py --root "$SEED"
 
           mkdir -p ios/framework ios/plugins
@@ -116,42 +143,67 @@ jobs:
       - name: Locate Godot and install matching iOS templates
         run: |
           set -euo pipefail
-          SYSTEM_GODOT="/Applications/Godot.app/Contents/MacOS/Godot"
-          CACHE="$HOME/Library/Caches/such-godot/$GODOT_VERSION"
-          CACHED_GODOT="$CACHE/Godot.app/Contents/MacOS/Godot"
+          CACHE="$HOME/Build/such-moon-launch/cache/toolchain/$GODOT_VERSION"
+          ARCHIVE="$CACHE/Godot_v${GODOT_VERSION}_macos.universal.zip"
+          TEMPLATES_ARCHIVE="$CACHE/Godot_v${GODOT_VERSION}_export_templates.tpz"
+          GODOT_SHA512="59c7fc792c9a7a9b3c877b43fc6bdedfa3618e90f0d7d5fa77edb8d3bd64568af19bdfa6ecc8ec3eeaa17ad9cb65f7c93760de83b485ae4a33a679e730f7ffd9"
+          TEMPLATES_SHA512="d80001711c07973b1fd3e88077ba99644e19db7c9e52627e16f38a2937879f809f94dbd8493936fb8204908bbc57a521d41173dce5208061fe4c99772490c541"
           EXPECTED_VERSION="${GODOT_VERSION/-/.}"
 
-          if [ -x "$SYSTEM_GODOT" ] && "$SYSTEM_GODOT" --version | grep -Fq "$EXPECTED_VERSION"; then
-            GODOT_BIN="$SYSTEM_GODOT"
-          else
-            if [ ! -x "$CACHED_GODOT" ]; then
-              mkdir -p "$CACHE"
-              curl -fL -o "$RUNNER_TEMP/godot.zip" \
-                "https://github.com/godotengine/godot/releases/download/$GODOT_VERSION/Godot_v${GODOT_VERSION}_macos.universal.zip"
-              unzip -q -o "$RUNNER_TEMP/godot.zip" -d "$CACHE"
-              rm -f "$RUNNER_TEMP/godot.zip"
-            fi
-            GODOT_BIN="$CACHED_GODOT"
+          mkdir -p "$CACHE"
+          if [ ! -f "$ARCHIVE" ]; then
+            curl --fail --location --proto '=https' --tlsv1.2 \
+              --output "$ARCHIVE.partial" \
+              "https://github.com/godotengine/godot/releases/download/$GODOT_VERSION/$(basename "$ARCHIVE")"
+            mv "$ARCHIVE.partial" "$ARCHIVE"
           fi
+          printf '%s  %s\n' "$GODOT_SHA512" "$ARCHIVE" | shasum -a 512 --check
+
+          GODOT_DIR="$SML_CI_BUILD_ROOT/toolchain/godot"
+          mkdir -p "$GODOT_DIR"
+          unzip -q "$ARCHIVE" -d "$GODOT_DIR"
+          GODOT_BIN="$GODOT_DIR/Godot.app/Contents/MacOS/Godot"
+          # Keep editor data, settings, caches, app_userdata, and export
+          # templates inside this disposable Build-rooted editor installation.
+          touch "$GODOT_DIR/Godot.app/Contents/MacOS/_sc_"
           chmod +x "$GODOT_BIN"
           "$GODOT_BIN" --version | grep -Fq "$EXPECTED_VERSION"
           echo "GODOT_BIN=$GODOT_BIN" >> "$GITHUB_ENV"
 
           TEMPLATE_VERSION="${GODOT_VERSION/-/.}"
-          TEMPLATE_DIR="$HOME/Library/Application Support/Godot/export_templates/$TEMPLATE_VERSION"
-          if [ ! -f "$TEMPLATE_DIR/ios.zip" ]; then
-            curl -fL -o "$RUNNER_TEMP/templates.tpz" \
-              "https://github.com/godotengine/godot/releases/download/$GODOT_VERSION/Godot_v${GODOT_VERSION}_export_templates.tpz"
-            rm -rf "$RUNNER_TEMP/templates"
-            mkdir -p "$RUNNER_TEMP/templates" "$(dirname "$TEMPLATE_DIR")"
-            unzip -q -o "$RUNNER_TEMP/templates.tpz" -d "$RUNNER_TEMP/templates"
-            rm -rf "$TEMPLATE_DIR"
-            mv "$RUNNER_TEMP/templates/templates" "$TEMPLATE_DIR"
-            rm -f "$RUNNER_TEMP/templates.tpz"
+          TEMPLATE_DIR="$GODOT_DIR/Godot.app/Contents/MacOS/editor_data/export_templates/$TEMPLATE_VERSION"
+          if [ ! -f "$TEMPLATES_ARCHIVE" ]; then
+            curl --fail --location --proto '=https' --tlsv1.2 \
+              --output "$TEMPLATES_ARCHIVE.partial" \
+              "https://github.com/godotengine/godot/releases/download/$GODOT_VERSION/$(basename "$TEMPLATES_ARCHIVE")"
+            mv "$TEMPLATES_ARCHIVE.partial" "$TEMPLATES_ARCHIVE"
           fi
+          printf '%s  %s\n' "$TEMPLATES_SHA512" "$TEMPLATES_ARCHIVE" | shasum -a 512 --check
+          TEMPLATE_STAGE="$SML_CI_BUILD_ROOT/toolchain/templates"
+          mkdir -p "$TEMPLATE_STAGE" "$(dirname "$TEMPLATE_DIR")"
+          unzip -q "$TEMPLATES_ARCHIVE" -d "$TEMPLATE_STAGE"
+          [ ! -e "$TEMPLATE_DIR" ] || {
+            echo "FATAL: disposable Godot template destination already exists."
+            exit 1
+          }
+          mv "$TEMPLATE_STAGE/templates" "$TEMPLATE_DIR"
           test -f "$TEMPLATE_DIR/ios.zip"
 
-          xcodebuild -version
+          XCODE_VERSION="$(xcodebuild -version)"
+          XCODE_MAJOR="$(sed -nE 's/^Xcode ([0-9]+).*/\1/p' <<<"$XCODE_VERSION")"
+          SDK_VERSION="$(xcrun --sdk iphoneos --show-sdk-version)"
+          SDK_MAJOR="${SDK_VERSION%%.*}"
+          [[ "$XCODE_MAJOR" =~ ^[0-9]+$ ]] && [ "$XCODE_MAJOR" -ge 26 ] || {
+            echo "FATAL: App Store uploads require Xcode 26 or newer; found: $XCODE_VERSION"
+            exit 1
+          }
+          [[ "$SDK_MAJOR" =~ ^[0-9]+$ ]] && [ "$SDK_MAJOR" -ge 26 ] || {
+            echo "FATAL: App Store uploads require the iOS 26 SDK or newer; found: $SDK_VERSION"
+            exit 1
+          }
+          echo "IOS_SDK_VERSION=$SDK_VERSION" >> "$GITHUB_ENV"
+          echo "$XCODE_VERSION"
+          echo "iPhoneOS SDK $SDK_VERSION"
           "$GODOT_BIN" --version
 
       - name: Require Apple signing secrets
@@ -166,7 +218,6 @@ jobs:
           for name in TEAM_ID DIST_CERT_P12_BASE64 DIST_CERT_P12_PASSWORD PROVISIONING_PROFILE_BASE64 KEYCHAIN_PASSWORD; do
             variable="APPLE_$name"
             value="${!variable}"
-            echo "$variable length: ${#value}"
             [ -n "$value" ] || { echo "FATAL: $variable is not configured on this Gitea repository."; exit 1; }
           done
           [ "$APPLE_TEAM_ID" = "$TEAM_ID" ] || {
@@ -180,14 +231,18 @@ jobs:
           APPLE_KEY_ID: ${{ secrets.APPLE_KEY_ID }}
           APPLE_ISSUER_ID: ${{ secrets.APPLE_ISSUER_ID }}
           APPLE_API_KEY_P8_BASE64: ${{ secrets.APPLE_API_KEY_P8_BASE64 }}
+          APPLE_BETA_GROUP_ID: ${{ secrets.APPLE_BETA_GROUP_ID }}
         run: |
           set -euo pipefail
-          for name in KEY_ID ISSUER_ID API_KEY_P8_BASE64; do
+          for name in KEY_ID ISSUER_ID API_KEY_P8_BASE64 BETA_GROUP_ID; do
             variable="APPLE_$name"
             value="${!variable}"
-            echo "$variable length: ${#value}"
             [ -n "$value" ] || { echo "FATAL: $variable is not configured on this Gitea repository."; exit 1; }
           done
+          [[ "$APPLE_BETA_GROUP_ID" =~ ^[A-Za-z0-9-]+$ ]] || {
+            echo "FATAL: APPLE_BETA_GROUP_ID contains unexpected characters."
+            exit 1
+          }
 
       - name: Create temporary keychain and import distribution identity
         env:
@@ -196,38 +251,79 @@ jobs:
           APPLE_KEYCHAIN_PASSWORD: ${{ secrets.APPLE_KEYCHAIN_PASSWORD }}
         run: |
           set -euo pipefail
-          KEYCHAIN_PATH="$RUNNER_TEMP/build.keychain-db"
+          umask 077
+          KEYCHAIN_PATH="$SML_SECRET_DIR/build.keychain-db"
+          ORIGINAL_KEYCHAINS="$SML_SECRET_DIR/original-keychains.txt"
+          P12="$SML_SECRET_DIR/distribution.p12"
+          CERT_PEM="$SML_SECRET_DIR/distribution-cert.pem"
+          {
+            echo "CI_KEYCHAIN_PATH=$KEYCHAIN_PATH"
+            echo "CI_ORIGINAL_KEYCHAINS=$ORIGINAL_KEYCHAINS"
+            echo "CI_CERT_PEM=$CERT_PEM"
+          } >> "$GITHUB_ENV"
+
+          security list-keychains -d user > "$ORIGINAL_KEYCHAINS"
           security create-keychain -p "$APPLE_KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
           security set-keychain-settings -lut 21600 "$KEYCHAIN_PATH"
           security unlock-keychain -p "$APPLE_KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
-          security list-keychains -d user -s "$KEYCHAIN_PATH" $(security list-keychains -d user | sed 's/"//g')
+          ORIGINAL_PATHS=()
+          while IFS= read -r path; do
+            path="${path#\"}"
+            path="${path%\"}"
+            [ -z "$path" ] || ORIGINAL_PATHS+=("$path")
+          done < "$ORIGINAL_KEYCHAINS"
+          security list-keychains -d user -s "$KEYCHAIN_PATH" "${ORIGINAL_PATHS[@]}"
 
-          P12="$RUNNER_TEMP/distribution.p12"
           printf '%s' "$APPLE_DIST_CERT_P12_BASE64" | openssl base64 -d -A > "$P12"
+          chmod 600 "$P12"
+          openssl pkcs12 -in "$P12" -clcerts -nokeys \
+            -passin env:APPLE_DIST_CERT_P12_PASSWORD -out "$CERT_PEM"
+          openssl x509 -in "$CERT_PEM" -checkend 2592000 -noout || {
+            echo "FATAL: distribution certificate expires in less than 30 days."
+            exit 1
+          }
+          CERT_SUBJECT="$(openssl x509 -in "$CERT_PEM" -subject -nameopt RFC2253 -noout)"
+          grep -Fq "OU=$TEAM_ID" <<<"$CERT_SUBJECT" || {
+            echo "FATAL: distribution certificate belongs to a different Apple team."
+            exit 1
+          }
+          grep -Fq "CN=Apple Distribution:" <<<"$CERT_SUBJECT" || {
+            echo "FATAL: P12 does not contain an Apple Distribution certificate."
+            exit 1
+          }
+          CERT_SHA256="$(openssl x509 -in "$CERT_PEM" -outform der | shasum -a 256 | awk '{print $1}')"
+          echo "CI_CERT_SHA256=$CERT_SHA256" >> "$GITHUB_ENV"
+
           security import "$P12" -k "$KEYCHAIN_PATH" -P "$APPLE_DIST_CERT_P12_PASSWORD" \
             -T /usr/bin/codesign -T /usr/bin/security
           security set-key-partition-list -S apple-tool:,apple:,codesign: \
             -s -k "$APPLE_KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
           security find-identity -v -p codesigning "$KEYCHAIN_PATH" | grep -F "Apple Distribution"
           rm -f "$P12"
-          echo "CI_KEYCHAIN_PATH=$KEYCHAIN_PATH" >> "$GITHUB_ENV"
 
       - name: Install and validate provisioning profile
         env:
           APPLE_PROVISIONING_PROFILE_BASE64: ${{ secrets.APPLE_PROVISIONING_PROFILE_BASE64 }}
         run: |
           set -euo pipefail
-          PROFILE="$RUNNER_TEMP/SuchMoonLaunch.mobileprovision"
-          PROFILE_PLIST="$RUNNER_TEMP/SuchMoonLaunch-profile.plist"
+          umask 077
+          PROFILE="$SML_SECRET_DIR/SuchMoonLaunch.mobileprovision"
+          PROFILE_PLIST="$SML_SECRET_DIR/SuchMoonLaunch-profile.plist"
+          {
+            echo "CI_PROFILE_TEMP_PATH=$PROFILE"
+            echo "CI_PROFILE_PLIST_PATH=$PROFILE_PLIST"
+          } >> "$GITHUB_ENV"
           printf '%s' "$APPLE_PROVISIONING_PROFILE_BASE64" | openssl base64 -d -A > "$PROFILE"
+          chmod 600 "$PROFILE"
           security cms -D -i "$PROFILE" > "$PROFILE_PLIST"
 
-          python3 - "$PROFILE_PLIST" "$PROFILE_NAME" "$TEAM_ID" "$BUNDLE_ID" <<'PY'
+          python3 - "$PROFILE_PLIST" "$PROFILE_NAME" "$TEAM_ID" "$BUNDLE_ID" "$CI_CERT_SHA256" <<'PY'
           import datetime
+          import hashlib
           import plistlib
           import sys
 
-          path, expected_name, team, bundle = sys.argv[1:]
+          path, expected_name, team, bundle, certificate_sha256 = sys.argv[1:]
           with open(path, "rb") as handle:
               profile = plistlib.load(handle)
           entitlements = profile.get("Entitlements", {})
@@ -245,8 +341,19 @@ jobs:
                   raise SystemExit(f"FATAL: {label}: expected {expected!r}, got {actual!r}")
           expires = profile.get("ExpirationDate")
           now = datetime.datetime.now(datetime.timezone.utc).replace(tzinfo=None)
-          if not expires or expires <= now:
-              raise SystemExit(f"FATAL: provisioning profile expired or has no expiration: {expires}")
+          minimum_expiry = now + datetime.timedelta(days=30)
+          if not expires or expires <= minimum_expiry:
+              raise SystemExit(
+                  f"FATAL: provisioning profile expires in less than 30 days: {expires}"
+              )
+          profile_certificates = {
+              hashlib.sha256(certificate).hexdigest()
+              for certificate in profile.get("DeveloperCertificates", [])
+          }
+          if certificate_sha256 not in profile_certificates:
+              raise SystemExit(
+                  "FATAL: imported distribution certificate is not authorized by this profile"
+              )
           print(f"Profile PASS: {profile['Name']} ({profile['UUID']}), expires {expires.isoformat()}Z")
           PY
 
@@ -254,9 +361,19 @@ jobs:
           PROFILES_DIR="$HOME/Library/MobileDevice/Provisioning Profiles"
           mkdir -p "$PROFILES_DIR"
           PROFILE_DEST="$PROFILES_DIR/$UUID.mobileprovision"
-          cp "$PROFILE" "$PROFILE_DEST"
-          echo "CI_PROFILE_UUID=$UUID" >> "$GITHUB_ENV"
           echo "CI_PROFILE_PATH=$PROFILE_DEST" >> "$GITHUB_ENV"
+          if [ -e "$PROFILE_DEST" ]; then
+            cmp -s "$PROFILE" "$PROFILE_DEST" || {
+              echo "FATAL: a different provisioning profile already occupies UUID $UUID."
+              exit 1
+            }
+            echo "CI_PROFILE_CREATED=false" >> "$GITHUB_ENV"
+          else
+            cp "$PROFILE" "$PROFILE_DEST"
+            chmod 600 "$PROFILE_DEST"
+            echo "CI_PROFILE_CREATED=true" >> "$GITHUB_ENV"
+          fi
+          echo "CI_PROFILE_UUID=$UUID" >> "$GITHUB_ENV"
 
       - name: Install App Store Connect API key
         if: ${{ inputs.upload_to_testflight == 'true' }}
@@ -265,14 +382,16 @@ jobs:
           APPLE_KEY_ID: ${{ secrets.APPLE_KEY_ID }}
         run: |
           set -euo pipefail
-          mkdir -p "$HOME/.appstoreconnect/private_keys"
-          P8="$HOME/.appstoreconnect/private_keys/AuthKey_${APPLE_KEY_ID}.p8"
+          umask 077
+          mkdir -p "$SML_SECRET_DIR/private_keys"
+          P8="$SML_SECRET_DIR/private_keys/AuthKey_${APPLE_KEY_ID}.p8"
+          echo "CI_ASC_KEY_PATH=$P8" >> "$GITHUB_ENV"
           printf '%s' "$APPLE_API_KEY_P8_BASE64" | openssl base64 -d -A > "$P8"
+          chmod 600 "$P8"
           openssl pkey -in "$P8" -noout || {
             echo "FATAL: App Store Connect API key does not parse."
             exit 1
           }
-          echo "CI_ASC_KEY_PATH=$P8" >> "$GITHUB_ENV"
 
       - name: Resolve iOS build number
         env:
@@ -295,16 +414,31 @@ jobs:
           echo "IOS_SHORT_VERSION=$SHORT_VERSION" >> "$GITHUB_ENV"
           echo "iOS identity requested: $SHORT_VERSION ($BUILD_NUMBER)"
 
+      - name: Require an unused App Store Connect build number
+        if: ${{ inputs.upload_to_testflight == 'true' }}
+        env:
+          APPLE_KEY_ID: ${{ secrets.APPLE_KEY_ID }}
+          APPLE_ISSUER_ID: ${{ secrets.APPLE_ISSUER_ID }}
+        run: |
+          set -euo pipefail
+          python3 tools/ci/app_store_connect.py check-unused \
+            --key-id "$APPLE_KEY_ID" \
+            --issuer-id "$APPLE_ISSUER_ID" \
+            --private-key "$CI_ASC_KEY_PATH" \
+            --bundle-id "$BUNDLE_ID" \
+            --marketing-version "$IOS_SHORT_VERSION" \
+            --build-number "$IOS_BUILD_NUMBER"
+
       - name: Import project and run the secret-free gate
         run: bash tools/ci/verify.sh
 
       - name: Build signed release IPA
         run: |
           set -euo pipefail
-          OUT="$PWD/build/ios/SuchMoonLaunch.ipa"
+          OUT="$SML_PRODUCT_DIR/SuchMoonLaunch.ipa"
           mkdir -p "$(dirname "$OUT")"
           "$GODOT_BIN" --headless --path . --export-release "iOS" "$OUT" \
-            2>&1 | tee "$RUNNER_TEMP/godot-ios-export.log"
+            2>&1 | tee "$SML_LOG_DIR/godot-ios-export.log"
           [ -f "$OUT" ] || { echo "FATAL: Godot did not produce the expected IPA."; exit 1; }
           [ -s "$OUT" ] || { echo "FATAL: produced IPA is empty."; exit 1; }
           shasum -a 256 "$OUT" | tee "$OUT.sha256"
@@ -313,8 +447,7 @@ jobs:
       - name: Inspect signed IPA identity, signature, entitlements, and payload
         run: |
           set -euo pipefail
-          INSPECT="$RUNNER_TEMP/ipa-inspect"
-          rm -rf "$INSPECT"
+          INSPECT="$SML_CI_BUILD_ROOT/inspection"
           mkdir -p "$INSPECT"
           unzip -q "$IPA" -d "$INSPECT"
           APP="$(find "$INSPECT/Payload" -maxdepth 1 -type d -name '*.app' -print -quit)"
@@ -334,11 +467,15 @@ jobs:
           [ "$ACTUAL_VERSION" = "$IOS_SHORT_VERSION" ] || { echo "FATAL: wrong IPA marketing version."; exit 1; }
           [ "$ACTUAL_BUILD" = "$IOS_BUILD_NUMBER" ] || { echo "FATAL: wrong IPA build number."; exit 1; }
           [ "$ACTUAL_MINIMUM" = "$MINIMUM_IOS" ] || { echo "FATAL: wrong IPA minimum iOS."; exit 1; }
+          [ "$(read_plist ITSAppUsesNonExemptEncryption)" = "false" ] || {
+            echo "FATAL: final IPA must declare ITSAppUsesNonExemptEncryption=false."
+            exit 1
+          }
           [ -x "$EXECUTABLE" ] || { echo "FATAL: IPA executable is missing."; exit 1; }
           [ -s "$APP/embedded.mobileprovision" ] || { echo "FATAL: embedded provisioning profile is missing."; exit 1; }
 
           codesign --verify --deep --strict --verbose=2 "$APP"
-          ENTITLEMENTS="$RUNNER_TEMP/signed-entitlements.plist"
+          ENTITLEMENTS="$SML_LOG_DIR/signed-entitlements.plist"
           codesign -d --entitlements :- "$APP" > "$ENTITLEMENTS"
           python3 - "$ENTITLEMENTS" "$TEAM_ID" "$BUNDLE_ID" <<'PY'
           import plistlib
@@ -362,7 +499,7 @@ jobs:
           print("signed entitlements: PASS")
           PY
 
-          EMBEDDED_PLIST="$RUNNER_TEMP/embedded-profile.plist"
+          EMBEDDED_PLIST="$SML_LOG_DIR/embedded-profile.plist"
           security cms -D -i "$APP/embedded.mobileprovision" > "$EMBEDDED_PLIST"
           EMBEDDED_UUID="$(/usr/libexec/PlistBuddy -c 'Print :UUID' "$EMBEDDED_PLIST")"
           [ "$EMBEDDED_UUID" = "$CI_PROFILE_UUID" ] || {
@@ -373,6 +510,7 @@ jobs:
           python3 - "$APP" ci/ios-app.json <<'PY'
           import json
           import pathlib
+          import plistlib
           import sys
 
           app = pathlib.Path(sys.argv[1])
@@ -382,9 +520,51 @@ jobs:
               if required not in names:
                   raise SystemExit(f"FATAL: required signed payload is missing: {required}")
               print(f"payload PASS: {required}")
+          manifests = list(app.rglob("PrivacyInfo.xcprivacy"))
+          for manifest in manifests:
+              try:
+                  with manifest.open("rb") as handle:
+                      payload = plistlib.load(handle)
+              except Exception as error:
+                  raise SystemExit(
+                      f"FATAL: invalid privacy manifest {manifest.relative_to(app)}: {error}"
+                  ) from error
+              if not isinstance(payload, dict):
+                  raise SystemExit(
+                      f"FATAL: privacy manifest is not a dictionary: {manifest.relative_to(app)}"
+                  )
+          for expected in contract["required_privacy_manifests"]:
+              relative = expected["relative_path"]
+              manifest = app / relative
+              if not manifest.is_file():
+                  raise SystemExit(f"FATAL: required privacy manifest is missing: {relative}")
+              with manifest.open("rb") as handle:
+                  payload = plistlib.load(handle)
+              if "tracking" in expected and payload.get("NSPrivacyTracking") is not expected["tracking"]:
+                  raise SystemExit(
+                      f"FATAL: {relative} NSPrivacyTracking does not match the contract"
+                  )
+              declarations = {
+                  item.get("NSPrivacyCollectedDataType"): item
+                  for item in payload.get("NSPrivacyCollectedDataTypes", [])
+                  if isinstance(item, dict)
+              }
+              missing_types = set(expected.get("collected_data_types", [])) - set(declarations)
+              if missing_types:
+                  raise SystemExit(
+                      f"FATAL: {relative} is missing collected data declarations: "
+                      + ", ".join(sorted(missing_types))
+                  )
+              for data_type in expected.get("tracking_data_types", []):
+                  if declarations[data_type].get("NSPrivacyCollectedDataTypeTracking") is not True:
+                      raise SystemExit(
+                          f"FATAL: {relative} must mark {data_type} as used for tracking"
+                      )
+              print(f"privacy contract PASS: {relative}")
+          print(f"privacy manifests: PASS ({len(manifests)} valid plist files)")
           PY
 
-          SYMBOLS_FILE="$RUNNER_TEMP/native-symbols.txt"
+          SYMBOLS_FILE="$SML_LOG_DIR/native-symbols.txt"
           nm -gU "$EXECUTABLE" > "$SYMBOLS_FILE"
           python3 - "$SYMBOLS_FILE" ci/ios-app.json <<'PY'
           import json
@@ -416,6 +596,7 @@ jobs:
 
           ipa = pathlib.Path(os.environ["IPA"])
           contract_path = pathlib.Path("ci/ios-app.json")
+          provenance_path = pathlib.Path(os.environ["SML_PRODUCT_DIR"]) / "provenance.json"
           payload = {
               "schema_version": 1,
               "app": os.environ["APP_NAME"],
@@ -429,50 +610,70 @@ jobs:
               "profile_uuid": os.environ["CI_PROFILE_UUID"],
               "godot_version": os.environ["GODOT_VERSION"],
               "xcode": subprocess.check_output(["xcodebuild", "-version"], text=True).strip(),
+              "iphoneos_sdk": os.environ["IOS_SDK_VERSION"],
               "runner": platform.platform(),
               "ipa": str(ipa),
               "ipa_size_bytes": ipa.stat().st_size,
               "ipa_sha256": hashlib.sha256(ipa.read_bytes()).hexdigest(),
               "ios_contract_sha256": hashlib.sha256(contract_path.read_bytes()).hexdigest(),
           }
-          pathlib.Path("build/ios/provenance.json").write_text(
+          provenance_path.write_text(
               json.dumps(payload, indent=2, sort_keys=True) + "\n",
               encoding="utf-8",
           )
           PY
-          cat build/ios/provenance.json
+          cat "$SML_PRODUCT_DIR/provenance.json"
 
       - name: Retain signed candidate
-        uses: actions/upload-artifact@v3
-        env:
-          NODE_TLS_REJECT_UNAUTHORIZED: "0"
+        uses: actions/upload-artifact@ff15f0306b3f739f7b6fd43fb5d26cd321bd4de5 # v3.2.1
         with:
           name: such-moon-launch-ios-${{ github.sha }}-build-${{ env.IOS_BUILD_NUMBER }}
           path: |
-            build/ios/SuchMoonLaunch.ipa
-            build/ios/SuchMoonLaunch.ipa.sha256
-            build/ios/provenance.json
+            ${{ env.SML_PRODUCT_DIR }}/SuchMoonLaunch.ipa
+            ${{ env.SML_PRODUCT_DIR }}/SuchMoonLaunch.ipa.sha256
+            ${{ env.SML_PRODUCT_DIR }}/provenance.json
           if-no-files-found: error
           retention-days: 30
 
-      - name: Upload inspected IPA to TestFlight
+      - name: Validate and upload inspected IPA to TestFlight
         if: ${{ inputs.upload_to_testflight == 'true' }}
         env:
           APPLE_KEY_ID: ${{ secrets.APPLE_KEY_ID }}
           APPLE_ISSUER_ID: ${{ secrets.APPLE_ISSUER_ID }}
         run: |
           set -euo pipefail
-          LOG="$RUNNER_TEMP/altool-upload.log"
+          VALIDATE_LOG="$SML_LOG_DIR/altool-validate.log"
+          LOG="$SML_LOG_DIR/altool-upload.log"
           set +e
-          xcrun altool --upload-app --type ios --file "$IPA" \
-            --apiKey "$APPLE_KEY_ID" --apiIssuer "$APPLE_ISSUER_ID" \
-            > "$LOG" 2>&1
+          (
+            cd "$SML_SECRET_DIR"
+            xcrun altool --validate-app --type ios --file "$IPA" \
+              --apiKey "$APPLE_KEY_ID" --apiIssuer "$APPLE_ISSUER_ID"
+          ) > "$VALIDATE_LOG" 2>&1
+          VALIDATE_RC=$?
+          set -e
+          cat "$VALIDATE_LOG"
+          [ "$VALIDATE_RC" -eq 0 ] || {
+            echo "FATAL: altool validation failed with exit $VALIDATE_RC."
+            exit "$VALIDATE_RC"
+          }
+
+          set +e
+          (
+            cd "$SML_SECRET_DIR"
+            xcrun altool --upload-app --type ios --file "$IPA" \
+              --apiKey "$APPLE_KEY_ID" --apiIssuer "$APPLE_ISSUER_ID"
+          ) > "$LOG" 2>&1
           RC=$?
           set -e
           cat "$LOG"
 
+          [ "$RC" -eq 0 ] || {
+            echo "FATAL: altool upload failed with exit $RC."
+            exit "$RC"
+          }
           if ! grep -qiE 'No errors uploading|UPLOAD SUCCEEDED|successfully uploaded' "$LOG"; then
-            echo "FATAL: altool did not report positive upload acceptance (exit $RC)."
+            echo "FATAL: altool exited successfully but did not report positive upload acceptance."
             exit 1
           fi
           if grep -qiE '(^|[^A-Z])(ERROR|FAILED|FAILURE)([^A-Z]|$)' "$LOG"; then
@@ -483,51 +684,68 @@ jobs:
           DELIVERY_UUID="$(sed -nE \
             's/.*(Delivery UUID|RequestUUID|Request UUID)[^0-9A-Fa-f]*([0-9A-Fa-f-]{36}).*/\2/p' \
             "$LOG" | head -1)"
-          export DELIVERY_UUID
-          python3 - <<'PY'
-          import hashlib
-          import json
-          import os
-          import pathlib
+          echo "DELIVERY_UUID=$DELIVERY_UUID" >> "$GITHUB_ENV"
 
-          ipa = pathlib.Path(os.environ["IPA"])
-          receipt = {
-              "schema_version": 1,
-              "accepted": True,
-              "app": os.environ["APP_NAME"],
-              "bundle_id": os.environ["BUNDLE_ID"],
-              "source_sha": os.environ.get("GITHUB_SHA", ""),
-              "source_ref": os.environ.get("GITHUB_REF", ""),
-              "version": os.environ["IOS_SHORT_VERSION"],
-              "build_number": os.environ["IOS_BUILD_NUMBER"],
-              "ipa_sha256": hashlib.sha256(ipa.read_bytes()).hexdigest(),
-              "delivery_uuid": os.environ.get("DELIVERY_UUID", ""),
-          }
-          pathlib.Path("build/ios/testflight-receipt.json").write_text(
-              json.dumps(receipt, indent=2, sort_keys=True) + "\n",
-              encoding="utf-8",
-          )
-          PY
-          cp "$LOG" build/ios/altool-upload.log
-          cat build/ios/testflight-receipt.json
+      - name: Wait for Apple processing and distribute to internal testers
+        if: ${{ inputs.upload_to_testflight == 'true' }}
+        env:
+          APPLE_KEY_ID: ${{ secrets.APPLE_KEY_ID }}
+          APPLE_ISSUER_ID: ${{ secrets.APPLE_ISSUER_ID }}
+          APPLE_BETA_GROUP_ID: ${{ secrets.APPLE_BETA_GROUP_ID }}
+        run: |
+          set -euo pipefail
+          python3 tools/ci/app_store_connect.py wait-and-distribute \
+            --key-id "$APPLE_KEY_ID" \
+            --issuer-id "$APPLE_ISSUER_ID" \
+            --private-key "$CI_ASC_KEY_PATH" \
+            --bundle-id "$BUNDLE_ID" \
+            --marketing-version "$IOS_SHORT_VERSION" \
+            --build-number "$IOS_BUILD_NUMBER" \
+            --group-id "$APPLE_BETA_GROUP_ID" \
+            --ipa "$IPA" \
+            --delivery-uuid "${DELIVERY_UUID:-}" \
+            --output "$SML_PRODUCT_DIR/testflight-receipt.json" \
+            --timeout-seconds 2400 \
+            --interval-seconds 30
+          cat "$SML_PRODUCT_DIR/testflight-receipt.json"
 
       - name: Retain TestFlight receipt
-        if: ${{ inputs.upload_to_testflight == 'true' }}
-        uses: actions/upload-artifact@v3
-        env:
-          NODE_TLS_REJECT_UNAUTHORIZED: "0"
+        if: ${{ always() && inputs.upload_to_testflight == 'true' }}
+        uses: actions/upload-artifact@ff15f0306b3f739f7b6fd43fb5d26cd321bd4de5 # v3.2.1
         with:
           name: such-moon-launch-testflight-${{ github.sha }}-build-${{ env.IOS_BUILD_NUMBER }}
           path: |
-            build/ios/testflight-receipt.json
-            build/ios/altool-upload.log
-          if-no-files-found: error
+            ${{ env.SML_PRODUCT_DIR }}/testflight-receipt.json
+            ${{ env.SML_LOG_DIR }}/altool-validate.log
+            ${{ env.SML_LOG_DIR }}/altool-upload.log
+          if-no-files-found: warn
           retention-days: 30
 
-      - name: Cleanup signing material
+      - name: Cleanup source link and signing material
         if: always()
         run: |
           set +e
+          if [ -L .godot ] && \
+             [ "$(readlink .godot)" = "${SML_PROJECT_CACHE:-unset}" ]; then
+            rm -f .godot
+          fi
+          if [ -n "${CI_ORIGINAL_KEYCHAINS:-}" ] && [ -f "$CI_ORIGINAL_KEYCHAINS" ]; then
+            ORIGINAL_PATHS=()
+            while IFS= read -r path; do
+              path="${path#\"}"
+              path="${path%\"}"
+              [ -z "$path" ] || ORIGINAL_PATHS+=("$path")
+            done < "$CI_ORIGINAL_KEYCHAINS"
+            [ "${#ORIGINAL_PATHS[@]}" -eq 0 ] || \
+              security list-keychains -d user -s "${ORIGINAL_PATHS[@]}"
+          fi
           [ -z "${CI_KEYCHAIN_PATH:-}" ] || security delete-keychain "$CI_KEYCHAIN_PATH" 2>/dev/null
-          [ -z "${CI_PROFILE_PATH:-}" ] || rm -f "$CI_PROFILE_PATH"
+          if [ "${CI_PROFILE_CREATED:-false}" = "true" ] && [ -n "${CI_PROFILE_PATH:-}" ]; then
+            rm -f "$CI_PROFILE_PATH"
+          fi
           [ -z "${CI_ASC_KEY_PATH:-}" ] || rm -f "$CI_ASC_KEY_PATH"
+          case "${SML_SECRET_DIR:-}" in
+            "$RUNNER_TEMP"/such-moon-launch-signing.*) rm -rf -- "$SML_SECRET_DIR" ;;
+            "") ;;
+            *) echo "WARNING: refusing to remove unexpected secret directory: $SML_SECRET_DIR" ;;
+          esac

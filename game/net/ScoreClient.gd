@@ -60,13 +60,17 @@ func submit_score(level: int, completion_time: float, fuel_remaining: float,
 	var json_str := JSON.stringify(body)
 	var headers := ["Content-Type: application/json"]
 
-	# HMAC signing (if secret is configured in the build)
+	# Mutating backend routes are always authenticated. Never silently send an
+	# unsigned score if release key reconstruction is broken.
 	var hmac_secret := _get_hmac_secret()
-	if hmac_secret != "":
-		var timestamp := str(int(Time.get_unix_time_from_system()))
-		var signature := _sign(hmac_secret, timestamp, json_str.to_utf8_buffer())
-		headers.append("X-Timestamp: " + timestamp)
-		headers.append("X-Signature: " + signature)
+	if hmac_secret == "":
+		push_error("ScoreClient: refusing unsigned score submission")
+		score_submitted.emit(false, -1)
+		return
+	var timestamp := str(int(Time.get_unix_time_from_system()))
+	var signature := _sign(hmac_secret, timestamp, json_str.to_utf8_buffer())
+	headers.append("X-Timestamp: " + timestamp)
+	headers.append("X-Signature: " + signature)
 
 	var err := _submit_http.request(API_BASE + "/scores",
 		headers, HTTPClient.METHOD_POST, json_str)

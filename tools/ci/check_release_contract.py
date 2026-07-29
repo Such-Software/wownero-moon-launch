@@ -68,6 +68,11 @@ def main() -> int:
         if contract.get("schema_version") != 1:
             fail("unsupported or missing iOS contract schema_version")
         require_equal(contract.get("project_adapter", ""), "godot", "project adapter")
+        require_equal(
+            contract.get("godot_version", ""),
+            "4.6.1-stable",
+            "iOS Godot version",
+        )
 
         project_path = repo / contract.get("project_path", ".")
         project = parse_godot_config(project_path / "project.godot")
@@ -157,6 +162,39 @@ def main() -> int:
         payload = contract.get("required_payload_names")
         if not isinstance(payload, list) or not payload:
             fail("required iOS payload names must be declared")
+
+        privacy_manifests = contract.get("required_privacy_manifests")
+        if not isinstance(privacy_manifests, list) or not privacy_manifests:
+            fail("required iOS privacy manifests must be declared")
+        privacy_paths: set[str] = set()
+        for manifest in privacy_manifests:
+            if not isinstance(manifest, dict):
+                fail("privacy manifest contracts must be objects")
+            relative = manifest.get("relative_path", "")
+            if (
+                not isinstance(relative, str)
+                or not relative
+                or relative.startswith("/")
+                or ".." in pathlib.PurePosixPath(relative).parts
+                or not relative.endswith("PrivacyInfo.xcprivacy")
+            ):
+                fail(f"invalid privacy manifest relative_path: {relative!r}")
+            if relative in privacy_paths:
+                fail(f"duplicate privacy manifest relative_path: {relative}")
+            privacy_paths.add(relative)
+            collected_types = manifest.get("collected_data_types", [])
+            tracking_types = manifest.get("tracking_data_types", [])
+            if not isinstance(collected_types, list) or not all(
+                isinstance(item, str) and item.startswith("NSPrivacyCollectedDataType")
+                for item in collected_types
+            ):
+                fail(f"invalid collected_data_types for privacy manifest {relative}")
+            if not isinstance(tracking_types, list) or not set(tracking_types).issubset(
+                set(collected_types)
+            ):
+                fail(f"tracking_data_types must be a subset for privacy manifest {relative}")
+            if "tracking" in manifest and not isinstance(manifest["tracking"], bool):
+                fail(f"privacy manifest tracking must be Boolean for {relative}")
 
         print(
             "PASS iOS contract: "

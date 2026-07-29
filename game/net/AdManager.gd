@@ -54,6 +54,8 @@ var ADMOB_IDS: Dictionary:
 
 ## Guards against double initialization.
 var _admob_init_started: bool = false
+var _mobile_ads_initialize_called: bool = false
+var _consent_form_requested: bool = false
 
 ## Whether a rewarded ad is currently in-flight (between request and result)
 var _rewarded_pending: bool = false
@@ -230,9 +232,121 @@ func _init_admob() -> void:
 	_admob.connect("rewarded_ad_user_earned_reward", _on_native_rewarded_earned)
 	_admob.connect("rewarded_ad_dismissed_full_screen_content", _on_native_rewarded_dismissed)
 	_admob.connect("rewarded_ad_failed_to_show_full_screen_content", _on_native_rewarded_dismissed)
-	_dbg("D: signals ok, calling initialize()")
+	if _supports_native_consent_flow():
+		_admob.connect("consent_info_updated", _on_native_consent_info_updated)
+		_admob.connect("consent_info_update_failed", _on_native_consent_info_update_failed)
+		_admob.connect("consent_form_loaded", _on_native_consent_form_loaded)
+		_admob.connect("consent_form_failed_to_load", _on_native_consent_form_failed_to_load)
+		_admob.connect("consent_form_dismissed", _on_native_consent_form_dismissed)
+		_dbg("D: signals ok, requesting current consent information")
+		_admob.update_consent_info({
+			"is_real": not _use_test_ads,
+			"test_device_hashed_ids": [],
+		})
+	else:
+		# A release build must never initialize an ads SDK before the consent
+		# gate. Debug builds may continue with Google's test inventory so a
+		# developer can diagnose an incomplete local plugin installation.
+		_dbg("D: native consent API unavailable")
+		if _use_test_ads:
+			_initialize_mobile_ads_after_consent()
+
+
+func _supports_native_consent_flow() -> bool:
+	if _admob == null:
+		return false
+	var required_methods := [
+		"update_consent_info",
+		"get_consent_status",
+		"is_consent_form_available",
+		"load_consent_form",
+		"show_consent_form",
+	]
+	var required_signals := [
+		"consent_info_updated",
+		"consent_info_update_failed",
+		"consent_form_loaded",
+		"consent_form_failed_to_load",
+		"consent_form_dismissed",
+	]
+	for method in required_methods:
+		if not _admob.has_method(method):
+			return false
+	for native_signal in required_signals:
+		if not _admob.has_signal(native_signal):
+			return false
+	return true
+
+
+func _native_consent_status() -> String:
+	if _admob == null or not _admob.has_method("get_consent_status"):
+		return "UNKNOWN"
+	return str(_admob.get_consent_status()).strip_edges().to_upper()
+
+
+func _consent_status_allows_ads() -> bool:
+	return _native_consent_status() in ["NOT_REQUIRED", "OBTAINED"]
+
+
+func _continue_from_cached_consent(context: String) -> void:
+	var status := _native_consent_status()
+	_dbg("consent %s status=%s" % [context, status])
+	if status in ["NOT_REQUIRED", "OBTAINED"]:
+		_initialize_mobile_ads_after_consent()
+
+
+func _on_native_consent_info_updated() -> void:
+	var status := _native_consent_status()
+	_dbg("consent info updated status=%s" % status)
+	if status in ["NOT_REQUIRED", "OBTAINED"]:
+		_initialize_mobile_ads_after_consent()
+		return
+	if status == "REQUIRED" and _admob.is_consent_form_available():
+		_consent_form_requested = true
+		_admob.load_consent_form()
+		return
+	_dbg("consent gate remains closed: status=%s form_available=%s" % [
+		status,
+		_admob.is_consent_form_available(),
+	])
+
+
+func _on_native_consent_info_update_failed(error_data: Dictionary) -> void:
+	_dbg("consent info update failed: %s" % str(error_data))
+	# UMP permits continuing from a previously obtained cached decision when a
+	# refresh fails offline. UNKNOWN/REQUIRED remains fail-closed.
+	_continue_from_cached_consent("update failure")
+
+
+func _on_native_consent_form_loaded() -> void:
+	if not _consent_form_requested:
+		return
+	_dbg("consent form loaded")
+	_admob.show_consent_form()
+
+
+func _on_native_consent_form_failed_to_load(error_data: Dictionary) -> void:
+	_consent_form_requested = false
+	_dbg("consent form failed to load: %s" % str(error_data))
+	_continue_from_cached_consent("form load failure")
+
+
+func _on_native_consent_form_dismissed(error_data: Dictionary) -> void:
+	_consent_form_requested = false
+	_dbg("consent form dismissed: %s" % str(error_data))
+	_continue_from_cached_consent("form dismissal")
+
+
+func _initialize_mobile_ads_after_consent() -> void:
+	if _mobile_ads_initialize_called or _admob == null:
+		return
+	if not _use_test_ads and not _consent_status_allows_ads():
+		_dbg("refusing release ads initialization without consent resolution")
+		return
+	_mobile_ads_initialize_called = true
+	_dbg("calling initialize() after consent gate")
 	_admob.initialize()
-	_dbg("E: initialize() returned, waiting for signal")
+	_dbg("initialize() returned, waiting for signal")
 	var watchdog := get_tree().create_timer(5.0)
 	watchdog.timeout.connect(func():
 		if _admob_ready: return

@@ -49,6 +49,27 @@ func test_record_fatal_error_does_not_crash() -> void:
 
 
 # ==========================================================================
+#  AUTHENTICATION FAIL-CLOSED
+# ==========================================================================
+
+func test_unsigned_flush_never_starts_transport_after_warning() -> void:
+	var telemetry = auto_free(
+		load("res://test/telemetry_no_auth_double.gd").new()
+	)
+	telemetry._http = HTTPRequest.new()
+	telemetry.add_child(telemetry._http)
+	# Exercise the repeat-attempt branch without emitting an expected push_error.
+	telemetry._auth_failure_reported = true
+	telemetry._buffer = [{"name": "auth_regression", "params": {}}]
+
+	telemetry._flush()
+	telemetry._flush()
+
+	assert_int(telemetry.request_calls).is_zero()
+	assert_int(telemetry._buffer.size()).is_equal(1)
+
+
+# ==========================================================================
 #  EVENT NAME CATALOG (stable strings)
 # ==========================================================================
 

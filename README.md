@@ -20,14 +20,26 @@ Create a release candidate outside the source checkout:
 GODOT_BIN=/path/to/Godot_v4.6.1 tools/export_candidate.sh Android
 ```
 
-Generated products and logs go under `${SUCH_BUILD_ROOT:-$HOME/Build}`. The
-checkout remains authoritative source; Build content is disposable and must
-never contain signing keys.
+Generated products, logs, tests, and caches go under
+`${SUCH_BUILD_ROOT:-$HOME/Build/such-moon-launch}`. The checkout remains
+authoritative source; Build content is disposable and must never contain
+signing keys.
 
-Android export also requires the ignored `android/google-services.json`, the
-Godot custom Android template at `android/build`, and the canonical upload key
-under `~/keys`. On a persistent workstation, `android/build` may be an ignored
-symlink into `~/Build/cache` so Gradle intermediates do not refill the checkout.
+Android export requires the Godot custom template at `android/build` plus these
+Vaultwarden-provisioned values in the current shell:
+
+```text
+GODOT_ANDROID_KEYSTORE_RELEASE_PATH
+GODOT_ANDROID_KEYSTORE_RELEASE_USER
+GODOT_ANDROID_KEYSTORE_RELEASE_PASSWORD
+SML_ANDROID_GOOGLE_SERVICES_PATH
+```
+
+Materialize secret files only into a protected temporary directory, never the
+checkout, Build deliverables, or Seafile. On a persistent workstation,
+`android/build` may be an ignored symlink into
+`~/Build/such-moon-launch/cache` so Gradle intermediates do not refill the
+checkout.
 
 Marketing renders also default to Build scratch/review space. Promote only an
 approved delivery into:
@@ -43,6 +55,9 @@ approved delivery into:
 An accepted delivery needs a README, manifest, SHA256SUMS, byte counts, review
 evidence, and verifier. See [marketing/README.md](marketing/README.md).
 
-Signing identities and store credentials remain outside Git under `~/keys`.
-The private Gitea rollout and release-lane prerequisites are tracked in
-[CI.md](CI.md).
+Real worktrees live under `~/src`; this repository should be worked from
+`~/src/WowneroMoonLaunch`. `~/Seafile/Source` is Fleet-managed recovery only:
+never clone, edit, build, seed, rename, delete, or manually synchronize it.
+Credentials remain in Vaultwarden. The private Gitea rollout and release-lane
+prerequisites—including manual TestFlight and Google Play internal
+candidates—are tracked in [CI.md](CI.md).

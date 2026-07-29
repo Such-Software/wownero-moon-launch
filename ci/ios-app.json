@@ -18,6 +18,35 @@
     "GoogleService-Info.plist",
     "PrivacyInfo.xcprivacy"
   ],
+  "required_privacy_manifests": [
+    {
+      "relative_path": "PrivacyInfo.xcprivacy",
+      "tracking": false
+    },
+    {
+      "relative_path": "Frameworks/GoogleMobileAds.framework/PrivacyInfo.xcprivacy",
+      "collected_data_types": [
+        "NSPrivacyCollectedDataTypeAdvertisingData",
+        "NSPrivacyCollectedDataTypeCoarseLocation",
+        "NSPrivacyCollectedDataTypeCrashData",
+        "NSPrivacyCollectedDataTypeDeviceID",
+        "NSPrivacyCollectedDataTypeOtherDiagnosticData",
+        "NSPrivacyCollectedDataTypePerformanceData",
+        "NSPrivacyCollectedDataTypeProductInteraction"
+      ],
+      "tracking_data_types": [
+        "NSPrivacyCollectedDataTypeDeviceID"
+      ]
+    },
+    {
+      "relative_path": "Frameworks/UserMessagingPlatform.framework/PrivacyInfo.xcprivacy",
+      "collected_data_types": [
+        "NSPrivacyCollectedDataTypeCoarseLocation",
+        "NSPrivacyCollectedDataTypePerformanceData",
+        "NSPrivacyCollectedDataTypeProductInteraction"
+      ]
+    }
+  ],
   "required_linked_symbols": [
     "_admob_plugin_init",
     "_bloomword_firebase_init",
@@ -29,9 +58,11 @@
     "godot-storekit2"
   ],
   "tracked_release_inputs": [
+    ".gitea/workflows/build-ios-testflight.yml",
     "export_presets.cfg",
     "project.godot",
     "addons/AdmobPlugin/ios_export.cfg",
+    "tools/ci/app_store_connect.py",
     "ios/plugins/BloomwordFirebase.gdip",
     "ios/plugins/godot-storekit2.gdip",
     "ios/plugins/godot-storekit2.release.xcframework/Info.plist",
@@ -39,7 +70,7 @@
   ],
   "seed": {
     "hash_algorithm": "sha256-tree-v1",
-    "runner_root": "$HOME/Library/Caches/such-ios-sdks/such-moon-launch-ios",
+    "runner_root": "$HOME/Build/such-moon-launch/cache/ios-seed",
     "entries": [
       {
         "kind": "tree",

@@ -1,7 +1,5 @@
 name: Such Moon Launch verify
 
-# Secret-free and host-portable: the same gate runs for GitHub review and the
-# private such-git mirror. Signing and delivery live in a separate workflow.
 on:
   push:
   pull_request:

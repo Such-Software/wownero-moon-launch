@@ -27,6 +27,9 @@ class AndroidExportPlugin extends EditorExportPlugin:
 		return _plugin_name
 
 	func _get_android_libraries(_platform: EditorExportPlatform, debug: bool) -> PackedStringArray:
+		var prepared_aar := OS.get_environment("SML_FIREBASE_ANDROID_AAR")
+		if prepared_aar != "":
+			return PackedStringArray([prepared_aar])
 		var kind := "debug" if debug else "release"
 		var suffix := "debug" if debug else "release"
 		return PackedStringArray(["%s/bin/%s/%s-%s.aar" % [_plugin_name, kind, _plugin_name, suffix]])
