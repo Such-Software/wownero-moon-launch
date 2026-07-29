@@ -6,7 +6,7 @@
 #   ./rl/render_level.sh <level_num> <duration_sec> [output_base_path] [extra_godot_args...]
 #
 # Examples:
-#   ./rl/render_level.sh 1 15               # renders Level 1 for 15s to out/rendered_level_1_*
+#   ./rl/render_level.sh 1 15               # renders to ~/Build/scratch/such-moon-launch/...
 #   ./rl/render_level.sh 3 20 my_folder/l3   # renders Level 3 for 20s to my_folder/l3_*
 set -euo pipefail
 
@@ -15,12 +15,19 @@ cd "$(dirname "${BASH_SOURCE[0]}")/.."
 
 LEVEL="${1:-1}"
 DURATION="${2:-20}"
-OUT_BASE="${3:-out/rendered_level_${LEVEL}}"
-shift 3 || true
+BUILD_ROOT="${SUCH_BUILD_ROOT:-$HOME/Build}"
+RUN_ID="${SML_MARKETING_RUN_ID:-$(date -u +%Y%m%dT%H%M%SZ)}"
+OUT_BASE="${3:-$BUILD_ROOT/scratch/such-moon-launch/marketing/$RUN_ID/rendered_level_${LEVEL}}"
+if (($# >= 3)); then
+  shift 3
+else
+  shift "$#"
+fi
 
 
 FRAMES=$((DURATION * 60))
-TMP_AVI="out/.tmp_render_${LEVEL}.avi"
+mkdir -p "$(dirname "$OUT_BASE")"
+TMP_AVI="${OUT_BASE}.source.avi"
 
 echo "=================================================="
 echo "[render-script] Rendering Level ${LEVEL} for ${DURATION}s (${FRAMES} frames)..."

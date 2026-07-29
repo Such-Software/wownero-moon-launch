@@ -33,6 +33,9 @@ func _ready():
 
 func submit_score(level: int, completion_time: float, fuel_remaining: float,
 		crypto_collected: int, stars: int, wave: int = 0) -> void:
+	if OS.get_environment("SML_TEST_MODE") == "1":
+		score_submitted.emit(false, -1)
+		return
 	# Never post a "Watch a demo flight" run (WP-B5): the heuristic AutoPilot flew it,
 	# not the player — same treatment as capture/sim runs, marks no leaderboard entry.
 	if globalvar.demo_mode:
@@ -92,6 +95,9 @@ func _on_submit_completed(result: int, response_code: int, _headers: PackedStrin
 # ── Fetch leaderboard ────────────────────────────────────────────────
 
 func fetch_leaderboard(level: int, limit: int = 50, board: String = "time") -> void:
+	if OS.get_environment("SML_TEST_MODE") == "1":
+		leaderboard_received.emit(false, [])
+		return
 	var url := "%s/scores?level=%d&limit=%d&device_uuid=%s&board=%s" % [
 		API_BASE, level, limit, globalvar.device_uuid, board]
 	var err := _leaderboard_http.request(url)
@@ -119,6 +125,9 @@ func _on_leaderboard_completed(result: int, response_code: int, _headers: Packed
 # ── Fetch player rank ────────────────────────────────────────────────
 
 func fetch_rank(level: int, board: String = "time") -> void:
+	if OS.get_environment("SML_TEST_MODE") == "1":
+		rank_received.emit(false, -1, 0, 0.0)
+		return
 	var url := "%s/rank?level=%d&device_uuid=%s&board=%s" % [
 		API_BASE, level, globalvar.device_uuid, board]
 	var err := _rank_http.request(url)
