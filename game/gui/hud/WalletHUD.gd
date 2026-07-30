@@ -2,6 +2,8 @@ extends Control
 ## HUD wallet display — shows current Moonrocks balance from globalvar.
 ## Standalone widget: create with Control.new(), set_script(), add_child().
 
+const MOONROCK_ICON: Texture2D = preload("res://art/coins/wow_small_simple.png")
+
 var _display_amount: int = 0  # animated counter
 var _target_amount: int = 0
 
@@ -29,6 +31,6 @@ func _draw() -> void:
 	var font := ThemeDB.fallback_font
 	if not font:
 		return
-	var text := str(_display_amount) + " 🪨"
 	var color := Color(1.0, 0.85, 0.2, 0.9)  # gold
-	draw_string(font, Vector2(0, 12), text, HORIZONTAL_ALIGNMENT_LEFT, -1, 13, color)
+	draw_texture_rect(MOONROCK_ICON, Rect2(0, -1, 15, 15), false)
+	draw_string(font, Vector2(19, 12), str(_display_amount), HORIZONTAL_ALIGNMENT_LEFT, -1, 13, color)
