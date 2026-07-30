@@ -131,7 +131,10 @@ func is_supported() -> bool:
 ##      purchase that finally dispatch after completion).
 func purchase(product_id: String) -> void:
 	var now_ms := Time.get_ticks_msec()
-	if now_ms - _purchase_last_tap_ms < 1500:
+	# Zero means no purchase tap has been accepted yet. Without this sentinel
+	# check, a fast first launch treats the initial tap as a duplicate during
+	# the first 1.5 seconds of process uptime.
+	if _purchase_last_tap_ms > 0 and now_ms - _purchase_last_tap_ms < 1500:
 		return
 	if _purchase_in_flight_pid != "":
 		return
