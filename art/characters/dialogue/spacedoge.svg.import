@@ -2,16 +2,16 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://camg7schrmogp"
-path="res://.godot/imported/alien.svg-b5745c4b2e980a6cf7a179a7392d5f9f.ctex"
+uid="uid://cjfg60wjqcy6j"
+path="res://.godot/imported/spacedoge.svg-5f9cdd13a8e30912d9ea3c3ceef4ad64.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://marketing/characters/alien.svg"
-dest_files=["res://.godot/imported/alien.svg-b5745c4b2e980a6cf7a179a7392d5f9f.ctex"]
+source_file="res://art/characters/dialogue/spacedoge.svg"
+dest_files=["res://.godot/imported/spacedoge.svg-5f9cdd13a8e30912d9ea3c3ceef4ad64.ctex"]
 
 [params]
 

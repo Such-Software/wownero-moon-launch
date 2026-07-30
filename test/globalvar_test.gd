@@ -23,6 +23,9 @@ func before_test() -> void:
 	globalvar.endless_wave = 1
 	globalvar.tutorial_shown = false
 	globalvar.welcome_shown = false
+	globalvar.opening_intro_version = 0
+	globalvar.first_flight_briefing_shown = false
+	globalvar.seen_hints.clear()
 	globalvar.landings_since_install = 0
 	globalvar.rate_prompt_shown = false
 	globalvar.best_times = {}
@@ -708,6 +711,18 @@ func test_reset_progress_clears_landings_and_rate_prompt() -> void:
 	assert_bool(globalvar.rate_prompt_shown).is_false()
 
 
+func test_reset_progress_replays_first_run_onboarding() -> void:
+	globalvar.opening_intro_version = globalvar.CURRENT_OPENING_INTRO_VERSION
+	globalvar.first_flight_briefing_shown = true
+	globalvar.welcome_shown = true
+	globalvar.tutorial_shown = true
+	globalvar.reset_progress()
+	assert_int(globalvar.opening_intro_version).is_equal(0)
+	assert_bool(globalvar.first_flight_briefing_shown).is_false()
+	assert_bool(globalvar.welcome_shown).is_false()
+	assert_bool(globalvar.tutorial_shown).is_false()
+
+
 # ==========================================================================
 #  CHECKPOINT
 # ==========================================================================
@@ -728,7 +743,7 @@ func test_get_save_data_contains_all_keys() -> void:
 	var required_keys := [
 		"level", "highest_completed", "completed", "wallet", "upgrades",
 		"best_times", "best_stars", "device_uuid", "nickname", "tutorial_shown",
-		"welcome_shown",
+		"welcome_shown", "opening_intro_version", "first_flight_briefing_shown",
 		"difficulty", "selected_skin", "owned_skins", "endless_best_wave",
 		"levels_unlocked", "total_crypto_earned", "total_deaths",
 		"landings_since_install", "rate_prompt_shown",
@@ -754,6 +769,8 @@ func test_save_data_roundtrip() -> void:
 	globalvar.levels_unlocked = true
 	globalvar.endless_best_wave = 7
 	globalvar.ads_removed = true
+	globalvar.opening_intro_version = globalvar.CURRENT_OPENING_INTRO_VERSION
+	globalvar.first_flight_briefing_shown = true
 
 	var data := globalvar.get_save_data()
 
@@ -778,6 +795,19 @@ func test_save_data_roundtrip() -> void:
 	assert_bool(globalvar.levels_unlocked).is_true()
 	assert_int(globalvar.endless_best_wave).is_equal(7)
 	assert_bool(globalvar.ads_removed).is_true()
+	assert_int(globalvar.opening_intro_version).is_equal(globalvar.CURRENT_OPENING_INTRO_VERSION)
+	assert_bool(globalvar.first_flight_briefing_shown).is_true()
+
+
+func test_legacy_completed_save_skips_first_flight_briefing() -> void:
+	globalvar._apply_save_data({
+		"level": 3,
+		"highest_completed": 2,
+		"tutorial_shown": true,
+		"nickname": "VeteranPilot",
+	})
+	assert_int(globalvar.opening_intro_version).is_equal(0)
+	assert_bool(globalvar.first_flight_briefing_shown).is_true()
 
 func test_apply_save_data_missing_keys_use_defaults() -> void:
 	# Simulate an old save with minimal data

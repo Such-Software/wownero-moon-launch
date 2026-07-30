@@ -1,6 +1,6 @@
 """Full-3D Martian alien — the smug little green villain of the MoonLaunch intro.
 
-The 3D upgrade of marketing/characters/alien.svg, built with the such-graphics
+The 3D upgrade of art/characters/dialogue/alien.svg, built with the such-graphics
 PROCEDURAL-BLENDER contract (same as build_3d_sprout / build_3d_tomato): modeled
 VOLUMES proud of the head, ONE parametric mouth on the shared A-H/X viseme table,
 everything parented to `root`, EEVEE headless, env-driven (SG3D_CUES/OUT/DUR/RES).

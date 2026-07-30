@@ -232,7 +232,7 @@ After recreating apps above, swap the new IDs into:
 ## 🗺️ Phase 3: Content Expansion
 
 ### Existing Levels (polish)
-- [x] **Level 1 (Moon)** — tutorial prompts overlay ("Press UP to thrust!"). First-time only, saved to prefs.
+- [x] **Level 1 (Moon)** — first-flight briefing plus action-gated, input-adaptive SpaceDoge coach. First-time only, saved to prefs.
 - [x] **Level 2 (Mars)** — 2 Martians (speed 25), CryptoSpawner (4 pickups, r=300), FuelSpawner (1 canister). Smooth intro to enemies and collectibles.
 - [x] **Level 3 (Venus)** — 4 Martians (speed 32-35), gamma ray timer (2-5s), 2 CryptoSpawners (6 common + 3 rare XMR/BTC), 1 FuelSpawner. Fixed BGM to non-positional AudioStreamPlayer.
 - [x] **Level 4 (Io)** — 6 Martians (speed 40-45), gamma rays + asteroid timer (4-7s), 2 CryptoSpawners (5 + 3 rare), 2 FuelSpawners. Fixed BGM to non-positional AudioStreamPlayer.

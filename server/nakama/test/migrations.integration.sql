@@ -147,6 +147,8 @@ VALUES (
       "best_times": {"1": 18.5, "2": 30.0},
       "best_stars": {"1": 3, "2": 2},
       "nickname": "GuestPilot",
+      "opening_intro_version": 1,
+      "first_flight_briefing_shown": true,
       "owned_skins": ["default", "wownero"],
       "selected_skin": "wownero",
       "endless_best_wave": 8,
@@ -165,6 +167,8 @@ VALUES (
       "best_times": {"1": 20.0, "2": 25.0},
       "best_stars": {"1": 2, "2": 3},
       "nickname": "TargetPilot",
+      "opening_intro_version": 0,
+      "first_flight_briefing_shown": false,
       "owned_skins": ["default", "retro"],
       "selected_skin": "retro",
       "endless_best_wave": 3,
@@ -216,6 +220,8 @@ BEGIN
        OR merged #>> '{best_stars,2}' <> '3'
        OR merged ->> 'endless_best_wave' <> '8'
        OR merged ->> 'total_deaths' <> '30'
+       OR merged ->> 'opening_intro_version' <> '1'
+       OR merged ->> 'first_flight_briefing_shown' <> 'true'
        OR NOT (merged -> 'owned_skins' ? 'wownero')
        OR NOT (merged -> 'owned_skins' ? 'retro')
        OR merged ->> 'selected_skin' <> 'retro'

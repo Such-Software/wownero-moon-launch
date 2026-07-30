@@ -522,6 +522,21 @@ BEGIN
             OR such_moon_launch_safe_boolean(
                 guest_document, 'welcome_shown', false
             ),
+        'opening_intro_version', GREATEST(
+            such_moon_launch_safe_bigint(
+                target_document, 'opening_intro_version', 0, 1000
+            ),
+            such_moon_launch_safe_bigint(
+                guest_document, 'opening_intro_version', 0, 1000
+            )
+        ),
+        'first_flight_briefing_shown',
+            such_moon_launch_safe_boolean(
+                target_document, 'first_flight_briefing_shown', false
+            )
+            OR such_moon_launch_safe_boolean(
+                guest_document, 'first_flight_briefing_shown', false
+            ),
         'seen_hints', merged_hints,
         'difficulty', LEAST(2, such_moon_launch_safe_bigint(
             settings_document, 'difficulty', 1, 2
