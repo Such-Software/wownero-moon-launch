@@ -282,7 +282,7 @@ jobs:
 
           printf '%s' "$APPLE_DIST_CERT_P12_BASE64" | openssl base64 -d -A > "$P12"
           chmod 600 "$P12"
-          openssl pkcs12 -in "$P12" -clcerts -nokeys \
+          openssl pkcs12 -legacy -in "$P12" -clcerts -nokeys \
             -passin env:APPLE_DIST_CERT_P12_PASSWORD -out "$CERT_PEM"
           openssl x509 -in "$CERT_PEM" -checkend 2592000 -noout || {
             echo "FATAL: distribution certificate expires in less than 30 days."
