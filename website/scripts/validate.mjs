@@ -14,6 +14,7 @@ const requiredAssets = [
 ];
 const sourceFiles = [
   "app/brand.css",
+  "app/brand.json",
   "app/layout.tsx",
   "app/page.tsx",
   "app/play/page.tsx",

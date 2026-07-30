@@ -51,6 +51,14 @@ def main() -> int:
     if not website_projection.is_file() or digest(website_projection) != expected_website:
         errors.append("checked-in website brand projection does not match generated lock")
 
+    website_projection_metadata = root / "website/app/brand.json"
+    expected_metadata = lock.get("files", {}).get("brand.json")
+    if (
+        not website_projection_metadata.is_file()
+        or digest(website_projection_metadata) != expected_metadata
+    ):
+        errors.append("checked-in website brand metadata does not match generated lock")
+
     for name, service in config["services"].items():
         if service["activation"] != "disabled":
             errors.append(f"baseline requires services.{name}.activation=disabled")

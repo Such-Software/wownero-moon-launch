@@ -1,0 +1,111 @@
+{
+  "contract_version": 1,
+  "extensions": {},
+  "generator_version": "0.1.0",
+  "media": [],
+  "pack_id": "wownero",
+  "pack_version": "1.0.0",
+  "source_commit": "2d15861",
+  "tokens": {
+    "camera": {
+      "fov": 52,
+      "intensity": 1.0,
+      "move": "crane-up",
+      "speed": 0.4
+    },
+    "color": {
+      "accent": "#f5c518",
+      "accent_hi": "#ffe066",
+      "bg": "#0a0918",
+      "ink": "#fdf6e3",
+      "muted": "#8a8ab0",
+      "particle": "#c9b6ff",
+      "surface": "#171236",
+      "wow": "#ff2d9b"
+    },
+    "environment": {
+      "ambient": 0.5,
+      "bg": "bg",
+      "fog": 0.12,
+      "fog_color": "surface",
+      "plinth_color": "surface"
+    },
+    "grade": {
+      "contrast": 1.05,
+      "exposure": 1.08,
+      "glow": 1.5,
+      "grain": 0.25,
+      "saturation": 1.18,
+      "tonemap": "filmic",
+      "vignette": 0.4
+    },
+    "lighting": {
+      "fill_color": "muted",
+      "fill_energy": 0.45,
+      "key_angle": [
+        -40,
+        -25,
+        0
+      ],
+      "key_color": "ink",
+      "key_energy": 1.6,
+      "rim_color": "accent",
+      "rim_energy": 1.5
+    },
+    "motion": {
+      "bounce": {
+        "curve": "ease-out-back",
+        "ms": 380
+      },
+      "fade": {
+        "curve": "ease-out",
+        "ms": 240
+      },
+      "grow": {
+        "curve": "ease-out-back",
+        "ms": 460
+      }
+    },
+    "roles": {
+      "accent": {
+        "color": "wow",
+        "font": "display",
+        "size": "subhead"
+      },
+      "body": {
+        "color": "muted",
+        "font": "body",
+        "size": "body"
+      },
+      "subtitle": {
+        "color": "ink",
+        "font": "display",
+        "size": "subhead"
+      },
+      "title": {
+        "color": "accent",
+        "font": "display",
+        "size": "title"
+      }
+    },
+    "shape": {
+      "corner_lg": 12,
+      "corner_md": 8,
+      "corner_sm": 4,
+      "touch_min": 48
+    },
+    "type": {
+      "families": {
+        "body": "'Computer Speak', monospace",
+        "display": "'Computer Speak', monospace"
+      },
+      "font_file": "ComputerSpeak.ttf",
+      "scale": {
+        "body": 34,
+        "caption": 22,
+        "subhead": 54,
+        "title": 124
+      }
+    }
+  }
+}
