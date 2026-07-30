@@ -2,7 +2,7 @@ var MOON_APP_ID = "moon_launch";
 var MOON_APP_SLUG = "moon-launch";
 var PLATFORM_CONTRACT_VERSION = 1;
 var PLATFORM_CONTRACT_SOURCE_COMMIT =
-  "60adf625944d4d764e12d1242cc0cac5e65ac1b8";
+  "560fbfe7299000fe579a720e9342abd1c595200e";
 var PLATFORM_SCHEMA_VERSION = 2;
 var PLATFORM_MINIMUM_NAKAMA_VERSION = "3.40.0";
 var PLATFORM_ENTITLEMENT_MAX_SKEW_SECONDS = 300;
@@ -285,8 +285,8 @@ function moonBeforeAuthenticateCustom(
     throw moonError("Authentication ticket is invalid.", nkruntime.Codes.UNAUTHENTICATED);
   }
   var ticket = request.account.id;
-  var url = moonRequireEnv(ctx, "IDP_CONSUME_URL", 2048);
-  var consumerToken = moonRequireEnv(ctx, "IDP_CONSUMER_TOKEN", 4096);
+  var url = moonRequireEnv(ctx, "SUCH_IDP_CONSUME_URL", 2048);
+  var consumerToken = moonRequireEnv(ctx, "SUCH_IDP_CONSUMER_TOKEN", 4096);
   var body = JSON.stringify({
     contract_version: PLATFORM_CONTRACT_VERSION,
     app_id: MOON_APP_ID,
@@ -480,7 +480,11 @@ function moonVerifyEntitlementRequest(
       Math.abs(now - timestampNumber) > PLATFORM_ENTITLEMENT_MAX_SKEW_SECONDS) {
     throw moonError("Entitlement verification failed.", nkruntime.Codes.UNAUTHENTICATED);
   }
-  var key = moonRequireEnv(ctx, "ENTITLEMENT_SIGNING_KEY", 4096);
+  var key = moonRequireEnv(
+    ctx,
+    "SUCH_ENTITLEMENT_PROJECTION_HMAC_KEY",
+    4096
+  );
   var mac = nk.hmacSha256Hash(timestamp + "\n" + payload, key);
   if (!moonMacMatches(mac, signature.substr(3))) {
     throw moonError("Entitlement verification failed.", nkruntime.Codes.UNAUTHENTICATED);
@@ -517,17 +521,63 @@ function moonVersionAtLeast(actual: string, minimum: string): boolean {
   return true;
 }
 
+function moonIsPlatformServiceUrl(value: any, expectedPath: string): boolean {
+  if (typeof value !== "string") {
+    return false;
+  }
+  var match =
+    /^(?:https:\/\/[a-z0-9](?:[a-z0-9.-]*[a-z0-9])?(?::[0-9]{2,5})?|http:\/\/10\.42\.[0-9]{1,3}\.[0-9]{1,3}(?::[0-9]{2,5})?)(\/[^?#]*)$/.exec(
+      value
+    );
+  return match !== null && match[1] === expectedPath;
+}
+
+function moonProductCatalogReady(value: any): boolean {
+  if (typeof value !== "string" || value.length === 0) {
+    return false;
+  }
+  var products = value.split(",");
+  var seen: {[key: string]: boolean} = {};
+  var index;
+  for (index = 0; index < products.length; index += 1) {
+    var product = products[index].trim();
+    if (!/^[A-Za-z0-9_.-]{1,256}$/.test(product) || seen[product]) {
+      return false;
+    }
+    seen[product] = true;
+  }
+  return products.length > 0;
+}
+
+function moonSecretsUnique(values: any[]): boolean {
+  var left;
+  var right;
+  for (left = 0; left < values.length; left += 1) {
+    for (right = left + 1; right < values.length; right += 1) {
+      if (values[left] === values[right]) {
+        return false;
+      }
+    }
+  }
+  return true;
+}
+
 function moonRuntimeConfigurationReady(ctx: nkruntime.Context): boolean {
-  var sourceCommit = ctx.env.APP_RUNTIME_SOURCE_COMMIT;
-  var runtimeDigest = ctx.env.APP_RUNTIME_SHA256;
-  var migrationDigest = ctx.env.APP_MIGRATION_SHA256;
-  var schemaVersion = ctx.env.APP_SCHEMA_VERSION;
-  var consumeUrl = ctx.env.IDP_CONSUME_URL;
-  var idpToken = ctx.env.IDP_CONSUMER_TOKEN;
-  var entitlementKey = ctx.env.ENTITLEMENT_SIGNING_KEY;
-  return ctx.env.APP_ID === MOON_APP_ID &&
-    ctx.env.APP_PLATFORM_CONTRACT_VERSION === String(PLATFORM_CONTRACT_VERSION) &&
-    ctx.env.APP_PLATFORM_CONTRACT_SOURCE_COMMIT === PLATFORM_CONTRACT_SOURCE_COMMIT &&
+  var sourceCommit = ctx.env.SUCH_PLATFORM_SOURCE_COMMIT;
+  var runtimeDigest = ctx.env.SUCH_PLATFORM_RUNTIME_SHA256;
+  var migrationDigest = ctx.env.SUCH_PLATFORM_MIGRATION_SHA256;
+  var schemaVersion = ctx.env.SUCH_PLATFORM_SCHEMA_VERSION;
+  var consumeUrl = ctx.env.SUCH_IDP_CONSUME_URL;
+  var idpToken = ctx.env.SUCH_IDP_CONSUMER_TOKEN;
+  var entitlementProviderUrl = ctx.env.SUCH_ENTITLEMENT_PROVIDER_URL;
+  var entitlementProviderToken = ctx.env.SUCH_ENTITLEMENT_PROVIDER_TOKEN;
+  var entitlementKey = ctx.env.SUCH_ENTITLEMENT_PROJECTION_HMAC_KEY;
+  var roomSeedKey = ctx.env.SUCH_ROOM_SEED_HMAC_KEY;
+  return ctx.env.SUCH_PLATFORM_APP_ID === MOON_APP_ID &&
+    ctx.env.SUCH_PLATFORM_CONTRACT_VERSION ===
+      String(PLATFORM_CONTRACT_VERSION) &&
+    ctx.env.SUCH_PLATFORM_CONTRACT_COMMIT ===
+      PLATFORM_CONTRACT_SOURCE_COMMIT &&
     schemaVersion === String(PLATFORM_SCHEMA_VERSION) &&
     typeof sourceCommit === "string" &&
     /^[0-9a-f]{40,64}$/.test(sourceCommit) &&
@@ -535,10 +585,26 @@ function moonRuntimeConfigurationReady(ctx: nkruntime.Context): boolean {
     /^[0-9a-f]{64}$/.test(runtimeDigest) &&
     typeof migrationDigest === "string" &&
     /^[0-9a-f]{64}$/.test(migrationDigest) &&
-    typeof consumeUrl === "string" &&
-    /^(?:https:\/\/[a-z0-9](?:[a-z0-9.-]*[a-z0-9])?(?::[0-9]{2,5})?|http:\/\/10\.42\.[0-9]{1,3}\.[0-9]{1,3}(?::[0-9]{2,5})?)\/internal\/consume-nakama-ticket$/.test(consumeUrl) &&
+    moonIsPlatformServiceUrl(
+      consumeUrl,
+      "/internal/consume-nakama-ticket"
+    ) &&
     moonIsOpaqueString(idpToken, 24, 4096) &&
-    moonIsOpaqueString(entitlementKey, 24, 4096) &&
+    moonIsPlatformServiceUrl(
+      entitlementProviderUrl,
+      "/v1/provider-events/" + MOON_APP_ID
+    ) &&
+    moonIsOpaqueString(entitlementProviderToken, 24, 4096) &&
+    moonIsOpaqueString(entitlementKey, 32, 4096) &&
+    moonIsOpaqueString(roomSeedKey, 32, 4096) &&
+    moonSecretsUnique([
+      idpToken,
+      entitlementProviderToken,
+      entitlementKey,
+      roomSeedKey
+    ]) &&
+    moonProductCatalogReady(ctx.env.SUCH_IAP_APPLE_PRODUCT_IDS) &&
+    moonProductCatalogReady(ctx.env.SUCH_IAP_GOOGLE_PRODUCT_IDS) &&
     moonVersionAtLeast(ctx.version, PLATFORM_MINIMUM_NAKAMA_VERSION);
 }
 
@@ -581,9 +647,9 @@ function moonRpcBuildInfo(
     contract_version: PLATFORM_CONTRACT_VERSION,
     contract_source_commit: PLATFORM_CONTRACT_SOURCE_COMMIT,
     schema_version: PLATFORM_SCHEMA_VERSION,
-    source_commit: ctx.env.APP_RUNTIME_SOURCE_COMMIT,
-    runtime_sha256: ctx.env.APP_RUNTIME_SHA256,
-    migration_sha256: ctx.env.APP_MIGRATION_SHA256
+    source_commit: ctx.env.SUCH_PLATFORM_SOURCE_COMMIT,
+    runtime_sha256: ctx.env.SUCH_PLATFORM_RUNTIME_SHA256,
+    migration_sha256: ctx.env.SUCH_PLATFORM_MIGRATION_SHA256
   });
 }
 

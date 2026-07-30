@@ -11,7 +11,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
 NAKAMA = ROOT / "server" / "nakama"
-CONTRACT_COMMIT = "60adf625944d4d764e12d1242cc0cac5e65ac1b8"
+CONTRACT_COMMIT = "560fbfe7299000fe579a720e9342abd1c595200e"
 REQUIRED_RPCS = {
     "app_platform_health",
     "app_platform_readiness",
@@ -27,6 +27,7 @@ REQUIRED_RPCS = {
 REQUIRED_TABLES = {
     "such_platform_identity",
     "such_platform_entitlement",
+    "such_platform_guest_claim_token",
     "such_platform_guest_claim",
     "such_platform_migration_operation",
     "such_moon_launch_friendly_room",
@@ -108,6 +109,41 @@ def main() -> None:
         fail("custom authentication hook is missing")
     if not re.search(r"\bfunction\s+InitModule\s*\(", source):
         fail("InitModule must be a global function declaration")
+
+    required_runtime_environment = {
+        "SUCH_PLATFORM_APP_ID",
+        "SUCH_PLATFORM_SCHEMA_VERSION",
+        "SUCH_PLATFORM_CONTRACT_VERSION",
+        "SUCH_PLATFORM_CONTRACT_COMMIT",
+        "SUCH_PLATFORM_SOURCE_COMMIT",
+        "SUCH_PLATFORM_RUNTIME_SHA256",
+        "SUCH_PLATFORM_MIGRATION_SHA256",
+        "SUCH_IDP_CONSUME_URL",
+        "SUCH_IDP_CONSUMER_TOKEN",
+        "SUCH_ENTITLEMENT_PROVIDER_URL",
+        "SUCH_ENTITLEMENT_PROVIDER_TOKEN",
+        "SUCH_ENTITLEMENT_PROJECTION_HMAC_KEY",
+        "SUCH_ROOM_SEED_HMAC_KEY",
+        "SUCH_IAP_APPLE_PRODUCT_IDS",
+        "SUCH_IAP_GOOGLE_PRODUCT_IDS",
+    }
+    for key in required_runtime_environment:
+        if not re.search(
+            rf"(?<![A-Z0-9_]){re.escape(key)}(?![A-Z0-9_])",
+            source,
+        ):
+            fail(f"runtime does not consume Fleet environment role {key}")
+    for legacy_key in (
+        "APP_RUNTIME_SOURCE_COMMIT",
+        "APP_PLATFORM_CONTRACT_SOURCE_COMMIT",
+        "IDP_CONSUMER_TOKEN",
+        "ENTITLEMENT_SIGNING_KEY",
+    ):
+        if re.search(
+            rf"(?<![A-Z0-9_]){re.escape(legacy_key)}(?![A-Z0-9_])",
+            source,
+        ):
+            fail(f"runtime still consumes legacy environment role {legacy_key}")
 
     forbidden_runtime = {
         r"\brequire\s*\(": "Node require",

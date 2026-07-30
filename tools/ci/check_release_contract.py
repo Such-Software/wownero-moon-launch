@@ -77,6 +77,35 @@ def main() -> int:
         project_path = repo / contract.get("project_path", ".")
         project = parse_godot_config(project_path / "project.godot")
         presets = parse_godot_config(project_path / "export_presets.cfg")
+        admob_config = parse_godot_config(
+            project_path / "addons/AdmobPlugin/ios_export.cfg"
+        )
+        admob_contract = contract["admob"]
+
+        require_equal(
+            admob_config.get("General", {}).get("is_real", ""),
+            "true",
+            "iOS AdMob real-inventory policy",
+        )
+        require_equal(
+            unquote(admob_config.get("Release", {}).get("app_id")),
+            admob_contract["release_app_id"],
+            "iOS AdMob release app ID",
+        )
+        require_equal(
+            admob_config.get("ATT", {}).get("att_enabled", ""),
+            "true" if admob_contract["att_enabled"] else "false",
+            "iOS ATT export policy",
+        )
+        require_equal(
+            unquote(admob_config.get("ATT", {}).get("att_text")),
+            admob_contract["att_text"],
+            "iOS ATT purpose text",
+        )
+        if "3940256099942544" in admob_contract["release_app_id"]:
+            fail("iOS AdMob release app ID must not use Google's demo publisher")
+        if len(admob_contract["att_text"].strip()) < 20:
+            fail("iOS ATT purpose text must be specific and nonempty")
 
         preset_index = ""
         for section, values in presets.items():

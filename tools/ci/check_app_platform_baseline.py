@@ -8,6 +8,9 @@ import sys
 from pathlib import Path
 
 
+EXPECTED_CONTRACT_COMMIT = "560fbfe7299000fe579a720e9342abd1c595200e"
+
+
 def digest(path: Path) -> str:
     return hashlib.sha256(path.read_bytes()).hexdigest()
 
@@ -15,9 +18,20 @@ def digest(path: Path) -> str:
 def main() -> int:
     root = Path(__file__).resolve().parents[2]
     config = json.loads((root / "config/app-platform-v1.json").read_text())
+    runtime_manifest = json.loads(
+        (root / "server/nakama/runtime-manifest.template.json").read_text()
+    )
     lock_path = root / "config/brand-projection.lock.json"
     lock = json.loads(lock_path.read_text())
     errors: list[str] = []
+
+    contract_pin = config["contract_pin"]
+    if contract_pin.get("repo") != "docs":
+        errors.append("consumer contract pin must reference docs")
+    if contract_pin.get("commit") != EXPECTED_CONTRACT_COMMIT:
+        errors.append("consumer contract pin is not the reviewed contract commit")
+    if runtime_manifest.get("contract_source_commit") != contract_pin.get("commit"):
+        errors.append("runtime manifest and consumer contract pins do not match")
 
     brand = config["brand"]
     if digest(lock_path) != brand["projection_lock_sha256"]:
