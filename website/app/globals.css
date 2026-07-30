@@ -5,15 +5,15 @@
 }
 
 :root {
-  --bg: #0a0918;
-  --surface: #171236;
+  --bg: var(--sg-bg);
+  --surface: var(--sg-surface);
   --surface-hi: #221a48;
-  --ink: #fdf6e3;
-  --muted: #aaa8c7;
-  --gold: #f5c518;
-  --gold-hi: #ffe066;
-  --wow: #ff2d9b;
-  --particle: #c9b6ff;
+  --ink: var(--sg-ink);
+  --muted: var(--sg-muted);
+  --gold: var(--sg-accent);
+  --gold-hi: var(--sg-accent-hi);
+  --wow: var(--sg-wow);
+  --particle: var(--sg-particle);
   --line: rgba(201, 182, 255, 0.2);
   --display: "Computer Speak", ui-monospace, monospace;
   --body: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont,

@@ -3,6 +3,9 @@ const BROWSER_URL = "https://suchsoftware.itch.io/such-moon-launch";
 export const metadata = {
   title: "Play",
   description: "Launch the browser and desktop editions of Such Moon Launch.",
+  alternates: {
+    canonical: "/play",
+  },
 };
 
 export default function PlayPage() {
@@ -30,6 +33,8 @@ export default function PlayPage() {
           href={BROWSER_URL}
           target="_blank"
           rel="noreferrer"
+          data-umami-event="gameplay_open"
+          data-umami-event-placement="play-page"
         >
           Open the flight deck <span aria-hidden="true">↗</span>
         </a>

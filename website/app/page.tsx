@@ -4,6 +4,12 @@ const PLAY_STORE_URL =
   "https://play.google.com/store/apps/details?id=com.suchsoftware.suchmoonlaunch";
 const BROWSER_URL = "https://suchsoftware.itch.io/such-moon-launch";
 
+export const metadata = {
+  alternates: {
+    canonical: "/",
+  },
+};
+
 const missions = [
   {
     number: "01",
@@ -34,7 +40,13 @@ function Header() {
         <a href="#gameplay">Gameplay</a>
         <a href="/store">Hangar</a>
       </nav>
-      <a className="header-cta" href="/play">
+      <a
+        className="header-cta"
+        href="/play"
+        data-umami-event="cta_click"
+        data-umami-event-target="play"
+        data-umami-event-placement="header"
+      >
         Play now
       </a>
     </header>
@@ -44,11 +56,25 @@ function Header() {
 function StoreButtons() {
   return (
     <div className="store-buttons" aria-label="Download Such Moon Launch">
-      <a href={APP_STORE_URL} target="_blank" rel="noreferrer">
+      <a
+        href={APP_STORE_URL}
+        target="_blank"
+        rel="noreferrer"
+        data-umami-event="store_click"
+        data-umami-event-store="ios"
+        data-umami-event-placement="download"
+      >
         <span className="button-kicker">Download on the</span>
         <strong>App Store</strong>
       </a>
-      <a href={PLAY_STORE_URL} target="_blank" rel="noreferrer">
+      <a
+        href={PLAY_STORE_URL}
+        target="_blank"
+        rel="noreferrer"
+        data-umami-event="store_click"
+        data-umami-event-store="android"
+        data-umami-event-placement="download"
+      >
         <span className="button-kicker">Get it on</span>
         <strong>Google Play</strong>
       </a>
@@ -82,6 +108,8 @@ export default function Home() {
               href={BROWSER_URL}
               target="_blank"
               rel="noreferrer"
+              data-umami-event="gameplay_open"
+              data-umami-event-placement="hero"
             >
               Play in browser <span aria-hidden="true">↗</span>
             </a>
@@ -192,6 +220,8 @@ export default function Home() {
           href={BROWSER_URL}
           target="_blank"
           rel="noreferrer"
+          data-umami-event="gameplay_open"
+          data-umami-event-placement="platforms"
         >
           Browser and desktop builds <span aria-hidden="true">↗</span>
         </a>
@@ -209,7 +239,13 @@ export default function Home() {
             The MoonLaunch storefront is outfitting behind closed doors. No
             checkout or products are open during platform testing.
           </p>
-          <a className="secondary-action" href="/store">
+          <a
+            className="secondary-action"
+            href="/store"
+            data-umami-event="cta_click"
+            data-umami-event-target="store-status"
+            data-umami-event-placement="hangar"
+          >
             Check hangar status <span aria-hidden="true">→</span>
           </a>
         </div>

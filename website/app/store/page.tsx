@@ -2,6 +2,9 @@ export const metadata = {
   title: "Hangar status",
   description:
     "Status of the inactive-first Such Moon Launch Medusa storefront.",
+  alternates: {
+    canonical: "/store",
+  },
 };
 
 export default function StorePage() {
