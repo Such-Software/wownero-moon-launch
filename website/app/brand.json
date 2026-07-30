@@ -1,11 +1,12 @@
 {
-  "contract_version": 1,
+  "contract_version": 2,
   "extensions": {},
   "generator_version": "0.1.0",
   "media": [],
+  "media_contract_version": 2,
   "pack_id": "wownero",
   "pack_version": "1.0.0",
-  "source_commit": "2d15861",
+  "source_commit": "9f05ca86c04cb252a3c2a159f3c08c3677dbf5dc",
   "tokens": {
     "camera": {
       "fov": 52,

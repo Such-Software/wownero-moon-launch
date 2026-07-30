@@ -11,7 +11,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
 NAKAMA = ROOT / "server" / "nakama"
-CONTRACT_COMMIT = "4c202f2a27685b4d3658c0fe78efa0eee7e3168a"
+CONTRACT_COMMIT = "339e9dab6bf711d28df87d42d2a44c7cefb6ed6a"
 REQUIRED_RPCS = {
     "app_platform_health",
     "app_platform_readiness",

@@ -1,13 +1,14 @@
 {
-  "contract_version": 1,
+  "contract_version": 2,
   "files": {
-    "brand.css": "96d9455828ec19c4d710498521de420fbdd50f02d6a7c4084e7f02e8a9858edd",
-    "brand.json": "1da85d4d7a1ad071004d47bfd3b03d658a4427644391c561de646a044385e3d1",
-    "brand_tokens.dart": "c4067df6d78677d78a653f78f18fdff25759dca2680ca50d88ae09a42452ade9",
-    "design_tokens.gd": "e69f2d60e1ad6df420ec17f82f7534d715836d9fb07cbc195de25213323ff8a4"
+    "brand.css": "289fa49286a96e799ec372936f9d0b007dea54e19c9ddc8602c3b89c77935b32",
+    "brand.json": "037e268da411b2f34fe4692e33a4aca9ac005e4c4672804c5e4044aa5c1daea2",
+    "brand_tokens.dart": "97bd5ed930331cc5c49697600bce346da406dcc0119eb23a78cc725d0ff634fd",
+    "design_tokens.gd": "6a39c2018e564c14168454002e7ce9841319447309f8f2839b6bb50cd6e4bffa"
   },
   "generator_version": "0.1.0",
+  "media_contract_version": 2,
   "pack_id": "wownero",
   "pack_version": "1.0.0",
-  "source_commit": "2d15861"
+  "source_commit": "9f05ca86c04cb252a3c2a159f3c08c3677dbf5dc"
 }

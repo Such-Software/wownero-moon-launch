@@ -66,7 +66,7 @@ service restart counters were unchanged.
 ## Domain and DNS posture
 
 The reviewed App Platform registry at
-`docs@4c202f2a27685b4d3658c0fe78efa0eee7e3168a` assigns:
+`docs@339e9dab6bf711d28df87d42d2a44c7cefb6ed6a` assigns:
 
 - marketing: `moonlaunch.space`;
 - shop: `shop.moonlaunch.space`;
@@ -88,20 +88,18 @@ edge route, certificate path, health check, and rollback target is ready.
 ## Shop theme handoff
 
 The registry-pinned Wownero projection is generated from Such Graphics commit
-token `2d15861`. Keep the generated provisioner input outside this source
-worktree:
+`9f05ca86c04cb252a3c2a159f3c08c3677dbf5dc`. Keep the generated
+provisioner input outside this source worktree:
 
 ```bash
-cd "$HOME/src/such-graphics"
-PYTHONDONTWRITEBYTECODE=1 PYTHONPATH=. \
-  python3 -m such_graphics project-brand packs/wownero \
-    --source-commit 2d15861 \
-    --out "$HOME/Build/such-moon-launch/brand/2d15861"
-sha256sum "$HOME/Build/such-moon-launch/brand/2d15861/brand.lock.json"
+PROJECTION_ROOT="$HOME/Build/such-graphics/brands"
+PROJECTION_COMMIT=9f05ca86c04cb252a3c2a159f3c08c3677dbf5dc
+PROJECTION_DIR="$PROJECTION_ROOT/$PROJECTION_COMMIT/wownero"
+sha256sum "$PROJECTION_DIR/brand.lock.json"
 ```
 
 The required lock SHA-256 is
-`4c684c369d81ff0b8012fc78410fbec72341f8d2f16408ff23b6071bec78be96`.
+`92cec272c4fb7dfda7595b14ec4b76cb285cf2d83d41db2ed641e3ca7086451f`.
 Provisioning must reject any other projection. The inactive Medusa
 provisioner still requires the real intended shop domain; no tenant, channel,
 client, domain, catalog, price, payment, or offer identifier may be invented
@@ -111,6 +109,10 @@ from this handoff.
 imports the byte-exact generated `brand.css`. Its coordinated-release report
 does not prove web gameplay, desktop packaging, storefront theming, provider
 activation, nearby P2P, or release readiness.
+
+The polished apex remains a marketing website. A playable web app, desktop
+package, and nearby P2P transport are separate future adapters and release
+gates; this projection does not satisfy any of them.
 
 ## Client and commerce boundaries
 

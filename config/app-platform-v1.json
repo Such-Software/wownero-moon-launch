@@ -5,13 +5,13 @@
   "runtime": "godot",
   "contract_pin": {
     "repo": "docs",
-    "commit": "4c202f2a27685b4d3658c0fe78efa0eee7e3168a"
+    "commit": "339e9dab6bf711d28df87d42d2a44c7cefb6ed6a"
   },
   "brand": {
     "repo": "such-graphics",
-    "commit": "2d15861",
+    "commit": "9f05ca86c04cb252a3c2a159f3c08c3677dbf5dc",
     "pack_id": "wownero",
-    "projection_lock_sha256": "4c684c369d81ff0b8012fc78410fbec72341f8d2f16408ff23b6071bec78be96"
+    "projection_lock_sha256": "92cec272c4fb7dfda7595b14ec4b76cb285cf2d83d41db2ed641e3ca7086451f"
   },
   "services": {
     "nakama": {
