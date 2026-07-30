@@ -107,6 +107,11 @@ provisioner still requires the real intended shop domain; no tenant, channel,
 client, domain, catalog, price, payment, or offer identifier may be invented
 from this handoff.
 
+`config/brand-consumer-receipt.json` proves only that the apex marketing site
+imports the byte-exact generated `brand.css`. Its coordinated-release report
+does not prove web gameplay, desktop packaging, storefront theming, provider
+activation, nearby P2P, or release readiness.
+
 ## Client and commerce boundaries
 
 Native login will use the system browser with Authorization Code, S256 PKCE,

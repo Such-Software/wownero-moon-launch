@@ -1,0 +1,21 @@
+{
+  "contract_version": 1,
+  "app_id": "moon_launch",
+  "pack_id": "wownero",
+  "pack_source_commit": "2d15861",
+  "projection_lock_sha256": "4c684c369d81ff0b8012fc78410fbec72341f8d2f16408ff23b6071bec78be96",
+  "consumptions": [
+    {
+      "surface": "marketing_site",
+      "projection_file": "brand.css",
+      "target_path": "website/app/brand.css",
+      "target_sha256": "96d9455828ec19c4d710498521de420fbdd50f02d6a7c4084e7f02e8a9858edd",
+      "references": [
+        {
+          "path": "website/app/layout.tsx",
+          "contains": "./brand.css"
+        }
+      ]
+    }
+  ]
+}
