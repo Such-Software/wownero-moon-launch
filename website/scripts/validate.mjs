@@ -21,11 +21,48 @@ const sourceFiles = [
 ];
 
 const errors = [];
+const packageJson = JSON.parse(
+  await readFile(path.join(root, "package.json"), "utf8"),
+);
+const packageLock = JSON.parse(
+  await readFile(path.join(root, "package-lock.json"), "utf8"),
+);
+const hosting = JSON.parse(
+  await readFile(path.join(root, ".openai/hosting.json"), "utf8"),
+);
 const source = (
   await Promise.all(
     sourceFiles.map((file) => readFile(path.join(root, file), "utf8")),
   )
 ).join("\n");
+
+const lockedPackages = packageLock.packages || {};
+for (const dependency of ["next", "react", "react-dom"]) {
+  const requested = packageJson.dependencies?.[dependency];
+  const locked = lockedPackages[`node_modules/${dependency}`]?.version;
+  if (!requested || requested !== locked) {
+    errors.push(
+      `${dependency} dependency and lock differ (${requested || "missing"} vs ${locked || "missing"})`,
+    );
+  }
+}
+
+for (const [dependency, expected] of [
+  ["postcss", "8.5.25"],
+  ["sharp", "0.35.3"],
+]) {
+  const locked = lockedPackages[`node_modules/${dependency}`]?.version;
+  if (locked !== expected) {
+    errors.push(`${dependency} must remain locked to reviewed ${expected}`);
+  }
+}
+
+if (
+  typeof hosting.project_id !== "string" ||
+  !/^appgprj_[a-z0-9]+$/.test(hosting.project_id)
+) {
+  errors.push("Sites project_id is missing or malformed");
+}
 
 for (const asset of requiredAssets) {
   try {
