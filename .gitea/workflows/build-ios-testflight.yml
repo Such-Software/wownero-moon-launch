@@ -144,6 +144,22 @@ jobs:
 
           # Re-hash the materialized checkout, not just the source cache.
           python3 tools/ci/seed_manifest.py --root .
+          while IFS= read -r -d '' xcframework; do
+            if /usr/bin/codesign -d "$xcframework" >/dev/null 2>&1; then
+              /usr/bin/codesign --verify --deep --strict --verbose=2 "$xcframework" || {
+                echo "FATAL: signed XCFramework fails strict verification: $xcframework"
+                exit 1
+              }
+            elif [[ "$xcframework" == ios/framework/* ]]; then
+              echo "FATAL: vendor XCFramework is unsigned: $xcframework"
+              exit 1
+            else
+              echo "Unsigned static app plugin accepted: $xcframework"
+            fi
+          done < <(
+            find ios/framework ios/plugins -type d -name '*.xcframework' -prune -print0
+          )
+          echo "PASS strict XCFramework signature verification"
           echo "IOS_SEED_ROOT=$SEED" >> "$GITHUB_ENV"
 
       - name: Locate Godot and install matching iOS templates
