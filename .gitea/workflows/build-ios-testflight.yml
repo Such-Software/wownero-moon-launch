@@ -268,17 +268,22 @@ jobs:
             echo "CI_CERT_PEM=$CERT_PEM"
           } >> "$GITHUB_ENV"
 
-          security list-keychains -d user > "$ORIGINAL_KEYCHAINS"
+          security list-keychains -d user | python3 -c \
+            'import shlex, sys; print(*shlex.split(sys.stdin.read()), sep="\n")' \
+            > "$ORIGINAL_KEYCHAINS"
           security create-keychain -p "$APPLE_KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
           security set-keychain-settings -lut 21600 "$KEYCHAIN_PATH"
           security unlock-keychain -p "$APPLE_KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
           ORIGINAL_PATHS=()
           while IFS= read -r path; do
-            path="${path#\"}"
-            path="${path%\"}"
             [ -z "$path" ] || ORIGINAL_PATHS+=("$path")
           done < "$ORIGINAL_KEYCHAINS"
-          security list-keychains -d user -s "$KEYCHAIN_PATH" "${ORIGINAL_PATHS[@]}"
+          [ "${#ORIGINAL_PATHS[@]}" -gt 0 ] || {
+            echo "FATAL: the release account has no original user keychain search list."
+            exit 1
+          }
+          security list-keychains -d user -s \
+            "$KEYCHAIN_PATH" "${ORIGINAL_PATHS[@]}" /Library/Keychains/System.keychain
 
           printf '%s' "$APPLE_DIST_CERT_P12_BASE64" | openssl base64 -d -A > "$P12"
           chmod 600 "$P12"
@@ -304,7 +309,12 @@ jobs:
             -T /usr/bin/codesign -T /usr/bin/security
           security set-key-partition-list -S apple-tool:,apple:,codesign: \
             -s -k "$APPLE_KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
-          security find-identity -v -p codesigning "$KEYCHAIN_PATH" | grep -F "Apple Distribution"
+          IDENTITY_OUTPUT="$(security find-identity -v -p codesigning "$KEYCHAIN_PATH")"
+          printf '%s\n' "$IDENTITY_OUTPUT"
+          grep -Fq "Apple Distribution" <<<"$IDENTITY_OUTPUT" || {
+            echo "FATAL: imported Apple Distribution identity is not valid for code signing."
+            exit 1
+          }
           rm -f "$P12"
 
       - name: Install and validate provisioning profile
@@ -738,8 +748,6 @@ jobs:
           if [ -n "${CI_ORIGINAL_KEYCHAINS:-}" ] && [ -f "$CI_ORIGINAL_KEYCHAINS" ]; then
             ORIGINAL_PATHS=()
             while IFS= read -r path; do
-              path="${path#\"}"
-              path="${path%\"}"
               [ -z "$path" ] || ORIGINAL_PATHS+=("$path")
             done < "$CI_ORIGINAL_KEYCHAINS"
             [ "${#ORIGINAL_PATHS[@]}" -eq 0 ] || \
