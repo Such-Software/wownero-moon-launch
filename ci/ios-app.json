@@ -72,9 +72,9 @@
     }
   ],
   "required_linked_symbols": [
-    "_admob_plugin_init",
-    "_bloomword_firebase_init",
-    "_register_godot_storekit2_types"
+    "__ZZN11AdmobPlugin20get_class_ptr_staticEvE3ptr",
+    "__ZN17BloomwordFirebase13get_singletonEv",
+    "__ZN7ClassDB7creatorI14GodotStoreKit2EEP6Objectb"
   ],
   "required_plugins": [
     "AdmobPlugin",
