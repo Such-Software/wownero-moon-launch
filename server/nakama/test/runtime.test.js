@@ -29,18 +29,24 @@ function asArrayBuffer(buffer) {
 function completeContext(overrides = {}) {
   const context = {
     env: {
-      APP_ID: "moon_launch",
-      APP_SCHEMA_VERSION: "2",
-      APP_RUNTIME_SOURCE_COMMIT: "a".repeat(40),
-      APP_RUNTIME_SHA256: "b".repeat(64),
-      APP_MIGRATION_SHA256: "c".repeat(64),
-      APP_PLATFORM_CONTRACT_VERSION: "1",
-      APP_PLATFORM_CONTRACT_SOURCE_COMMIT:
-        "60adf625944d4d764e12d1242cc0cac5e65ac1b8",
-      IDP_CONSUME_URL:
+      SUCH_PLATFORM_APP_ID: "moon_launch",
+      SUCH_PLATFORM_SCHEMA_VERSION: "2",
+      SUCH_PLATFORM_SOURCE_COMMIT: "a".repeat(40),
+      SUCH_PLATFORM_RUNTIME_SHA256: "b".repeat(64),
+      SUCH_PLATFORM_MIGRATION_SHA256: "c".repeat(64),
+      SUCH_PLATFORM_CONTRACT_VERSION: "1",
+      SUCH_PLATFORM_CONTRACT_COMMIT:
+        "560fbfe7299000fe579a720e9342abd1c595200e",
+      SUCH_IDP_CONSUME_URL:
         "https://idp.internal.example/internal/consume-nakama-ticket",
-      IDP_CONSUMER_TOKEN: "i".repeat(32),
-      ENTITLEMENT_SIGNING_KEY: "e".repeat(32)
+      SUCH_IDP_CONSUMER_TOKEN: "i".repeat(32),
+      SUCH_ENTITLEMENT_PROVIDER_URL:
+        "https://entitlements.internal.example/v1/provider-events/moon_launch",
+      SUCH_ENTITLEMENT_PROVIDER_TOKEN: "p".repeat(32),
+      SUCH_ENTITLEMENT_PROJECTION_HMAC_KEY: "e".repeat(32),
+      SUCH_ROOM_SEED_HMAC_KEY: "r".repeat(32),
+      SUCH_IAP_APPLE_PRODUCT_IDS: "software.such.moonlaunch.premium.test",
+      SUCH_IAP_GOOGLE_PRODUCT_IDS: "software.such.moonlaunch.premium.test"
     },
     executionMode: "run_once",
     node: "test",
@@ -419,10 +425,30 @@ test("readiness and build info require exact pins and applied schema", () => {
 
   const unpinned = completeContext();
   unpinned.env = Object.assign({}, unpinned.env, {
-    APP_PLATFORM_CONTRACT_SOURCE_COMMIT: "f".repeat(40)
+    SUCH_PLATFORM_CONTRACT_COMMIT: "f".repeat(40)
   });
   assert.throws(
     () => rpcs.get("app_platform_readiness")(unpinned, logger, nk, ""),
+    (error) => error.code === 9
+  );
+
+  const noNativeCatalog = completeContext();
+  delete noNativeCatalog.env.SUCH_IAP_APPLE_PRODUCT_IDS;
+  assert.throws(
+    () => rpcs.get("app_platform_readiness")(
+      noNativeCatalog,
+      logger,
+      nk,
+      ""
+    ),
+    (error) => error.code === 9
+  );
+
+  const reusedSecret = completeContext();
+  reusedSecret.env.SUCH_ROOM_SEED_HMAC_KEY =
+    reusedSecret.env.SUCH_ENTITLEMENT_PROJECTION_HMAC_KEY;
+  assert.throws(
+    () => rpcs.get("app_platform_readiness")(reusedSecret, logger, nk, ""),
     (error) => error.code === 9
   );
 });

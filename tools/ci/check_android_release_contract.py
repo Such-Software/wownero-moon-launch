@@ -99,6 +99,23 @@ def main() -> int:
 
         project = parse_godot_config(repo / "project.godot")
         presets = parse_godot_config(repo / "export_presets.cfg")
+        admob_config = parse_godot_config(
+            repo / "addons/AdmobPlugin/android_export.cfg"
+        )
+        admob_contract = contract["admob"]
+        require_equal(
+            admob_config.get("General", {}).get("is_real", ""),
+            "true",
+            "Android AdMob real-inventory policy",
+        )
+        require_equal(
+            unquote(admob_config.get("Release", {}).get("app_id")),
+            admob_contract["release_app_id"],
+            "Android AdMob release app ID",
+        )
+        if "3940256099942544" in admob_contract["release_app_id"]:
+            fail("Android AdMob release app ID must not use Google's demo publisher")
+
         options: dict[str, str] | None = None
         for section, values in presets.items():
             if (

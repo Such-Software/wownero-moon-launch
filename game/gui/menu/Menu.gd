@@ -129,7 +129,6 @@ func _ready():
 	$VButtonArray.move_child(race_btn, $VButtonArray/PlayButton.get_index() + 1)
 	_build_help_options_buttons()
 	_build_level_select()
-	_build_cloud_restore_button()
 	_build_pgs_buttons()
 	_layout_menu()
 	get_viewport().size_changed.connect(_fit_menu_buttons)
@@ -897,6 +896,16 @@ func _show_options_popup() -> void:
 		func(): OS.shell_open(ExternalLinks.PRIVACY_POLICY_URL)
 	)
 	vbox.add_child(privacy_btn)
+
+	# Cloud restore is intentionally kept in Options: it is a recovery action,
+	# not a primary menu destination, and still gets an explicit confirmation.
+	var cloud_restore_btn := Button.new()
+	cloud_restore_btn.name = "CloudRestoreButton"
+	cloud_restore_btn.text = "Restore Cloud Save"
+	cloud_restore_btn.custom_minimum_size = Vector2(240, 32)
+	BS.apply_space_style(cloud_restore_btn, Color(0.4, 0.7, 1.0))
+	cloud_restore_btn.pressed.connect(_on_cloud_restore_pressed)
+	vbox.add_child(cloud_restore_btn)
 
 	# Reset Progress button
 	var reset_btn := Button.new()
@@ -1943,7 +1952,7 @@ func _show_lock_popup() -> void:
 	vbox.add_child(close)
 
 
-# --- Cloud Restore Button ---
+# --- Platform Achievements ---
 
 func _build_pgs_buttons() -> void:
 	## Add platform achievements button (Android: PGS, iOS: Game Center).
@@ -1973,23 +1982,6 @@ func _build_pgs_buttons() -> void:
 	# Insert before Quit button
 	$VButtonArray.add_child(ach_btn)
 	$VButtonArray.move_child(ach_btn, $VButtonArray/QuitButton.get_index())
-
-
-func _build_cloud_restore_button() -> void:
-	var bar := HBoxContainer.new()
-	bar.name = "CloudBar"
-	bar.set_anchors_preset(Control.PRESET_BOTTOM_RIGHT)
-	bar.position = Vector2(-170, -44)
-	bar.add_theme_constant_override("separation", 8)
-	add_child(bar)
-
-	var restore_btn := Button.new()
-	restore_btn.text = "Restore Cloud Save"
-	restore_btn.custom_minimum_size = Vector2(160, 28)
-	BS.apply_space_style(restore_btn, Color(0.4, 0.7, 1.0))
-	restore_btn.add_theme_font_size_override("font_size", 12)
-	restore_btn.pressed.connect(_on_cloud_restore_pressed)
-	bar.add_child(restore_btn)
 
 
 func _on_cloud_restore_pressed() -> void:

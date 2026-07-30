@@ -10,6 +10,11 @@
   "project_adapter": "godot",
   "project_path": ".",
   "team_id": "D8PL9F7X33",
+  "admob": {
+    "release_app_id": "ca-app-pub-2501747033825166~9592024025",
+    "att_enabled": true,
+    "att_text": "Allowing tracking lets advertising partners use your device identifier to personalize and measure ads across apps and websites."
+  },
   "required_entitlements": {
     "beta-reports-active": true,
     "com.apple.developer.game-center": true
