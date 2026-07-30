@@ -7,6 +7,9 @@ server/nakama/dist/
 website/node_modules/
 website/.next/
 website/out/
+# Website assets are served by Next.js and must not acquire Godot import
+# sidecars during whole-project headless verification.
+website/public/*.import
 .import/
 
 # Godot uid files (auto-generated)
