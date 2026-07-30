@@ -177,7 +177,9 @@ jobs:
           echo "GODOT_BIN=$GODOT_BIN" >> "$GITHUB_ENV"
 
           TEMPLATE_VERSION="${GODOT_VERSION/-/.}"
-          TEMPLATE_DIR="$GODOT_DIR/Godot.app/Contents/MacOS/editor_data/export_templates/$TEMPLATE_VERSION"
+          # On macOS, a self-contained app bundle resolves editor_data beside
+          # Godot.app, even though the _sc_ marker lives beside the executable.
+          TEMPLATE_DIR="$GODOT_DIR/editor_data/export_templates/$TEMPLATE_VERSION"
           if [ ! -f "$TEMPLATES_ARCHIVE" ]; then
             curl --fail --location --proto '=https' --tlsv1.2 \
               --output "$TEMPLATES_ARCHIVE.partial" \
