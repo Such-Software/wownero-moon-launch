@@ -11,6 +11,6 @@ func _process(delta):
 	if not running:
 		return
 	velocity = get_node("../../Rocket").linear_velocity.length()
-	text = "Velocity: %8.2f" % velocity
+	text = "Velocity: %s" % globalvar.format_speed_km_s(velocity)
 func stop():
 	running = false

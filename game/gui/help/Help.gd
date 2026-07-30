@@ -322,8 +322,8 @@ Approach the target planet slowly and [color=lime]straight down[/color].
 Your HUD shows landing speed — keep it [color=lime]green[/color].
 
 [b]Speed Thresholds[/b]
-[color=lime]Landing speed[/color] — safe touchdown (base 40 px/s)
-[color=red]Crash speed[/color] — instant destruction (base 100 px/s)
+[color=lime]Landing speed[/color] — safe touchdown (base 0.40 km/s)
+[color=red]Crash speed[/color] — instant destruction (base 1.00 km/s)
 Between them — you'll bounce or take damage.
 Upgrades (Armor, Landing Gear) increase both thresholds.
 
@@ -405,8 +405,8 @@ Each upgrade has [color=cyan]5 levels[/color] — cost increases per level.
 [color=orange]Engine Power[/color] — more thrust force (+50/lvl)
 [color=green]Fuel Tank[/color] — larger capacity (+40/lvl)
 [color=cyan]Fuel Efficiency[/color] — less drain (-1.5/s per lvl)
-[color=red]Armor Plating[/color] — survive harder impacts (+50/lvl)
-[color=lime]Landing Gear[/color] — land at higher speed (+20/lvl)
+[color=red]Armor Plating[/color] — survive harder impacts (+0.50 km/s per lvl)
+[color=lime]Landing Gear[/color] — land at higher speed (+0.20 km/s per lvl)
 [color=dodgerblue]Shield Generator[/color] — absorb 1 hit per level
 [color=yellow]Gyroscope[/color] — faster rotation (+1000 torque/lvl)
 [color=orange]Retro Rockets[/color] — stronger reverse thrust (+40/lvl)
@@ -507,7 +507,7 @@ Each waypoint gives [color=gold]+10% fuel bonus[/color] on first visit.
 
 [b]Gravity Slingshot[/b]
 Fly near any planet to use its gravity.
-If your exit speed is [color=yellow]40+ px/s faster[/color] than entry:
+If your exit speed is [color=yellow]0.40+ km/s faster[/color] than entry:
   [color=gold]"SLINGSHOT!"[/color] — gold label with star burst
   Free speed boost — saves fuel!
 

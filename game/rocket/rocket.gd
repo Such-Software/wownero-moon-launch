@@ -1199,7 +1199,7 @@ func _spawn_slingshot_effect(_planet_pos: Vector2, speed_gain: float) -> void:
 	Input.vibrate_handheld(50)
 	# Floating "SLINGSHOT!" label
 	var label := Label.new()
-	label.text = "SLINGSHOT! +%d" % int(speed_gain)
+	label.text = "SLINGSHOT! +%s" % globalvar.format_speed_km_s(speed_gain)
 	label.add_theme_color_override("font_color", Color(1.0, 0.85, 0.2))
 	label.add_theme_font_size_override("font_size", 18)
 	label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER

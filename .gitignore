@@ -1,5 +1,7 @@
 # Godot 4 - generated files
-.godot/
+# Ignore both a normal cache directory and the workstation-standard symlink
+# that redirects the cache into ~/Build.
+.godot
 server/nakama/node_modules/
 server/nakama/dist/
 .import/

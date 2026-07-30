@@ -43,7 +43,10 @@ func _draw() -> void:
 		elif "linear_velocity" in _rocket:
 			vel = _rocket.linear_velocity
 		lines.append("Pos: " + str(Vector2i(_rocket.global_position)))
-		lines.append("Vel: %.0f px/s" % vel.length())
+		lines.append("Vel: %s (%.0f wu/s)" % [
+			globalvar.format_speed_km_s(vel.length()),
+			vel.length(),
+		])
 		lines.append("Fuel: %.0f / %.0f" % [_rocket.fuel, _rocket.max_fuel])
 	
 	lines.append("Wallet: " + str(globalvar.wallet) + " 🪨")

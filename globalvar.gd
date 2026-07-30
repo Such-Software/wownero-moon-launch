@@ -19,7 +19,7 @@ var all_completed: bool = false
 var highest_level_completed: int = 0  # Tracks progress for level select
 var tutorial_shown: bool = false  # Level 1 tutorial prompts (first-time only)
 var welcome_shown: bool = false   # First-launch nickname/welcome prompt (independent of tutorial)
-const CURRENT_OPENING_INTRO_VERSION := 1
+const CURRENT_OPENING_INTRO_VERSION := 2
 var opening_intro_version: int = 0  # Versioned so existing players see a materially improved opening once
 var first_flight_briefing_shown: bool = false  # One-time pre-action Level 1 mission briefing
 var seen_hints: Array[String] = []  # one-time HintService hint ids already shown (persisted)
@@ -46,6 +46,17 @@ var race_won := false
 var demo_mode := false
 
 const DIFFICULTY_NAMES := { 0: "Easy", 1: "Normal", 2: "Hard" }
+
+# Physics uses compact world-space units so the arcade-sized solar system remains
+# playable. Player-facing speed is presentation-only: 100 world units/s reads as
+# 1.00 km/s. Never apply this scale to physics, thresholds, scoring, or telemetry.
+const DISPLAY_KM_S_PER_WORLD_SPEED := 0.01
+
+func speed_to_display_km_s(world_speed: float) -> float:
+	return maxf(world_speed, 0.0) * DISPLAY_KM_S_PER_WORLD_SPEED
+
+func format_speed_km_s(world_speed: float) -> String:
+	return "%.2f km/s" % speed_to_display_km_s(world_speed)
 
 # --- Mobile control scheme ---
 # Desktop uses keyboard (this setting is ignored). On mobile, the player can

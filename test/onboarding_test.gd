@@ -5,7 +5,7 @@ const OpeningTransmissionScene = preload("res://game/gui/onboarding/OpeningTrans
 const FirstFlightBriefingScene = preload("res://game/gui/onboarding/FirstFlightBriefing.gd")
 
 
-func test_opening_transmission_is_short_and_player_facing() -> void:
+func test_opening_transmission_is_readable_and_player_facing() -> void:
 	var beats := OpeningTransmissionScene.dialogue_beats()
 	assert_int(beats.size()).is_equal(3)
 	assert_str(str(beats[0]["actor"])).is_equal("alien")
@@ -14,7 +14,8 @@ func test_opening_transmission_is_short_and_player_facing() -> void:
 	var total_duration := 0.0
 	for beat in beats:
 		total_duration += float(beat["duration"])
-	assert_float(total_duration).is_less_equal(12.0)
+	assert_float(total_duration).is_greater_equal(14.5)
+	assert_float(total_duration).is_less_equal(16.0)
 
 
 func test_first_flight_briefing_teaches_route_and_braking() -> void:

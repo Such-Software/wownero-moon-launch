@@ -1,8 +1,7 @@
 class_name TalkingPortrait
 extends Control
-## Runtime portrait for the same named-group SVG puppets used by the marketing
-## renderer. The source puppets intentionally contain only a mouth anchor; this
-## component draws a simple rest/talking mouth so they also perform in Godot.
+## Lightweight runtime portrait. It can either draw a mouth over a 2D puppet or
+## cycle pre-rendered procedural 3D visemes, avoiding a live 3D scene on mobile.
 
 var portrait_texture: Texture2D = null
 var mouth_anchor := Vector2(0.5, 0.65)
@@ -12,6 +11,7 @@ var mouth_color := Color(0.08, 0.045, 0.035)
 var lip_color := Color(0.38, 0.18, 0.12)
 var rest_curve := 1.0
 var bottom_aligned := false
+var talking_textures: Array[Texture2D] = []
 
 var _talking := false
 var _active := false
@@ -36,6 +36,16 @@ func configure(texture: Texture2D, anchor: Vector2, width: float,
 	mouth_color = mouth_fill
 	lip_color = lip
 	rest_curve = curve
+	if is_inside_tree():
+		queue_redraw()
+
+
+func configure_visemes(rest_texture: Texture2D, textures: Array) -> void:
+	portrait_texture = rest_texture
+	talking_textures.clear()
+	for texture in textures:
+		if texture is Texture2D:
+			talking_textures.append(texture)
 	if is_inside_tree():
 		queue_redraw()
 
@@ -83,10 +93,18 @@ func _process(delta: float) -> void:
 func _draw() -> void:
 	if portrait_texture == null:
 		return
+	var display_texture := portrait_texture
+	if _talking and not talking_textures.is_empty():
+		var frame_i := int(floor(_phase * 8.0)) % talking_textures.size()
+		display_texture = talking_textures[frame_i]
 	var side := minf(size.x, size.y)
 	var portrait_position := Vector2((size.x - side) / 2.0, size.y - side if bottom_aligned else (size.y - side) / 2.0)
 	var portrait_rect := Rect2(portrait_position, Vector2(side, side))
-	draw_texture_rect(portrait_texture, portrait_rect, false)
+	draw_texture_rect(display_texture, portrait_rect, false)
+
+	# A 3D frame already contains its modeled mouth.
+	if not talking_textures.is_empty():
+		return
 
 	var center := portrait_rect.position + portrait_rect.size * mouth_anchor
 	var width_px := portrait_rect.size.x * mouth_width
