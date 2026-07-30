@@ -4,7 +4,7 @@
 - Date: 2026-07-29
 - App: Such Moon Launch (`moon_launch`)
 - Source base: `d50da4f886adc6782e82d4642de619f770b86d31`
-- Contract: `docs@560fbfe7299000fe579a720e9342abd1c595200e`
+- Contract: `docs@4c202f2a27685b4d3658c0fe78efa0eee7e3168a`
 
 ## Decision
 

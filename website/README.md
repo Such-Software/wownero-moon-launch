@@ -1,6 +1,8 @@
 # Such Moon Launch website
 
-This is the intentional apex marketing/play surface for `moonlaunch.space`.
+This is the intentional apex marketing and product surface for
+`moonlaunch.space`. It is not evidence of a coordinated next-version playable
+web app or desktop candidate; those retain their own release gates.
 Commerce belongs on the dedicated Medusa tenant at
 `shop.moonlaunch.space`; `/store` reports its inactive setup status and
 contains no checkout.

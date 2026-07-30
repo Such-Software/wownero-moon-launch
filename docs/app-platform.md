@@ -20,7 +20,8 @@ friendly room slice and merge invariants are recorded in
 | Shop label | Such Moon Launch Shop | provisioned inactive on staging |
 | Medusa production tenant/channel/client IDs | provisioned values only | `null` |
 | Medusa staging tenant/channel/theme | exact provisioned IDs | inactive |
-| Marketing/shop domain | `moonlaunch.space` | assigned; parked and inactive |
+| Marketing domain | `moonlaunch.space` | site source prepared; DNS remains parked and inactive |
+| Shop domain | `shop.moonlaunch.space` | intended; route/TLS not provisioned |
 | API domain | `api.moonlaunch.space` | assigned; route/TLS not provisioned |
 | Play/admin domains | provisioned values only | `null` |
 | Native OIDC client/redirect | provisioned exact values only | `null` |
@@ -28,9 +29,9 @@ friendly room slice and merge invariants are recorded in
 | Nearby P2P | separate future adapter | disabled |
 
 The Medusa portfolio branch already declares Moon Launch as a disabled,
-planned storefront. The intended storefront is `moonlaunch.space`, but its
-production portfolio domain remains `null` until activation evidence passes.
-Provisioning must create a dedicated tenant, sales
+planned storefront. The intended storefront is `shop.moonlaunch.space`, but
+its production portfolio domain remains `null` until activation evidence
+passes. Provisioning must create a dedicated tenant, sales
 channel, storefront, Wownero theme projection, OIDC shop client, catalog
 namespace, outbox credential, and isolated restore proof before activation.
 The app never derives any real identifier from `moon_launch`.
@@ -47,7 +48,9 @@ twice on staging, with the second run reusing the first run's identifiers:
 
 The dedicated channel is disabled, the tenant is inactive with no live
 domain, payment provider, catalog products, or production OIDC client, and
-the tenant lookup and `moonlaunch.space` host route return `404`. The
+the tenant lookup and historical `moonlaunch.space` host route return `404`.
+This evidence predates the approved `shop.moonlaunch.space` topology and must
+be repeated against the new intended host before production activation. The
 Wownero projection lock matches the consumer pin and the linked publishable
 key count is exactly one. A validated pre-provision database dump is retained
 under the staging host's `~/Build`; no credential or database artifact was
@@ -62,10 +65,11 @@ service restart counters were unchanged.
 
 ## Domain and DNS posture
 
-The pushed App Platform registry at
-`docs@560fbfe7299000fe579a720e9342abd1c595200e` assigns:
+The reviewed App Platform registry at
+`docs@4c202f2a27685b4d3658c0fe78efa0eee7e3168a` assigns:
 
-- marketing and shop: `moonlaunch.space`;
+- marketing: `moonlaunch.space`;
+- shop: `shop.moonlaunch.space`;
 - API: `api.moonlaunch.space`;
 - play and admin: `null`.
 
@@ -78,8 +82,8 @@ additional read-only snapshot was verified at `20260730_052721`.
 Namecheap `setHosts` is replace-all. A reviewed cutover must fetch the live
 zone immediately before writing, save the raw response, retain
 `EmailType=FWD`, preserve unrelated records, and verify the complete zone
-afterward. Do not publish the apex or API record until the matching edge
-route, certificate path, health check, and rollback target are ready.
+afterward. Do not publish the apex, shop, or API record until each matching
+edge route, certificate path, health check, and rollback target is ready.
 
 ## Shop theme handoff
 
