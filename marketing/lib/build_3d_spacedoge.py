@@ -1,6 +1,6 @@
 """Full-3D SpaceDoge — Shiba Inu astronaut, the MoonLaunch hero.
 
-The 3D upgrade of marketing/characters/spacedoge.svg, built with the such-graphics
+The 3D upgrade of art/characters/dialogue/spacedoge.svg, built with the such-graphics
 PROCEDURAL-BLENDER contract (same as build_3d_sprout / build_3d_tomato): modeled
 VOLUMES sitting proud of the head (no craters), ONE parametric mouth driven by the
 shared A-H/X viseme table, everything parented to `root` so a head-bob moves the

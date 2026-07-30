@@ -288,6 +288,12 @@ func _page_controls() -> String:
   [color=aqua]L[/color] — Laser
   [color=dodgerblue]E[/color] — EMP"""
 
+	var full_tilt := """[b]Full Tilt / Portrait[/b]
+[color=lime]Roll phone left / right[/color] — rotate ship
+[color=lime]Pitch phone forward[/color] — forward thrust
+[color=lime]Pitch phone back[/color] — reverse thrust / brake
+No on-screen flight buttons — return the phone to neutral to coast."""
+
 	var tail := """[b]Menu[/b]
 Use the [color=cyan]Levels[/color] button to replay completed levels.
 
@@ -299,11 +305,13 @@ Weapons are unlocked in the Upgrade Shop between levels."""
 	var blocks: Array[String] = []
 	match globalvar.active_input_hint():
 		globalvar.InputHint.GAMEPAD:
-			blocks = [gamepad, keyboard, mobile]
+			blocks = [gamepad, keyboard, mobile, full_tilt]
+		globalvar.InputHint.FULL_TILT:
+			blocks = [full_tilt, mobile, keyboard, gamepad]
 		globalvar.InputHint.TILT, globalvar.InputHint.TOUCH_JOYSTICK:
-			blocks = [mobile, keyboard, gamepad]
+			blocks = [mobile, full_tilt, keyboard, gamepad]
 		_:
-			blocks = [keyboard, gamepad, mobile]
+			blocks = [keyboard, gamepad, mobile, full_tilt]
 	blocks.append(tail)
 	return "\n\n".join(blocks)
 

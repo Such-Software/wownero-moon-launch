@@ -35,17 +35,18 @@ Run WPs in the waves listed at the bottom (they're grouped to avoid same-file co
 7. **Engine**: Godot 4.6.x, typed GDScript, tabs. Match surrounding style.
 
 **Key shared state (for reference):**
-- Control scheme (mobile): `globalvar.gd:36-38` — `enum ControlScheme { TILT, JOYSTICK }`,
+- Control scheme (mobile): `globalvar.gd` — `enum ControlScheme { TILT, JOYSTICK, FULL_TILT }`,
   `control_scheme` (default TILT), persisted key `control_scheme`.
 - Desktop control (NEW, added by WP-A1/A4): `enum DesktopControl { KEYBOARD, GAMEPAD }`,
   persisted `desktop_control` (default KEYBOARD). On desktop BOTH keyboard and gamepad
   inputs stay live at once; this setting only chooses which control HINTS/glyphs to show.
 - Input-hint helper (NEW, added by WP-A1, used by B1/B6): `globalvar.active_input_hint()`
-  returns one of `{KEYBOARD, GAMEPAD, TILT, TOUCH_JOYSTICK}` from platform + the two
+  returns one of `{KEYBOARD, GAMEPAD, TILT, TOUCH_JOYSTICK, FULL_TILT}` from platform + the two
   settings above. Every place that branches control-instruction text must use this
   helper instead of re-deriving `is_mobile`/`control_scheme` inline.
-- First-run flags: `globalvar.gd:14-15` — `tutorial_shown` (L1 tutorial, set on first L1
-  win in `game/gui/victory/Victory.gd:54-56`), `welcome_shown` (menu welcome popup).
+- First-run flags: `globalvar.gd` — `opening_intro_version` (versioned opening story),
+  `welcome_shown` (flight-deck setup), `first_flight_briefing_shown` (pre-action L1
+  briefing), and `tutorial_shown` (action coach, set on the first L1 win).
 - Tilt tuning consts: `globalvar.gd:40-74` (`TILT_SENSITIVITY 2.0`, `TILT_DEADZONE`,
   polarity consts). Tilt is applied in `game/rocket/rocket.gd:343-398`
   (`_integrate_forces`), calibrated via `_calibrate_tilt()` (rocket.gd:295).
@@ -69,12 +70,13 @@ described in the shared-state notes (persist `desktop_control`, convention #1). 
 depends on WP-A4 for gamepad bindings to be *functional*, but A1 can land first — the
 picker only sets the hint preference; both input paths work regardless.
 
-**Two large tappable option cards, EQUAL visual weight — NO nudging one over the other**
+**Large tappable option cards, EQUAL visual weight — NO nudging one over the other**
 (decision from John, 2026-07-16: do not bias the player). Selecting highlights the
 chosen card and sets the relevant setting.
 
 - **Mobile** (`OS.get_name() == "Android" or "iOS"`): "How do you want to steer?"
-  - **📱 Tilt** — "Roll your phone to turn"   ·   **🕹 Joystick** — "On-screen stick"
+  - **📱 Tilt** — "Roll to turn" · **🕹 Joystick** — "Stick + buttons" ·
+    **🎢 Full Tilt** — "Portrait · no buttons"
   - No default selection, no skip: **Start Game stays disabled until one is picked**
     (both are one tap; nickname can still be blank). This is the anti-churn point —
     tilt must not be a silent default. Present them in a neutral order, equal styling,
@@ -96,7 +98,7 @@ chosen card and sets the relevant setting.
   settings are untouched.
 - Popup is already capture-gated (Menu.gd:1076-1078) — keep that.
 
-**Acceptance:** fresh install (delete `user://savegame.json`) — mobile shows Tilt|Joystick
+**Acceptance:** fresh install (delete `user://savegame.json`) — mobile shows Tilt|Joystick|Full Tilt
 with Start disabled until one is picked and neither visually favored; desktop with a pad
 plugged in shows Keyboard|Gamepad (Keyboard pre-selected, Start enabled); desktop with no
 pad shows nickname-only; choice persists across restart; `--capture` runs never see the
@@ -234,16 +236,16 @@ once; toast queues don't overlap; no visual during `--capture` runs.
 message loop (4s hold → fade → next) that advances regardless of player behavior.
 
 **Change:** rewrite the step engine so each step **waits for the thing it teaches**.
-Message text is chosen by `globalvar.active_input_hint()` (WP-A1) across FOUR styles —
-`TILT`, `TOUCH_JOYSTICK`, `KEYBOARD`, `GAMEPAD` — replacing the current two-way
+Message text is chosen by `globalvar.active_input_hint()` (WP-A1) across FIVE styles —
+`TILT`, `TOUCH_JOYSTICK`, `FULL_TILT`, `KEYBOARD`, `GAMEPAD` — replacing the current two-way
 mobile/desktop branch in `_build_tutorial_messages` (`Level1.gd:55-80`):
 
 | # | Message per input-hint style | Advance when |
 |---|---|---|
 | 1 | "Welcome, Pilot!" (all) | 2s timer (title beat) |
-| 2 | tilt/joystick: "Hold THRUST to fly up" · keyboard: "Press UP to thrust" · gamepad: "Press Ⓐ / right trigger to thrust" | `Input.is_action_pressed("thrust")` held ≥ 0.5s |
-| 3 | tilt: "Tilt phone LEFT / RIGHT to turn" · joystick: "Use the joystick to rotate" · keyboard: "LEFT / RIGHT to rotate" · gamepad: "Left stick to rotate" | cumulative rotation input ≥ ~0.5 rad of turn |
-| 4 | tilt/joystick: "Tap REVERSE to slow your descent" · keyboard: "Press DOWN for reverse thrust" · gamepad: "Press Ⓑ / left trigger for reverse" | `revthrust` pressed ≥ 0.3s |
+| 2 | tilt/joystick: "Hold THRUST to fly up" · full tilt: "Pitch phone FORWARD to thrust" · keyboard: "Press UP to thrust" · gamepad: "Press Ⓐ / right trigger to thrust" | active thrust source held ≥ 0.5s |
+| 3 | tilt: "Tilt phone LEFT / RIGHT to turn" · joystick: "Use the joystick to rotate" · full tilt: "Roll phone LEFT / RIGHT to turn" · keyboard: "LEFT / RIGHT to rotate" · gamepad: "Left stick to rotate" | cumulative rotation input ≥ ~0.5 rad of turn |
+| 4 | tilt/joystick: "Tap REVERSE to slow your descent" · full tilt: "Pitch phone BACK to brake" · keyboard: "Press DOWN for reverse thrust" · gamepad: "Press Ⓑ / left trigger for reverse" | active reverse-thrust source held ≥ 0.3s |
 | 5 | "Slingshot! Swing around Earth…" (all) | slingshot detected (see below) OR 20s fallback |
 | 6 | "Don't fly straight at it…" | merged into 5's hold text — drop as separate step |
 | 7 | "Land slowly and upright on the Moon!" (all) | shows when within ~600px of Moon; stays until landing mode activates |

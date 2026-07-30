@@ -3,6 +3,7 @@ extends Control
 const BS = preload("res://game/gui/ButtonStyles.gd")
 const MENU_FONT := preload("res://fonts/Computer Speak v0.3.ttf")
 const ExternalLinks = preload("res://game/net/ExternalLinks.gd")
+const OpeningTransmissionScene = preload("res://game/gui/onboarding/OpeningTransmission.gd")
 
 var _level_select_visible := false
 var _level_select_container: VBoxContainer = null
@@ -14,6 +15,7 @@ var _lb_content: RichTextLabel = null
 var _lb_level_label: Label = null
 var _lb_level: int = 1
 var _lb_board: String = "time"
+var _opening_transmission: Control = null
 
 # Title screen background animation
 var _bg_planets: Array[Dictionary] = []  # {sprite, center, radius, angle, speed}
@@ -133,10 +135,15 @@ func _ready():
 	_layout_menu()
 	get_viewport().size_changed.connect(_fit_menu_buttons)
 
-	# Show nickname prompt on first launch only (independent of Level 1 tutorial)
-	if not globalvar.welcome_shown:
+	# A materially improved opening is versioned independently from the flight-deck
+	# setup. Returning players see the new story once; fresh players flow from it
+	# into callsign/controls and directly into training.
+	if globalvar.opening_intro_version < globalvar.CURRENT_OPENING_INTRO_VERSION:
 		var timer := get_tree().create_timer(0.5)
-		timer.timeout.connect(_show_first_time_nickname_prompt)
+		timer.timeout.connect(_show_opening_transmission)
+	elif not globalvar.welcome_shown:
+		var setup_timer := get_tree().create_timer(0.5)
+		setup_timer.timeout.connect(_show_first_time_nickname_prompt)
 	
 	_bg_action_delay = randf_range(5.0, 7.0)
 	# NOTE: banner visibility for the title screen is decided ONCE near the top
@@ -897,6 +904,17 @@ func _show_options_popup() -> void:
 	)
 	vbox.add_child(privacy_btn)
 
+	var replay_intro_btn := Button.new()
+	replay_intro_btn.name = "ReplayIntroButton"
+	replay_intro_btn.text = "Replay Opening Transmission"
+	replay_intro_btn.custom_minimum_size = Vector2(240, 32)
+	BS.apply_space_style(replay_intro_btn, Color(0.65, 0.5, 1.0))
+	replay_intro_btn.pressed.connect(func() -> void:
+		_options_popup.queue_free()
+		call_deferred("_show_opening_transmission", true)
+	)
+	vbox.add_child(replay_intro_btn)
+
 	# Cloud restore is intentionally kept in Options: it is a recovery action,
 	# not a primary menu destination, and still gets an explicit confirmation.
 	var cloud_restore_btn := Button.new()
@@ -1228,6 +1246,29 @@ func _build_styled_popup(border_color: Color) -> PanelContainer:
 	return panel
 
 
+func _show_opening_transmission(replay_only := false) -> void:
+	## Full-screen, captioned SpaceDoge/Martian story beat. Skip all blocking
+	## first-run UI in capture, autopilot and simulation processes.
+	var argv := OS.get_cmdline_args()
+	if "--capture" in argv or "--autopilot" in argv or "--sim" in argv:
+		return
+	if _opening_transmission != null and is_instance_valid(_opening_transmission):
+		return
+	var transmission := OpeningTransmissionScene.new()
+	_opening_transmission = transmission
+	transmission.setup(replay_only)
+	transmission.finished.connect(func(_skipped: bool) -> void:
+		_opening_transmission = null
+		if replay_only:
+			return
+		globalvar.opening_intro_version = globalvar.CURRENT_OPENING_INTRO_VERSION
+		globalvar.save_game()
+		if not globalvar.welcome_shown:
+			call_deferred("_show_first_time_nickname_prompt")
+	)
+	add_child(transmission)
+
+
 func _show_first_time_nickname_prompt() -> void:
 	## First-launch welcome popup. Custom-styled to match the rest of the menu.
 	# Skip during automated capture/autopilot/sim runs so video renders and headless
@@ -1263,11 +1304,18 @@ func _show_first_time_nickname_prompt() -> void:
 	popup.add_child(vbox)
 
 	var title := Label.new()
-	title.text = "🚀  Welcome, Pilot!"
+	title.text = "🚀  FLIGHT DECK SETUP"
 	title.add_theme_font_size_override("font_size", 22)
 	title.add_theme_color_override("font_color", Color(0.5, 0.85, 1.0))
 	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	vbox.add_child(title)
+
+	var setup_subtitle := Label.new()
+	setup_subtitle.text = "One quick setup, then we fly."
+	setup_subtitle.add_theme_font_size_override("font_size", 13)
+	setup_subtitle.add_theme_color_override("font_color", Color(0.67, 0.73, 0.84))
+	setup_subtitle.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	vbox.add_child(setup_subtitle)
 
 	# Pending control choice; value = -1 means nothing picked yet. Dictionary so
 	# the select/commit closures share one mutable reference.
@@ -1287,9 +1335,9 @@ func _show_first_time_nickname_prompt() -> void:
 		var opts: Array = []
 		if is_mob:
 			opts = [
-				{ "emoji": "📱", "title": "Tilt", "sub": "Roll to turn, tap to thrust", "value": globalvar.ControlScheme.TILT, "style": "tilt" },
-				{ "emoji": "🕹", "title": "Joystick", "sub": "On-screen stick + buttons", "value": globalvar.ControlScheme.JOYSTICK, "style": "joystick" },
-				{ "emoji": "🎢", "title": "Full Tilt", "sub": "Portrait · tilt to fly, no buttons", "value": globalvar.ControlScheme.FULL_TILT, "style": "full_tilt" },
+				{ "emoji": "📱", "title": "Tilt", "sub": "Roll to turn", "value": globalvar.ControlScheme.TILT, "style": "tilt" },
+				{ "emoji": "🕹", "title": "Joystick", "sub": "Stick + buttons", "value": globalvar.ControlScheme.JOYSTICK, "style": "joystick" },
+				{ "emoji": "🎢", "title": "Full Tilt", "sub": "Portrait · no buttons", "value": globalvar.ControlScheme.FULL_TILT, "style": "full_tilt" },
 			]
 		else:
 			opts = [
@@ -1313,11 +1361,11 @@ func _show_first_time_nickname_prompt() -> void:
 		for i in opts.size():
 			var opt: Dictionary = opts[i]
 			var card := Button.new()
-			card.custom_minimum_size = Vector2(200, 100)
+			card.custom_minimum_size = Vector2(132, 104) if is_mob else Vector2(200, 100)
 			# Emoji / title / subtitle on three lines. No autowrap (kept off the
 			# Button API): the card is sized so the longest subtitle fits one line.
 			card.text = "%s\n%s\n%s" % [opt["emoji"], opt["title"], opt["sub"]]
-			card.add_theme_font_size_override("font_size", 13)
+			card.add_theme_font_size_override("font_size", 11 if is_mob else 13)
 			BS.apply_space_style(card, Color(0.5, 0.85, 1.0))
 			card.modulate = Color(0.6, 0.63, 0.7)
 			var idx := i
@@ -1339,7 +1387,7 @@ func _show_first_time_nickname_prompt() -> void:
 
 	# --- Nickname (optional) ---
 	var prompt := Label.new()
-	prompt.text = "Enter your pilot nickname"
+	prompt.text = "Pilot callsign (optional)"
 	prompt.add_theme_font_size_override("font_size", 14)
 	prompt.add_theme_color_override("font_color", Color(0.8, 0.85, 0.9))
 	prompt.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
@@ -1355,8 +1403,8 @@ func _show_first_time_nickname_prompt() -> void:
 	var line_edit := _build_styled_nickname_line_edit("")
 	vbox.add_child(line_edit)
 
-	start_btn.text = "Start Game"
-	start_btn.custom_minimum_size = Vector2(180, 36)
+	start_btn.text = "LAUNCH TRAINING  ›"
+	start_btn.custom_minimum_size = Vector2(220, 42)
 	BS.apply_space_style(start_btn, Color.GREEN)
 	start_btn.add_theme_font_size_override("font_size", 14)
 	# Mobile with an unpicked control section: disabled until a card is tapped
@@ -1376,6 +1424,7 @@ func _show_first_time_nickname_prompt() -> void:
 		globalvar.welcome_shown = true
 		globalvar.save_game()
 		popup.queue_free()
+		call_deferred("_launch_first_training")
 	start_btn.pressed.connect(func() -> void:
 		if not start_btn.disabled:
 			commit.call()
@@ -1410,6 +1459,12 @@ func _show_first_time_nickname_prompt() -> void:
 			popup.offset_right = 240
 			popup.offset_top = 8
 			popup.offset_bottom = 430
+
+
+func _launch_first_training() -> void:
+	globalvar.nowlevel = 1
+	globalvar.race_mode = false
+	WarpTransition.warp_to(globalvar.get_level_scene(1))
 
 
 func _show_nickname_edit_popup(nick_label: Label) -> void:

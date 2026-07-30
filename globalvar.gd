@@ -19,6 +19,9 @@ var all_completed: bool = false
 var highest_level_completed: int = 0  # Tracks progress for level select
 var tutorial_shown: bool = false  # Level 1 tutorial prompts (first-time only)
 var welcome_shown: bool = false   # First-launch nickname/welcome prompt (independent of tutorial)
+const CURRENT_OPENING_INTRO_VERSION := 1
+var opening_intro_version: int = 0  # Versioned so existing players see a materially improved opening once
+var first_flight_briefing_shown: bool = false  # One-time pre-action Level 1 mission briefing
 var seen_hints: Array[String] = []  # one-time HintService hint ids already shown (persisted)
 
 # --- Endless mode ---
@@ -127,12 +130,14 @@ func _apply_ui_scale() -> void:
 # Every place that branches control-instruction text (tutorial, Help, coach
 # marks, death advice) must call active_input_hint() instead of re-deriving
 # is_mobile/control_scheme inline.
-enum InputHint { KEYBOARD, GAMEPAD, TILT, TOUCH_JOYSTICK }
+enum InputHint { KEYBOARD, GAMEPAD, TILT, TOUCH_JOYSTICK, FULL_TILT }
 
 func active_input_hint() -> int:
 	## Resolve the active control-hint style from platform + the two settings.
 	var os := OS.get_name()
 	if os == "Android" or os == "iOS":
+		if control_scheme == ControlScheme.FULL_TILT:
+			return InputHint.FULL_TILT
 		if control_scheme == ControlScheme.TILT:
 			return InputHint.TILT
 		return InputHint.TOUCH_JOYSTICK
@@ -868,6 +873,8 @@ func get_save_data() -> Dictionary:
 		"nickname": nickname,
 		"tutorial_shown": tutorial_shown,
 		"welcome_shown": welcome_shown,
+		"opening_intro_version": opening_intro_version,
+		"first_flight_briefing_shown": first_flight_briefing_shown,
 		"seen_hints": seen_hints.duplicate(),
 		"difficulty": difficulty,
 		"control_scheme": control_scheme,
@@ -939,6 +946,14 @@ func _apply_save_data(data: Dictionary) -> void:
 		welcome_shown = bool(data["welcome_shown"])
 	else:
 		welcome_shown = int(data.get("highest_completed", 0)) > 0 or str(data.get("nickname", "")) != ""
+	# The opening is versioned so returning players see a substantially changed
+	# story beat exactly once. Legacy players who already completed the tutorial
+	# should not be interrupted by the separate first-flight preflight.
+	opening_intro_version = int(data.get("opening_intro_version", 0))
+	if data.has("first_flight_briefing_shown"):
+		first_flight_briefing_shown = bool(data["first_flight_briefing_shown"])
+	else:
+		first_flight_briefing_shown = tutorial_shown or highest_level_completed > 0
 	# seen_hints: default to empty array for legacy saves that predate one-time hints
 	seen_hints.clear()
 	var saved_hints = data.get("seen_hints", [])
@@ -992,6 +1007,8 @@ func reset_progress() -> void:
 	all_completed = false
 	tutorial_shown = false
 	welcome_shown = false
+	opening_intro_version = 0
+	first_flight_briefing_shown = false
 	seen_hints.clear()
 	endless_mode = false
 	endless_wave = 1

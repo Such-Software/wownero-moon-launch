@@ -38,7 +38,10 @@ from such_graphics.scene import Actor, render_talking_scene
 from such_graphics.subtitles import CaptionStyle
 
 MKT = HERE.parent                               # marketing
-CHARS = MKT / "characters"
+# Runtime and marketing share one canonical cast. Keeping the puppets under
+# art/ also makes them importable by Godot (marketing/ is intentionally
+# .gdignore'd), while this renderer continues to consume the same named groups.
+CHARS = HERE.parents[1] / "art" / "characters" / "dialogue"
 OUT = marketing_run_root()
 WORK = OUT / "_char_intro_work"
 
