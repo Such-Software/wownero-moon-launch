@@ -5,11 +5,11 @@ Commerce belongs on the dedicated Medusa tenant at
 `shop.moonlaunch.space`; `/store` reports its inactive setup status and
 contains no checkout.
 
-The website consumes the generated Wownero `brand.css` projection pinned by
-`config/app-platform-v1.json`. Do not hand-copy Such Graphics palette or
-motion tokens into this site. Local dependencies, builds, test output, and
-deployment packaging belong under `~/Build/such-moon-launch/website`, not in
-this directory.
+The website consumes the generated Wownero `brand.css` and `brand.json`
+projections pinned by `config/app-platform-v1.json`. Do not hand-copy Such
+Graphics palette or motion tokens into this site. Local dependencies, builds,
+test output, and deployment packaging belong under
+`~/Build/such-moon-launch/website`, not in this directory.
 
 The connected Sites project is recorded only in `.openai/hosting.json` after
 creation. Non-production builds remain `noindex`. An indexed marketing-only
