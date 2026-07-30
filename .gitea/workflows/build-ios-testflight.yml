@@ -136,7 +136,8 @@ jobs:
             BloomwordFirebase.debug.xcframework \
             BloomwordFirebase.release.xcframework; do
             rm -rf "ios/plugins/$bundle"
-            rsync -a "$SEED/ios/plugins/$bundle" "ios/plugins/$bundle"
+            mkdir -p "ios/plugins/$bundle"
+            rsync -a --delete "$SEED/ios/plugins/$bundle/" "ios/plugins/$bundle/"
           done
           cp "$SEED/ios/plugins/GoogleService-Info.plist" ios/plugins/GoogleService-Info.plist
           cp "$SEED/ios/GoogleService-Info.plist" ios/GoogleService-Info.plist
