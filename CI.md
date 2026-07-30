@@ -5,8 +5,8 @@ The repository has four deliberately separate lanes:
 - `.github/workflows/verify.yml` is a secret-free public-review gate.
 - `.gitea/workflows/verify.yml` runs the same gate on the private mirror.
 - `.gitea/workflows/build-ios-testflight.yml` is the iOS signing and delivery
-  lane. It is manual, `main`-only, and bound to the unique
-  `such-m5-release` runner label.
+  lane. It is manual, `main`-only, and bound to Fleet's protected
+  `macos-latest` Apple Silicon capability.
 - `.gitea/workflows/build-android-candidate.yml` is the Android signing and
   optional Play-internal lane. It is manual, `main`-only, and bound to the
   unique `such-android-release` runner label.
@@ -50,9 +50,9 @@ project ID into that copy. No generated Gradle template is committed.
 
 ## Release-Mac prerequisites
 
-- Register one locked-down Apple Silicon runner with the exact
-  `such-m5-release` label. Its runner workspace must be below `~/src/_ci`, not
-  Seafile.
+- Register one locked-down Apple Silicon runner with Fleet's `macos-latest`
+  capability label. Its runner workspace must be below `~/src/_ci`, not
+  Seafile; do not map that label to a hosted runner.
 - Install Xcode 26 or newer with the iOS 26 SDK or newer, accept its license,
   and select it with `xcode-select`.
 - Install the private Git server CA as a trusted certificate for the runner

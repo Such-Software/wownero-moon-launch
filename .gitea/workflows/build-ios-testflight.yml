@@ -39,9 +39,9 @@ env:
 
 jobs:
   candidate:
-    # This label must map to exactly one locked-down Apple Silicon release Mac.
-    # Do not map it to a shared or hosted runner.
-    runs-on: such-m5-release
+    # Fleet's canonical Mac capability label must resolve only to the
+    # locked-down Apple Silicon release runner, never a hosted runner.
+    runs-on: macos-latest
     timeout-minutes: 120
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
