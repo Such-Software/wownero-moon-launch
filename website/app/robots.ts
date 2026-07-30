@@ -7,5 +7,8 @@ export default function robots(): MetadataRoute.Robots {
     rules: indexingEnabled
       ? { userAgent: "*", allow: "/" }
       : { userAgent: "*", disallow: "/" },
+    sitemap: indexingEnabled
+      ? "https://moonlaunch.space/sitemap.xml"
+      : undefined,
   };
 }

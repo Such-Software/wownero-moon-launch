@@ -46,6 +46,11 @@ def main() -> int:
     if not godot_projection.is_file() or digest(godot_projection) != expected_godot:
         errors.append("checked-in Godot brand projection does not match generated lock")
 
+    website_projection = root / "website/app/brand.css"
+    expected_website = lock.get("files", {}).get("brand.css")
+    if not website_projection.is_file() or digest(website_projection) != expected_website:
+        errors.append("checked-in website brand projection does not match generated lock")
+
     for name, service in config["services"].items():
         if service["activation"] != "disabled":
             errors.append(f"baseline requires services.{name}.activation=disabled")

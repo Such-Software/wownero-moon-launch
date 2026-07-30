@@ -13,10 +13,12 @@ const requiredAssets = [
   "public/spacedoge.png",
 ];
 const sourceFiles = [
+  "app/brand.css",
   "app/layout.tsx",
   "app/page.tsx",
   "app/play/page.tsx",
   "app/store/page.tsx",
+  "app/sitemap.ts",
   "app/globals.css",
 ];
 
@@ -87,6 +89,11 @@ for (const required of [
   "https://suchsoftware.itch.io/such-moon-launch",
   "Checkout is closed",
   "Mobile purchases remain available only through Apple and Google",
+  "NEXT_PUBLIC_UMAMI_WEBSITE_ID",
+  "data-umami-event=\"cta_click\"",
+  "data-umami-event=\"store_click\"",
+  "data-umami-event=\"gameplay_open\"",
+  "--bg: var(--sg-bg)",
 ]) {
   if (!source.includes(required)) {
     errors.push(`required policy or distribution copy is missing: ${required}`);
