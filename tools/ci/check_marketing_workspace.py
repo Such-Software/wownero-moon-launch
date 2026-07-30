@@ -134,7 +134,9 @@ def main() -> None:
             fail(f"{path.relative_to(ROOT)} contains forbidden path marker {marker!r}")
 
     helper = load_helper()
-    fake_home = pathlib.Path("/tmp/sml-marketing-policy/home")
+    # macOS aliases /tmp to /private/tmp. Normalize the synthetic home before
+    # comparing it with helper results, which are deliberately resolved.
+    fake_home = pathlib.Path("/tmp/sml-marketing-policy/home").resolve(strict=False)
     build_root = fake_home / "Build"
     source_root = fake_home / "src" / "such-graphics"
     with environment(
