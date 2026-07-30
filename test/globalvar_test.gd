@@ -91,6 +91,12 @@ func test_starting_fuel_mult_hard() -> void:
 	globalvar.difficulty = globalvar.Difficulty.HARD
 	assert_float(globalvar.get_starting_fuel_mult()).is_equal(1.0)
 
+func test_player_facing_speed_uses_arcade_km_scale() -> void:
+	assert_float(globalvar.speed_to_display_km_s(100.0)).is_equal_approx(1.0, 0.0001)
+	assert_float(globalvar.speed_to_display_km_s(56.0)).is_equal_approx(0.56, 0.0001)
+	assert_float(globalvar.speed_to_display_km_s(-10.0)).is_equal(0.0)
+	assert_str(globalvar.format_speed_km_s(130.0)).is_equal("1.30 km/s")
+
 func test_bounce_allowance_easy() -> void:
 	globalvar.difficulty = globalvar.Difficulty.EASY
 	assert_int(globalvar.get_bounce_allowance()).is_equal(2)

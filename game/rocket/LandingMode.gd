@@ -307,7 +307,7 @@ func _process(_delta: float) -> void:
 	_altitude_label.text = "ALT %d" % int(dist)
 
 	var speed := rocket_vel.length()
-	_speed_label.text = "SPD %d" % int(speed)
+	_speed_label.text = "SPD %s" % globalvar.format_speed_km_s(speed)
 	if speed > _rocket.crashspeed:
 		_speed_label.add_theme_color_override("font_color", Color(1.0, 0.2, 0.2))
 	elif speed > _rocket.landingspeed:

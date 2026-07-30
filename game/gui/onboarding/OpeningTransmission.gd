@@ -1,34 +1,46 @@
 class_name OpeningTransmission
 extends Control
-## Short, caption-first opening story. Character portraits sit below the action
-## while the spoken-style captions remain in the upper safe/readable region.
+## Caption-first opening story. Pre-rendered procedural 3D visemes keep the
+## character performance lightweight while captions remain in the upper safe area.
 
 signal finished(skipped: bool)
 
 const BS = preload("res://game/gui/ButtonStyles.gd")
 const UI_FONT := preload("res://fonts/Computer Speak v0.3.ttf")
 const STARFIELD := preload("res://art/backgrounds/starfield.jpg")
-const DOGE_TEXTURE := preload("res://art/characters/dialogue/spacedoge.svg")
-const ALIEN_TEXTURE := preload("res://art/characters/dialogue/alien.svg")
+const DOGE_TEXTURE := preload("res://art/characters/dialogue/3d/spacedoge_X.png")
+const DOGE_TALKING_TEXTURES := [
+	preload("res://art/characters/dialogue/3d/spacedoge_A.png"),
+	preload("res://art/characters/dialogue/3d/spacedoge_B.png"),
+	preload("res://art/characters/dialogue/3d/spacedoge_F.png"),
+	preload("res://art/characters/dialogue/3d/spacedoge_B.png"),
+]
+const ALIEN_TEXTURE := preload("res://art/characters/dialogue/3d/martian_X.png")
+const ALIEN_TALKING_TEXTURES := [
+	preload("res://art/characters/dialogue/3d/martian_A.png"),
+	preload("res://art/characters/dialogue/3d/martian_B.png"),
+	preload("res://art/characters/dialogue/3d/martian_F.png"),
+	preload("res://art/characters/dialogue/3d/martian_B.png"),
+]
 
 const BEATS: Array[Dictionary] = [
 	{
 		"speaker": "MARTIAN",
 		"actor": "alien",
 		"text": "Ha! You could never land that rusty rocket on Mars, you dirty doge.",
-		"duration": 4.2,
+		"duration": 5.2,
 	},
 	{
 		"speaker": "SPACEDOGE",
 		"actor": "doge",
 		"text": "Imagine losing to a dog. Watch this.",
-		"duration": 3.2,
+		"duration": 4.0,
 	},
 	{
 		"speaker": "SPACEDOGE",
 		"actor": "doge",
 		"text": "Pilot, you're up. Learn the slingshot, land on the Moon, then we'll show Mars how it's done.",
-		"duration": 4.6,
+		"duration": 5.8,
 	},
 ]
 
@@ -190,6 +202,7 @@ func _build_interface() -> void:
 		-0.45
 	)
 	stage.add_child(_alien)
+	_alien.configure_visemes(ALIEN_TEXTURE, ALIEN_TALKING_TEXTURES)
 	_alien.set_bottom_aligned(true)
 	_alien.anchor_left = 0.02
 	_alien.anchor_right = 0.60 if portrait_layout else 0.48
@@ -207,6 +220,7 @@ func _build_interface() -> void:
 		1.0
 	)
 	stage.add_child(_doge)
+	_doge.configure_visemes(DOGE_TEXTURE, DOGE_TALKING_TEXTURES)
 	_doge.set_bottom_aligned(true)
 	_doge.anchor_left = 0.40 if portrait_layout else 0.52
 	_doge.anchor_right = 0.98

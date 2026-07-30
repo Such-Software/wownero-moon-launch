@@ -12,6 +12,7 @@ the smug/skeptical look.
 
 Run:
   Blender --background --python build_3d_alien.py -- still
+  Blender --background --python build_3d_alien.py -- portrait
   Blender --background --python build_3d_alien.py -- talk|alpha   (needs SG3D_CUES)
 """
 import json
@@ -34,7 +35,9 @@ sys.path.insert(0, str(such_graphics_source()))
 from such_graphics import creature3d as c3d
 
 SP = marketing_run_root() / "_procedural_3d"
-MODE = sys.argv[-1] if sys.argv[-1] in ("still", "talk", "alpha", "hero") else "still"
+MODE = sys.argv[-1] if sys.argv[-1] in (
+    "still", "portrait", "talk", "alpha", "hero"
+) else "still"
 
 GREEN = (0.44, 0.75, 0.29)       # martian green
 GREEN_D = (0.18, 0.42, 0.14)
@@ -221,7 +224,8 @@ def lights_and_cam():
     k.data.energy = 1150
     k.data.size = 4.5
     k.data.color = (1.0, 0.96, 0.86)
-    k.data.use_contact_shadow = True
+    if hasattr(k.data, "use_contact_shadow"):
+        k.data.use_contact_shadow = True
     bpy.ops.object.light_add(type="AREA", location=(4.2, -3.2, 1.0))
     f = bpy.context.active_object
     f.data.energy = 120
@@ -232,18 +236,31 @@ def lights_and_cam():
     r.data.energy = 700
     r.data.size = 4
     r.data.color = (0.80, 1.0, 0.85)
-    r.data.use_contact_shadow = True
+    if hasattr(r.data, "use_contact_shadow"):
+        r.data.use_contact_shadow = True
     sc = bpy.context.scene
-    sc.render.engine = "BLENDER_EEVEE"
-    ev = sc.eevee
-    ev.use_gtao = True
-    ev.gtao_distance = 0.5
-    ev.gtao_factor = 1.1
-    if hasattr(ev, "use_soft_shadows"):
-        ev.use_soft_shadows = True
-    if hasattr(ev, "shadow_cube_size"):
-        ev.shadow_cube_size = "2048"
-    if MODE == "alpha":
+    # Blender 4.2+ replaced the legacy EEVEE scene settings with EEVEE Next.
+    # Keep the marketing/runtime portrait generator reproducible on both APIs.
+    if bpy.app.version >= (4, 2, 0):
+        # 4.2-4.x exposed the new engine as EEVEE_NEXT; 5.x renamed it back
+        # to EEVEE while retaining the new scene API.
+        sc.render.engine = (
+            "BLENDER_EEVEE" if bpy.app.version >= (5, 0, 0)
+            else "BLENDER_EEVEE_NEXT"
+        )
+    else:
+        sc.render.engine = "BLENDER_EEVEE"
+        ev = sc.eevee
+        ev.use_gtao = True
+        ev.gtao_distance = 0.5
+        ev.gtao_factor = 1.1
+        if hasattr(ev, "use_soft_shadows"):
+            ev.use_soft_shadows = True
+        if hasattr(ev, "shadow_cube_size"):
+            ev.shadow_cube_size = "2048"
+        if hasattr(ev, "use_ssr"):
+            ev.use_ssr = True
+    if MODE in ("alpha", "portrait"):
         res = os.environ.get("SG3D_RES", "620x820").split("x")
         sc.render.resolution_x, sc.render.resolution_y = int(res[0]), int(res[1])
         sc.render.film_transparent = True
@@ -251,8 +268,8 @@ def lights_and_cam():
         sc.render.resolution_x, sc.render.resolution_y = 560, 740
     else:
         sc.render.resolution_x, sc.render.resolution_y = 620, 820
-    if hasattr(sc.eevee, "use_ssr"):
-        sc.eevee.use_ssr = True
+    sc.render.image_settings.file_format = "PNG"
+    sc.render.image_settings.color_mode = "RGBA"
     sc.world.node_tree.nodes["Background"].inputs[0].default_value = (0.08, 0.12, 0.14, 1)
     sc.world.node_tree.nodes["Background"].inputs[1].default_value = 0.35
 
@@ -266,10 +283,19 @@ def main():
     total = sum(len(o.data.polygons) for o in bpy.data.objects if o.type == "MESH")
     print(f"RESULT built {total} faces")
 
-    if MODE == "still":
-        for vis in ("X", "A", "B", "C", "D", "F"):
+    if MODE in ("still", "portrait"):
+        outdir = Path(os.environ.get("SG3D_OUT", str(SP)))
+        outdir.mkdir(parents=True, exist_ok=True)
+        visemes = tuple(
+            value.strip().upper()
+            for value in os.environ.get("SG3D_VISEMES", "X,A,B,C,D,F").split(",")
+            if value.strip().upper() in SHAPES
+        )
+        if not visemes:
+            raise ValueError("SG3D_VISEMES did not contain a supported viseme")
+        for vis in visemes:
             set_mouth(rig, SHAPES[vis])
-            sc.render.filepath = str(SP / f"alien3d_v_{vis}.png")
+            sc.render.filepath = str(outdir / f"alien3d_v_{vis}.png")
             bpy.ops.render.render(write_still=True)
             print(f"RESULT wrote alien3d_v_{vis}.png")
         return

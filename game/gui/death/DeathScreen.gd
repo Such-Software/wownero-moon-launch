@@ -198,14 +198,16 @@ func _build_advice_text() -> String:
 	var speed: float = ld.get("speed", 0.0)
 	var hazard_name: String = ld.get("hazard_name", "")
 	var attempt: int = ld.get("attempt", 0)
-	# Read the actual safe-landing threshold (upgrade/difficulty-adjusted), not a
-	# hardcoded 40 — Help quotes 40 px/s but upgrades and difficulty shift it.
+	# Read the actual upgrade/difficulty-adjusted safe-landing threshold.
 	var safe_speed: float = globalvar.get_landing_speed()
 	var advice := ""
 	match cause_type:
 		"crash":
 			if speed > safe_speed:
-				advice = "Came in at %d px/s — safe touchdown is under %d. Feather REVERSE on approach." % [int(speed), int(safe_speed)]
+				advice = "Came in at %s — safe touchdown is under %s. Feather REVERSE on approach." % [
+					globalvar.format_speed_km_s(speed),
+					globalvar.format_speed_km_s(safe_speed),
+				]
 			else:
 				var body: String = ld.get("cause", "that")
 				advice = "You hit %s. Use short thrust bursts to adjust course early — gravity does the rest." % body
