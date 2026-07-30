@@ -221,7 +221,8 @@ func _layout_tutorial_card() -> void:
 		return
 	var vp := get_viewport().get_visible_rect().size
 	var width := minf(clampf(vp.x * 0.72, 460.0, 760.0), maxf(280.0, vp.x - 32.0))
-	_tut_panel.position = Vector2((vp.x - width) * 0.5, 76.0)
+	# Keep the top-right time and velocity instruments visible while coaching.
+	_tut_panel.position = Vector2(16.0, 76.0)
 	_tut_panel.size = Vector2(width, 108.0)
 
 
