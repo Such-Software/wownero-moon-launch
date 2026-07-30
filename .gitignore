@@ -4,6 +4,9 @@
 .godot
 server/nakama/node_modules/
 server/nakama/dist/
+website/node_modules/
+website/.next/
+website/out/
 .import/
 
 # Godot uid files (auto-generated)
