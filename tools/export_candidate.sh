@@ -51,13 +51,41 @@ PRODUCT_DIR="$BUILD_ROOT/products/$RUN_ID"
 LOG_DIR="$BUILD_ROOT/logs/$RUN_ID"
 mkdir -p "$PRODUCT_DIR" "$LOG_DIR"
 
-cleanup_android_material() {
+PROJECT_CACHE_LINK="$ROOT/.godot"
+PROJECT_CACHE="${SML_PROJECT_CACHE:-$BUILD_ROOT/cache/godot-project/$RUN_ID}"
+OWNS_PROJECT_CACHE_LINK=0
+
+cleanup_transient_build_state() {
   case "${SML_FIREBASE_STAGE_DIR:-}" in
     "${TMPDIR:-/tmp}"/sml-firebase-aar.*) rm -rf -- "$SML_FIREBASE_STAGE_DIR" ;;
     "") ;;
     *) echo "WARNING: refusing to remove unexpected Firebase staging directory." >&2 ;;
   esac
+  if [[ "$OWNS_PROJECT_CACHE_LINK" == "1" &&
+        -L "$PROJECT_CACHE_LINK" &&
+        "$(readlink "$PROJECT_CACHE_LINK")" == "$PROJECT_CACHE" ]]; then
+    rm -f "$PROJECT_CACHE_LINK"
+  fi
 }
+trap cleanup_transient_build_state EXIT
+
+if [[ -e "$PROJECT_CACHE_LINK" || -L "$PROJECT_CACHE_LINK" ]]; then
+  if [[ -n "${SML_PROJECT_CACHE:-}" &&
+        -L "$PROJECT_CACHE_LINK" &&
+        "$(readlink "$PROJECT_CACHE_LINK")" == "$SML_PROJECT_CACHE" ]]; then
+    PROJECT_CACHE="$SML_PROJECT_CACHE"
+    echo "Using runner-managed Godot project cache ($PROJECT_CACHE)"
+  else
+    echo "FATAL: source checkout contains an unmanaged Godot project cache." >&2
+    echo "Use a clean release worktree or an ownership-checked SML_PROJECT_CACHE link." >&2
+    exit 1
+  fi
+else
+  mkdir -p "$PROJECT_CACHE"
+  ln -s "$PROJECT_CACHE" "$PROJECT_CACHE_LINK"
+  OWNS_PROJECT_CACHE_LINK=1
+fi
+export SML_PROJECT_CACHE="$PROJECT_CACHE"
 
 if [[ "$PRESET" == "Android" ]]; then
   KEYSTORE="${GODOT_ANDROID_KEYSTORE_RELEASE_PATH:-}"
@@ -104,7 +132,6 @@ PY
   }
   FIREBASE_INTERMEDIATE="$BUILD_ROOT/intermediates/firebase/$RUN_ID"
   SML_FIREBASE_STAGE_DIR="$(mktemp -d "${TMPDIR:-/tmp}/sml-firebase-aar.XXXXXX")"
-  trap cleanup_android_material EXIT
   mkdir -p "$FIREBASE_INTERMEDIATE" "$SML_FIREBASE_STAGE_DIR/assets"
   SML_FIREBASE_ANDROID_AAR="$FIREBASE_INTERMEDIATE/BloomwordFirebase-release.aar"
   cp "$BASE_FIREBASE_AAR" "$SML_FIREBASE_ANDROID_AAR"
