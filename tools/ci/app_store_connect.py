@@ -324,9 +324,46 @@ def distribute_to_group(
     build_id: str,
 ) -> dict[str, Any]:
     group = validate_internal_group(client, group_id, app_id)
+    attributes = group.get("attributes") or {}
+    if attributes.get("hasAccessToAllBuilds") is True:
+        print(
+            f"Internal group {attributes.get('name', group_id)!r} "
+            "already grants access to all builds",
+            flush=True,
+        )
+        return group
+
+    relationship_path = (
+        f"/v1/betaGroups/{urllib.parse.quote(group_id, safe='')}"
+        "/relationships/builds"
+    )
+    relationship = client.request("GET", relationship_path)
+    assert relationship is not None
+    resources = relationship.get("data")
+    if not isinstance(resources, list):
+        raise AppStoreConnectError("beta group build relationship returned invalid data")
+    related_build_ids: set[str] = set()
+    for resource in resources:
+        if (
+            not isinstance(resource, dict)
+            or resource.get("type") != "builds"
+            or not isinstance(resource.get("id"), str)
+        ):
+            raise AppStoreConnectError(
+                "beta group build relationship contains an invalid resource"
+            )
+        related_build_ids.add(resource["id"])
+    if build_id in related_build_ids:
+        print(
+            f"Build is already assigned to internal group "
+            f"{attributes.get('name', group_id)!r}",
+            flush=True,
+        )
+        return group
+
     client.request(
         "POST",
-        f"/v1/betaGroups/{urllib.parse.quote(group_id, safe='')}/relationships/builds",
+        relationship_path,
         body={"data": [{"type": "builds", "id": build_id}]},
         expected_status=204,
     )
@@ -368,6 +405,9 @@ def write_receipt(
         "delivery_uuid": delivery_uuid,
         "internal_group_id": group["id"],
         "internal_group_name": group_attributes.get("name"),
+        "internal_group_has_access_to_all_builds": group_attributes.get(
+            "hasAccessToAllBuilds"
+        ),
         "distributed": True,
         "ipa_sha256": sha256(ipa),
         "source_sha": os.environ.get("GITHUB_SHA", ""),
