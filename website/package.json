@@ -2,22 +2,28 @@
   "name": "such-moon-launch-website",
   "version": "1.0.0",
   "private": true,
+  "type": "module",
   "scripts": {
-    "build": "next build && node scripts/package-static.mjs",
-    "dev": "next dev",
-    "start": "next start",
+    "build": "vinext build && node scripts/package-sites.mjs",
+    "dev": "vinext dev",
+    "start": "vinext start",
     "validate": "node scripts/validate.mjs"
   },
   "dependencies": {
     "next": "16.2.12",
     "react": "19.2.8",
-    "react-dom": "19.2.8"
+    "react-dom": "19.2.8",
+    "react-server-dom-webpack": "19.2.8",
+    "vinext": "1.0.0-beta.4"
   },
   "devDependencies": {
     "@types/node": "22.20.1",
     "@types/react": "19.2.17",
     "@types/react-dom": "19.2.3",
-    "typescript": "5.9.3"
+    "@vitejs/plugin-react": "6.0.5",
+    "@vitejs/plugin-rsc": "0.5.32",
+    "typescript": "5.9.3",
+    "vite": "8.2.0"
   },
   "engines": {
     "node": ">=22"
