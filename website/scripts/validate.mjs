@@ -33,6 +33,10 @@ const packageLock = JSON.parse(
 const hosting = JSON.parse(
   await readFile(path.join(root, ".openai/hosting.json"), "utf8"),
 );
+const nextConfig = await readFile(
+  path.join(root, "next.config.mjs"),
+  "utf8",
+);
 const source = (
   await Promise.all(
     sourceFiles.map((file) => readFile(path.join(root, file), "utf8")),
@@ -65,6 +69,14 @@ if (
   !/^appgprj_[a-z0-9]+$/.test(hosting.project_id)
 ) {
   errors.push("Sites project_id is missing or malformed");
+}
+
+if (
+  packageJson.scripts?.build !==
+    "next build && node scripts/package-static.mjs" ||
+  !nextConfig.includes('output: "export"')
+) {
+  errors.push("Sites build must produce the reviewed static dist/ package");
 }
 
 for (const asset of requiredAssets) {
