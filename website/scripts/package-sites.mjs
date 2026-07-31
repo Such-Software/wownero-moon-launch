@@ -7,16 +7,23 @@ const vinextWorker = path.join(root, "dist/server/index.mjs");
 const hostingSource = path.join(root, ".openai/hosting.json");
 const hostingTarget = path.join(root, "dist/.openai/hosting.json");
 
-const vinextDetails = await stat(vinextWorker);
-if (!vinextDetails.isFile() || vinextDetails.size === 0) {
-  throw new Error("vinext build did not produce dist/server/index.mjs");
+const existingWorker = await stat(worker).catch(() => null);
+const vinextDetails = await stat(vinextWorker).catch(() => null);
+
+if (
+  (!existingWorker?.isFile() || existingWorker.size === 0) &&
+  (!vinextDetails?.isFile() || vinextDetails.size === 0)
+) {
+  throw new Error("vinext build did not produce a server entrypoint");
 }
 
-await writeFile(
-  worker,
-  'export { default } from "./index.mjs";\nexport * from "./index.mjs";\n',
-  "utf8",
-);
+if (!existingWorker?.isFile() || existingWorker.size === 0) {
+  await writeFile(
+    worker,
+    'export { default } from "./index.mjs";\nexport * from "./index.mjs";\n',
+    "utf8",
+  );
+}
 
 const details = await stat(worker);
 if (!details.isFile() || details.size === 0) {
