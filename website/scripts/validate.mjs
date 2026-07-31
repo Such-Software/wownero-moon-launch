@@ -44,8 +44,20 @@ const source = (
 ).join("\n");
 
 const lockedPackages = packageLock.packages || {};
-for (const dependency of ["next", "react", "react-dom"]) {
-  const requested = packageJson.dependencies?.[dependency];
+for (const dependency of [
+  "next",
+  "react",
+  "react-dom",
+  "react-server-dom-webpack",
+  "vinext",
+  "@vitejs/plugin-react",
+  "@vitejs/plugin-rsc",
+  "typescript",
+  "vite",
+]) {
+  const requested =
+    packageJson.dependencies?.[dependency] ||
+    packageJson.devDependencies?.[dependency];
   const locked = lockedPackages[`node_modules/${dependency}`]?.version;
   if (!requested || requested !== locked) {
     errors.push(
@@ -73,10 +85,11 @@ if (
 
 if (
   packageJson.scripts?.build !==
-    "next build && node scripts/package-static.mjs" ||
-  !nextConfig.includes('output: "export"')
+    "vinext build && node scripts/package-sites.mjs" ||
+  packageJson.type !== "module" ||
+  nextConfig.includes("output:")
 ) {
-  errors.push("Sites build must produce the reviewed static dist/ package");
+  errors.push("Sites build must produce the reviewed vinext worker package");
 }
 
 for (const asset of requiredAssets) {
