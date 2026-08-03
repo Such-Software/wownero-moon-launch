@@ -1,0 +1,13 @@
+{
+  "schema_version": 1,
+  "source_repository": "Build/such-fleet",
+  "source_path": "tools/ios_release",
+  "source_commit": "8e3e80abac73e18b4cb50ca0d69b4a904749256b",
+  "version": "1.0.1",
+  "files": {
+    "VERSION": "44e161e4495cac2cf7858043e9e6418e9579f0ddcfae826f9a372622968ce066",
+    "inspect_ipa.py": "110224c5bfbbdf2063e29c545aa7e84645f293460d5dcbb84ba48ba19150bbff",
+    "parse_altool_upload.py": "b0ed2325f4843f92b4e7b1ac494f7adcef6898380293a6824a13daa84fcdf57e",
+    "verify_app_store_connect.py": "44b18aadd437c6f5b580778dfe571161577b4a6bc7a05687e9d401744c8367ed"
+  }
+}

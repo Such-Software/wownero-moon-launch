@@ -30,13 +30,13 @@ function completeContext(overrides = {}) {
   const context = {
     env: {
       SUCH_PLATFORM_APP_ID: "moon_launch",
-      SUCH_PLATFORM_SCHEMA_VERSION: "2",
+      SUCH_PLATFORM_SCHEMA_VERSION: "3",
       SUCH_PLATFORM_SOURCE_COMMIT: "a".repeat(40),
       SUCH_PLATFORM_RUNTIME_SHA256: "b".repeat(64),
       SUCH_PLATFORM_MIGRATION_SHA256: "c".repeat(64),
       SUCH_PLATFORM_CONTRACT_VERSION: "1",
       SUCH_PLATFORM_CONTRACT_COMMIT:
-        "851456cafa1f0ed68aff2760da8b62e7db3ac0aa",
+        "90a11e5c21ff1fbe3cec2522c837edd3996a9bf2",
       SUCH_IDP_CONSUME_URL:
         "https://idp.internal.example/internal/consume-nakama-ticket",
       SUCH_IDP_CONSUMER_TOKEN: "i".repeat(32),
@@ -44,6 +44,7 @@ function completeContext(overrides = {}) {
         "https://entitlements.internal.example/v1/provider-events/moon_launch",
       SUCH_ENTITLEMENT_PROVIDER_TOKEN: "p".repeat(32),
       SUCH_ENTITLEMENT_PROJECTION_HMAC_KEY: "e".repeat(32),
+      SUCH_CURRENCY_PROJECTION_HMAC_KEY: "u".repeat(32),
       SUCH_ROOM_SEED_HMAC_KEY: "r".repeat(32),
       SUCH_IAP_APPLE_PRODUCT_IDS: "software.such.moonlaunch.premium.test",
       SUCH_IAP_GOOGLE_PRODUCT_IDS: "software.such.moonlaunch.premium.test"
@@ -75,6 +76,8 @@ class FakeNakama {
     this.httpCalls = [];
     this.events = [];
     this.current = new Map();
+    this.currencyEvents = [];
+    this.currencyCurrent = new Map();
   }
 
   sha256Hash(value) {
@@ -145,7 +148,7 @@ class FakeNakama {
     if (query.includes("such_platform_schema_migration")) {
       return this.options.migrationMissing
         ? []
-        : [{migration_id: "002_friendly_room"}];
+        : [{migration_id: "003_currency_wallet"}];
     }
     if (query.includes("FROM users WHERE custom_id")) {
       return [{user_id: "11111111-1111-4111-8111-111111111111"}];
@@ -155,6 +158,25 @@ class FakeNakama {
     }
     if (query.includes("FROM such_platform_apply_entitlement_event")) {
       return this.applyEntitlement(args);
+    }
+    if (query.includes("FROM such_platform_apply_currency_event")) {
+      return this.applyCurrency(args);
+    }
+    if (query.includes("LEFT JOIN such_platform_currency_balance")) {
+      if (this.options.currencyIdentityMissing) {
+        return [];
+      }
+      const state = this.currencyCurrent.get(
+        "usr_01MOONLAUNCHSUBJECT\nmoonrocks"
+      );
+      const balance = this.options.currencyBalance ?? state?.balance ?? 0;
+      const lastSequence = this.options.currencySequence ?? state?.sequence ?? 0;
+      return [{
+        balance: String(balance),
+        available: String(Math.max(balance, 0)),
+        debt: String(Math.max(-balance, 0)),
+        last_sequence: String(lastSequence)
+      }];
     }
     if (
       query.includes("SELECT 1 AS found FROM such_platform_entitlement e")
@@ -290,6 +312,101 @@ class FakeNakama {
     return [{outcome: "APPLIED", last_sequence: String(sequence)}];
   }
 
+  applyCurrency(args) {
+    const [
+      eventId,
+      subjectId,
+      currencyKey,
+      sequence,
+      operation,
+      amount,
+      originalEventId,
+      idempotencyKey,
+      eventDigest
+    ] = args;
+    const stateKey = `${subjectId}\n${currencyKey}`;
+    const prior = this.currencyEvents.find((candidate) =>
+      candidate.eventId === eventId ||
+      candidate.idempotencyKey === idempotencyKey ||
+      (
+        candidate.stateKey === stateKey &&
+        candidate.sequence === sequence
+      )
+    );
+    if (prior) {
+      if (
+        prior.eventDigest === eventDigest &&
+        prior.stateKey === stateKey &&
+        prior.sequence === sequence
+      ) {
+        return [{
+          outcome: "DUPLICATE",
+          balance: String(prior.balance),
+          last_sequence: String(sequence)
+        }];
+      }
+      throw new Error("conflicting currency event");
+    }
+    const current = this.currencyCurrent.get(stateKey);
+    if (current && sequence <= current.sequence) {
+      throw new Error("non-increasing currency sequence");
+    }
+
+    let delta;
+    if (operation === "CREDIT") {
+      if (originalEventId !== null) {
+        throw new Error("credit cannot reference an original event");
+      }
+      delta = amount;
+    } else {
+      const original = this.currencyEvents.find((candidate) =>
+        candidate.eventId === originalEventId &&
+        candidate.operation === "CREDIT" &&
+        candidate.stateKey === stateKey &&
+        candidate.amount === amount
+      );
+      if (!original) {
+        throw new Error("currency lifecycle original is invalid");
+      }
+      const lifecycle = this.currencyEvents
+        .filter((candidate) =>
+          candidate.eventId === originalEventId ||
+          candidate.originalEventId === originalEventId
+        )
+        .sort((left, right) => right.sequence - left.sequence)[0];
+      if (
+        operation === "REVERSE" &&
+        lifecycle.operation !== "CREDIT" &&
+        lifecycle.operation !== "REINSTATE"
+      ) {
+        throw new Error("currency credit is already reversed");
+      }
+      if (operation === "REINSTATE" && lifecycle.operation !== "REVERSE") {
+        throw new Error("currency credit is not reversed");
+      }
+      delta = operation === "REVERSE" ? -amount : amount;
+    }
+    const balance = (current?.balance ?? 0) + delta;
+    const applied = {
+      eventId,
+      originalEventId,
+      idempotencyKey,
+      eventDigest,
+      stateKey,
+      sequence,
+      operation,
+      amount,
+      balance
+    };
+    this.currencyEvents.push(applied);
+    this.currencyCurrent.set(stateKey, applied);
+    return [{
+      outcome: "APPLIED",
+      balance: String(balance),
+      last_sequence: String(sequence)
+    }];
+  }
+
   stateHash() {
     const material = [...this.current.entries()]
       .sort(([left], [right]) => left.localeCompare(right))
@@ -300,6 +417,16 @@ class FakeNakama {
         value.effectiveAt,
         value.expiresAt
       ]);
+    return crypto
+      .createHash("sha256")
+      .update(JSON.stringify(material), "utf8")
+      .digest("hex");
+  }
+
+  currencyStateHash() {
+    const material = [...this.currencyCurrent.entries()]
+      .sort(([left], [right]) => left.localeCompare(right))
+      .map(([key, value]) => [key, value.sequence, value.balance]);
     return crypto
       .createHash("sha256")
       .update(JSON.stringify(material), "utf8")
@@ -367,14 +494,60 @@ function signedContext(payload, key = "e".repeat(32), overrides = {}) {
   }, overrides));
 }
 
+function currencyEvent(
+  sequence,
+  operation,
+  suffix = String(sequence),
+  originalEventId = null,
+  amount = 10000,
+  lineId = "moonrocks_10k_v1"
+) {
+  return {
+    contract_version: 1,
+    event_id: `01MOONCURRENCYEVENT${suffix.padStart(4, "0")}`,
+    sequence,
+    operation,
+    app_id: "moon_launch",
+    subject_id: "usr_01MOONLAUNCHSUBJECT",
+    currency_key: "moonrocks",
+    amount,
+    original_event_id: originalEventId,
+    idempotency_key:
+      `test:moon_launch:transaction:${suffix}:moonrocks:${operation}`,
+    effective_at: `2026-08-03T15:00:${String(sequence).padStart(2, "0")}Z`,
+    source: {
+      provider: "test",
+      transaction_id: `transaction-${suffix}`,
+      line_id: lineId,
+      occurred_at: "2026-08-03T14:59:58Z"
+    }
+  };
+}
+
+function signedCurrencyContext(payload, key = "u".repeat(32), overrides = {}) {
+  const timestamp = String(Math.floor(Date.now() / 1000));
+  const signature = crypto
+    .createHmac("sha256", key)
+    .update(`${timestamp}\n${payload}`, "utf8")
+    .digest("hex");
+  return completeContext(Object.assign({
+    headers: {
+      "X-Such-Currency-Timestamp": [timestamp],
+      "X-Such-Currency-Signature": [`v1=${signature}`]
+    }
+  }, overrides));
+}
+
 test("registers the complete common App Platform surface", () => {
   const {rpcs, hooks} = initialize();
   assert.deepEqual(
     [...rpcs.keys()].sort(),
     [
       "app_entitlement_projection",
+      "app_currency_projection",
       "app_platform_build_info",
       "app_platform_claim_guest",
+      "app_platform_currency_balance",
       "app_platform_entitlements",
       "app_platform_health",
       "app_platform_prepare_guest_claim",
@@ -420,7 +593,7 @@ test("readiness and build info require exact pins and applied schema", () => {
     rpcs.get("app_platform_build_info")(context, logger, nk, "")
   );
   assert.equal(build.app_id, "moon_launch");
-  assert.equal(build.schema_version, 2);
+  assert.equal(build.schema_version, 3);
   assert.equal(build.source_commit, "a".repeat(40));
 
   const unpinned = completeContext();
@@ -449,6 +622,19 @@ test("readiness and build info require exact pins and applied schema", () => {
     reusedSecret.env.SUCH_ENTITLEMENT_PROJECTION_HMAC_KEY;
   assert.throws(
     () => rpcs.get("app_platform_readiness")(reusedSecret, logger, nk, ""),
+    (error) => error.code === 9
+  );
+
+  const reusedCurrencySecret = completeContext();
+  reusedCurrencySecret.env.SUCH_CURRENCY_PROJECTION_HMAC_KEY =
+    reusedCurrencySecret.env.SUCH_ENTITLEMENT_PROJECTION_HMAC_KEY;
+  assert.throws(
+    () => rpcs.get("app_platform_readiness")(
+      reusedCurrencySecret,
+      logger,
+      nk,
+      ""
+    ),
     (error) => error.code === 9
   );
 });
@@ -651,6 +837,184 @@ test("full entitlement replay converges to the same projection hash", () => {
     return nk.stateHash();
   };
   assert.equal(replay(false), replay(true));
+});
+
+test("currency credit, reverse, and reinstate are exact and replay-safe", () => {
+  const nk = new FakeNakama();
+  const {rpcs, logger} = initialize(nk);
+  const projection = rpcs.get("app_currency_projection");
+  const credit = currencyEvent(1, "CREDIT", "credit");
+  const creditPayload = JSON.stringify(credit);
+  assert.deepEqual(
+    JSON.parse(
+      projection(
+        signedCurrencyContext(creditPayload),
+        logger,
+        nk,
+        creditPayload
+      )
+    ),
+    {
+      outcome: "applied",
+      currency_key: "moonrocks",
+      balance: "10000",
+      last_sequence: "1"
+    }
+  );
+  assert.equal(
+    JSON.parse(
+      projection(
+        signedCurrencyContext(creditPayload),
+        logger,
+        nk,
+        creditPayload
+      )
+    ).outcome,
+    "duplicate"
+  );
+
+  const reverse = currencyEvent(2, "REVERSE", "reverse", credit.event_id);
+  const reversePayload = JSON.stringify(reverse);
+  assert.equal(
+    JSON.parse(
+      projection(
+        signedCurrencyContext(reversePayload),
+        logger,
+        nk,
+        reversePayload
+      )
+    ).balance,
+    "0"
+  );
+
+  const reinstate = currencyEvent(
+    3,
+    "REINSTATE",
+    "reinstate",
+    credit.event_id
+  );
+  const reinstatePayload = JSON.stringify(reinstate);
+  assert.equal(
+    JSON.parse(
+      projection(
+        signedCurrencyContext(reinstatePayload),
+        logger,
+        nk,
+        reinstatePayload
+      )
+    ).balance,
+    "10000"
+  );
+});
+
+test("currency projection rejects client sessions, wrong keys, and bad packs", () => {
+  const {rpcs, logger, nk} = initialize();
+  const projection = rpcs.get("app_currency_projection");
+  const event = currencyEvent(1, "CREDIT", "guards");
+  const payload = JSON.stringify(event);
+
+  assert.throws(
+    () => projection(
+      signedCurrencyContext(payload, "u".repeat(32), {
+        userId: "11111111-1111-4111-8111-111111111111"
+      }),
+      logger,
+      nk,
+      payload
+    ),
+    (error) => error.code === 7
+  );
+  assert.throws(
+    () => projection(
+      signedCurrencyContext(payload, "e".repeat(32)),
+      logger,
+      nk,
+      payload
+    ),
+    (error) => error.code === 16
+  );
+
+  const wrongAmount = currencyEvent(
+    1,
+    "CREDIT",
+    "wrong-amount",
+    null,
+    50000,
+    "moonrocks_10k_v1"
+  );
+  const wrongAmountPayload = JSON.stringify(wrongAmount);
+  assert.throws(
+    () => projection(
+      signedCurrencyContext(wrongAmountPayload),
+      logger,
+      nk,
+      wrongAmountPayload
+    ),
+    (error) => error.code === 3
+  );
+
+  const extra = currencyEvent(1, "CREDIT", "extra-field");
+  extra.price = 1.99;
+  const extraPayload = JSON.stringify(extra);
+  assert.throws(
+    () => projection(
+      signedCurrencyContext(extraPayload),
+      logger,
+      nk,
+      extraPayload
+    ),
+    (error) => error.code === 3
+  );
+});
+
+test("full currency replay converges with duplicate delivery", () => {
+  const credit = currencyEvent(1, "CREDIT", "replay-credit");
+  const events = [
+    credit,
+    currencyEvent(2, "REVERSE", "replay-reverse", credit.event_id),
+    currencyEvent(3, "REINSTATE", "replay-reinstate", credit.event_id)
+  ];
+  const replay = (includeDuplicates) => {
+    const nk = new FakeNakama();
+    const {rpcs, logger} = initialize(nk);
+    const projection = rpcs.get("app_currency_projection");
+    for (const event of events) {
+      const payload = JSON.stringify(event);
+      projection(signedCurrencyContext(payload), logger, nk, payload);
+      if (includeDuplicates) {
+        projection(signedCurrencyContext(payload), logger, nk, payload);
+      }
+    }
+    return nk.currencyStateHash();
+  };
+  assert.equal(replay(false), replay(true));
+});
+
+test("authenticated currency balance exposes available funds and refund debt", () => {
+  const nk = new FakeNakama({
+    currencyBalance: -9000,
+    currencySequence: 7
+  });
+  const {rpcs, logger} = initialize(nk);
+  const response = JSON.parse(
+    rpcs.get("app_platform_currency_balance")(
+      completeContext({
+        userId: "11111111-1111-4111-8111-111111111111"
+      }),
+      logger,
+      nk,
+      ""
+    )
+  );
+  assert.deepEqual(response, {
+    contract_version: 1,
+    currency_key: "moonrocks",
+    balance: "-9000",
+    available: "0",
+    debt: "9000",
+    last_sequence: "7"
+  });
+  assert.doesNotMatch(JSON.stringify(response), /apple|google|stripe|crypto/);
 });
 
 test("authenticated clients receive only neutral current capabilities", () => {
@@ -920,7 +1284,9 @@ test("migration bundle is ordered, transactional, additive, and repeatable", () 
     "such_platform_entitlement",
     "such_platform_guest_claim",
     "such_platform_migration_operation",
-    "such_moon_launch_friendly_room"
+    "such_moon_launch_friendly_room",
+    "such_platform_currency_balance",
+    "such_platform_currency_event"
   ]) {
     assert.match(
       migrationSource,
@@ -934,6 +1300,10 @@ test("migration bundle is ordered, transactional, additive, and repeatable", () 
   assert.match(
     migrationSource,
     /CREATE OR REPLACE FUNCTION such_moon_launch_claim_guest/
+  );
+  assert.match(
+    migrationSource,
+    /CREATE OR REPLACE FUNCTION such_platform_apply_currency_event/
   );
   assert.match(migrationSource, /ON CONFLICT \(schema_version\) DO NOTHING/);
   assert.doesNotMatch(

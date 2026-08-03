@@ -3,7 +3,7 @@ extends Node
 ## Autoloaded singleton. Mirrors AdManager / PlayGamesManager patterns.
 ##
 ## v1 supports three products:
-##   - remove_ads      Non-consumable, $1.99 — disables banner + nag ads forever
+##   - remove_ads      Non-consumable, $1.99 — removes ads + unlimited races
 ##   - moonrocks_10k   Consumable,     $1.99 — credits 10,000 Moonrocks
 ##   - moonrocks_50k   Consumable,     $7.99 — credits 50,000 Moonrocks (whale)
 ##
@@ -13,7 +13,9 @@ extends Node
 ##   iOS     — godot-sdk-integrations/godot-storekit2 v0.2 (Godot 4.6.1 build)
 ##             ios/plugins/godot-storekit2/ + game/net/StoreKit2Wrapper.gd
 ##
-## Web/desktop: IAP unsupported. is_available() returns false; UI hides buttons.
+## Web uses stable offer IDs and the fail-closed shell checkout bridge. Native
+## product IDs never cross that boundary. Self-distributed desktop checkout is
+## catalog-pinned but remains unavailable until its system-browser adapter lands.
 
 signal purchase_completed(product_id: String, success: bool)
 signal restore_completed(restored_ids: Array)
@@ -23,6 +25,17 @@ signal prices_updated  # emitted after the store returns localized prices
 const PRODUCT_REMOVE_ADS    := "com.suchsoftware.suchmoonlaunch.remove_ads"
 const PRODUCT_MOONROCKS_10K := "com.suchsoftware.suchmoonlaunch.moonrocks_10k"
 const PRODUCT_MOONROCKS_50K := "com.suchsoftware.suchmoonlaunch.moonrocks_50k"
+
+# Provider-neutral offer IDs. These are the only values a web caller may send.
+const OFFER_RACE_UNLIMITED := "race_unlimited_lifetime_v1"
+const OFFER_MOONROCKS_10K := "moonrocks_10k_v1"
+const OFFER_MOONROCKS_50K := "moonrocks_50k_v1"
+
+const OFFER_TO_NATIVE_PRODUCT := {
+	OFFER_RACE_UNLIMITED: PRODUCT_REMOVE_ADS,
+	OFFER_MOONROCKS_10K: PRODUCT_MOONROCKS_10K,
+	OFFER_MOONROCKS_50K: PRODUCT_MOONROCKS_50K,
+}
 
 const PRODUCT_IDS := [
 	PRODUCT_REMOVE_ADS,
@@ -38,7 +51,7 @@ const MOONROCK_REWARDS := {
 
 # Display labels (for UI). Real prices come from the store API at runtime.
 const PRODUCT_LABELS := {
-	PRODUCT_REMOVE_ADS:    "Remove Ads",
+	PRODUCT_REMOVE_ADS:    "Remove Ads & Unlimited Races",
 	PRODUCT_MOONROCKS_10K: "10,000 Moonrocks",
 	PRODUCT_MOONROCKS_50K: "50,000 Moonrocks",
 }
@@ -118,6 +131,58 @@ func is_available() -> bool:
 func is_supported() -> bool:
 	var p := OS.get_name()
 	return p == "iOS" or p == "Android"
+
+
+## Whether this build has an approved purchase surface. This deliberately does
+## not include self-distributed desktop until its system-browser adapter exists.
+func is_offer_surface_supported() -> bool:
+	return is_supported() or OS.get_name() == "Web"
+
+
+## Direct checkout is available only after the web shell validates its complete
+## Operations-projected config. Checked-in source always resolves false.
+func is_direct_checkout_available() -> bool:
+	if OS.get_name() != "Web" or not Engine.has_singleton("JavaScriptBridge"):
+		return false
+	return JavaScriptBridge.eval(
+		"window.SUCH_APP && window.SUCH_APP.checkoutEnabled === true", true
+	) == true
+
+
+## Provider-neutral capability resolution. Native uses the offline cache after
+## provider verification/restore; web uses the OIDC-resolved shell capability.
+func has_unlimited_races() -> bool:
+	if OS.get_name() == "Web" and Engine.has_singleton("JavaScriptBridge"):
+		return JavaScriptBridge.eval(
+			"window.SUCH_APP && window.SUCH_APP.raceUnlimited === true", true
+		) == true
+	return globalvar.has_cached_unlimited_races()
+
+
+func get_offer_id_for_product(product_id: String) -> String:
+	for offer_id in OFFER_TO_NATIVE_PRODUCT:
+		if OFFER_TO_NATIVE_PRODUCT[offer_id] == product_id:
+			return str(offer_id)
+	return ""
+
+
+## Start an approved offer through the channel adapter. The caller supplies only
+## a stable allowlisted offer ID, never a price, grant amount, product, or URL.
+func purchase_offer(offer_id: String) -> bool:
+	if not OFFER_TO_NATIVE_PRODUCT.has(offer_id):
+		return false
+	if is_supported():
+		purchase(str(OFFER_TO_NATIVE_PRODUCT[offer_id]))
+		return true
+	if not is_direct_checkout_available():
+		return false
+	# JSON.stringify guarantees a quoted JS literal. offer_id was allowlisted
+	# above, so no caller-controlled script or checkout target can be injected.
+	var expression := (
+		"window.SUCH_APP_startCheckout && window.SUCH_APP_startCheckout(%s)"
+		% JSON.stringify(offer_id)
+	)
+	return JavaScriptBridge.eval(expression, true) == true
 
 
 ## Begin a purchase flow. Always emits purchase_completed when done.
@@ -201,6 +266,7 @@ func apply_purchase(product_id: String) -> void:
 			# (App Store 2.1(b) rejection on build 8). Set the flag directly,
 			# save, and hide the banner. Idempotent for restore_purchases.
 			globalvar.ads_removed = true
+			globalvar.race_unlimited_cached = true
 			globalvar.save_game()
 			AdManager.hide_banner()
 		PRODUCT_MOONROCKS_10K, PRODUCT_MOONROCKS_50K:

@@ -15,9 +15,9 @@ extends Node
 
 const MAX_NAME := 40
 const MAX_STRING := 96
-const APP_ID := "such_moon"
+const APP_ID := "moon_launch"
 const CONFIG_PATH := "user://analytics.cfg"
-const FIREBASE_SINGLETON := "BloomwordFirebase"  # reuse the shared hardened bridge; the such_moon GoogleService-Info routes data correctly. Rename if a moonlaunch-specific bridge is built.
+const FIREBASE_SINGLETON := "BloomwordFirebase"  # Generic shared bridge; provider config selects Moon Launch. The emitted platform ID remains canonical.
 
 var _analytics: Object = null
 var _crash: Object = null

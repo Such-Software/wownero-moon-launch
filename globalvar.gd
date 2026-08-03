@@ -285,9 +285,16 @@ func get_bounce_allowance() -> int:
 # --- Ad removal ---
 const AD_REMOVAL_COST := 10000  # Moonrocks to remove banners + interstitials
 var ads_removed: bool = false
+# Provider-neutral lifetime access is cached separately from ad removal. The
+# cache makes a verified native purchase usable offline; it is never payment
+# authority and must be reconciled from provider/App Platform truth.
+var race_unlimited_cached: bool = false
 
 func is_ads_removed() -> bool:
 	return ads_removed
+
+func has_cached_unlimited_races() -> bool:
+	return race_unlimited_cached
 
 func buy_ad_removal() -> bool:
 	if ads_removed or wallet < AD_REMOVAL_COST:
@@ -902,6 +909,7 @@ func get_save_data() -> Dictionary:
 		"landings_since_install": landings_since_install,
 		"rate_prompt_shown": rate_prompt_shown,
 		"ads_removed": ads_removed,
+		"race_unlimited_cached": race_unlimited_cached,
 	}
 
 func save_game() -> void:
@@ -992,6 +1000,7 @@ func _apply_save_data(data: Dictionary) -> void:
 	landings_since_install = int(data.get("landings_since_install", 0))
 	rate_prompt_shown = bool(data.get("rate_prompt_shown", false))
 	ads_removed = bool(data.get("ads_removed", false))
+	race_unlimited_cached = bool(data.get("race_unlimited_cached", false))
 
 func load_game() -> void:
 	if not FileAccess.file_exists("user://savegame.json"):
@@ -1047,7 +1056,8 @@ func reset_progress() -> void:
 	landings_since_install = 0
 	rate_prompt_shown = false
 	levels_unlocked = false
-	ads_removed = false
+	# Paid/permanent benefits are not progression. Preserve ad removal and the
+	# reconciled lifetime cache; provider restore remains the ultimate authority.
 
 	# Keep existing device_uuid (so cloud row gets overwritten, not orphaned)
 	if device_uuid == "":

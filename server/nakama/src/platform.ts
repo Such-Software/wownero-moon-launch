@@ -2,11 +2,12 @@ var MOON_APP_ID = "moon_launch";
 var MOON_APP_SLUG = "moon-launch";
 var PLATFORM_CONTRACT_VERSION = 1;
 var PLATFORM_CONTRACT_SOURCE_COMMIT =
-  "851456cafa1f0ed68aff2760da8b62e7db3ac0aa";
-var PLATFORM_SCHEMA_VERSION = 2;
+  "90a11e5c21ff1fbe3cec2522c837edd3996a9bf2";
+var PLATFORM_SCHEMA_VERSION = 3;
 var PLATFORM_MINIMUM_NAKAMA_VERSION = "3.40.0";
 var PLATFORM_ENTITLEMENT_MAX_SKEW_SECONDS = 300;
-var PLATFORM_EXPECTED_MIGRATION = "002_friendly_room";
+var PLATFORM_CURRENCY_MAX_SKEW_SECONDS = 300;
+var PLATFORM_EXPECTED_MIGRATION = "003_currency_wallet";
 
 type MoonJsonObject = {[key: string]: any};
 
@@ -35,6 +36,22 @@ interface MoonEntitlementEvent {
   idempotency_key: string;
   effective_at: string;
   expires_at: string | null;
+  source: MoonEntitlementSource;
+  metadata?: MoonJsonObject;
+}
+
+interface MoonCurrencyEvent {
+  contract_version: number;
+  event_id: string;
+  sequence: number;
+  operation: string;
+  app_id: string;
+  subject_id: string;
+  currency_key: string;
+  amount: number;
+  original_event_id: string | null;
+  idempotency_key: string;
+  effective_at: string;
   source: MoonEntitlementSource;
   metadata?: MoonJsonObject;
 }
@@ -491,6 +508,132 @@ function moonVerifyEntitlementRequest(
   }
 }
 
+function moonParseCurrencyEvent(payload: string): MoonCurrencyEvent {
+  if (!moonIsBoundedString(payload, 2, 65536)) {
+    throw moonError("Currency event is invalid.", nkruntime.Codes.INVALID_ARGUMENT);
+  }
+  var value = moonParseObject(payload, "Currency event");
+  if (!moonHasExactKeys(
+    value,
+    [
+      "contract_version",
+      "event_id",
+      "sequence",
+      "operation",
+      "app_id",
+      "subject_id",
+      "currency_key",
+      "amount",
+      "original_event_id",
+      "idempotency_key",
+      "effective_at",
+      "source"
+    ],
+    ["$schema", "metadata"]
+  )) {
+    throw moonError("Currency event is invalid.", nkruntime.Codes.INVALID_ARGUMENT);
+  }
+  if (value.contract_version !== PLATFORM_CONTRACT_VERSION ||
+      value.app_id !== MOON_APP_ID ||
+      !moonIsOpaqueString(value.event_id, 16, 128) ||
+      !moonIsSafeInteger(value.sequence) ||
+      value.sequence < 1 ||
+      (value.operation !== "CREDIT" &&
+       value.operation !== "REVERSE" &&
+       value.operation !== "REINSTATE") ||
+      !moonIsOpaqueString(value.subject_id, 8, 255) ||
+      value.currency_key !== "moonrocks" ||
+      !moonIsSafeInteger(value.amount) ||
+      value.amount < 1 ||
+      !moonIsOpaqueString(value.idempotency_key, 16, 512) ||
+      !moonIsDateTime(value.effective_at)) {
+    throw moonError("Currency event is invalid.", nkruntime.Codes.INVALID_ARGUMENT);
+  }
+  if ((value.operation === "CREDIT" && value.original_event_id !== null) ||
+      (value.operation !== "CREDIT" &&
+       !moonIsOpaqueString(value.original_event_id, 16, 128))) {
+    throw moonError("Currency event is invalid.", nkruntime.Codes.INVALID_ARGUMENT);
+  }
+  if (!moonIsObject(value.source) ||
+      !moonHasExactKeys(
+        value.source,
+        ["provider", "transaction_id", "line_id", "occurred_at"],
+        []
+      )) {
+    throw moonError("Currency event is invalid.", nkruntime.Codes.INVALID_ARGUMENT);
+  }
+  var providers: {[key: string]: boolean} = {
+    apple: true,
+    google: true,
+    medusa_stripe: true,
+    medusa_crypto: true,
+    migration: true,
+    admin: true,
+    test: true
+  };
+  var catalogAmounts: {[key: string]: number} = {
+    moonrocks_10k_v1: 10000,
+    moonrocks_50k_v1: 50000
+  };
+  if (typeof value.source.provider !== "string" ||
+      !providers[value.source.provider] ||
+      !moonIsOpaqueString(value.source.transaction_id, 1, 512) ||
+      !moonIsOpaqueString(value.source.line_id, 1, 255) ||
+      catalogAmounts[value.source.line_id] !== value.amount ||
+      !moonIsDateTime(value.source.occurred_at)) {
+    throw moonError("Currency event is invalid.", nkruntime.Codes.INVALID_ARGUMENT);
+  }
+  if (moonHasOwn(value, "metadata")) {
+    if (!moonIsObject(value.metadata)) {
+      throw moonError("Currency event is invalid.", nkruntime.Codes.INVALID_ARGUMENT);
+    }
+    var metadataKeys = Object.keys(value.metadata);
+    if (metadataKeys.length > 32) {
+      throw moonError("Currency event is invalid.", nkruntime.Codes.INVALID_ARGUMENT);
+    }
+    var index;
+    for (index = 0; index < metadataKeys.length; index += 1) {
+      var metadataValue = value.metadata[metadataKeys[index]];
+      if (metadataValue !== null &&
+          typeof metadataValue !== "string" &&
+          typeof metadataValue !== "number" &&
+          typeof metadataValue !== "boolean") {
+        throw moonError("Currency event is invalid.", nkruntime.Codes.INVALID_ARGUMENT);
+      }
+    }
+  }
+  return value as MoonCurrencyEvent;
+}
+
+function moonVerifyCurrencyRequest(
+  ctx: nkruntime.Context,
+  nk: nkruntime.Nakama,
+  payload: string
+): void {
+  if (ctx.userId) {
+    throw moonError("Server invocation required.", nkruntime.Codes.PERMISSION_DENIED);
+  }
+  var timestamp = moonReadSingleHeader(ctx, "X-Such-Currency-Timestamp");
+  var signature = moonReadSingleHeader(ctx, "X-Such-Currency-Signature");
+  if (timestamp === null ||
+      signature === null ||
+      !/^[0-9]{10,12}$/.test(timestamp) ||
+      !/^v1=[0-9a-f]{64}$/.test(signature)) {
+    throw moonError("Currency verification failed.", nkruntime.Codes.UNAUTHENTICATED);
+  }
+  var timestampNumber = Number(timestamp);
+  var now = Math.floor(Date.now() / 1000);
+  if (!moonIsSafeInteger(timestampNumber) ||
+      Math.abs(now - timestampNumber) > PLATFORM_CURRENCY_MAX_SKEW_SECONDS) {
+    throw moonError("Currency verification failed.", nkruntime.Codes.UNAUTHENTICATED);
+  }
+  var key = moonRequireEnv(ctx, "SUCH_CURRENCY_PROJECTION_HMAC_KEY", 4096);
+  var mac = nk.hmacSha256Hash(timestamp + "\n" + payload, key);
+  if (!moonMacMatches(mac, signature.substr(3))) {
+    throw moonError("Currency verification failed.", nkruntime.Codes.UNAUTHENTICATED);
+  }
+}
+
 function moonRpcHealth(
   _ctx: nkruntime.Context,
   _logger: nkruntime.Logger,
@@ -572,6 +715,7 @@ function moonRuntimeConfigurationReady(ctx: nkruntime.Context): boolean {
   var entitlementProviderUrl = ctx.env.SUCH_ENTITLEMENT_PROVIDER_URL;
   var entitlementProviderToken = ctx.env.SUCH_ENTITLEMENT_PROVIDER_TOKEN;
   var entitlementKey = ctx.env.SUCH_ENTITLEMENT_PROJECTION_HMAC_KEY;
+  var currencyKey = ctx.env.SUCH_CURRENCY_PROJECTION_HMAC_KEY;
   var roomSeedKey = ctx.env.SUCH_ROOM_SEED_HMAC_KEY;
   return ctx.env.SUCH_PLATFORM_APP_ID === MOON_APP_ID &&
     ctx.env.SUCH_PLATFORM_CONTRACT_VERSION ===
@@ -596,11 +740,13 @@ function moonRuntimeConfigurationReady(ctx: nkruntime.Context): boolean {
     ) &&
     moonIsOpaqueString(entitlementProviderToken, 24, 4096) &&
     moonIsOpaqueString(entitlementKey, 32, 4096) &&
+    moonIsOpaqueString(currencyKey, 32, 4096) &&
     moonIsOpaqueString(roomSeedKey, 32, 4096) &&
     moonSecretsUnique([
       idpToken,
       entitlementProviderToken,
       entitlementKey,
+      currencyKey,
       roomSeedKey
     ]) &&
     moonProductCatalogReady(ctx.env.SUCH_IAP_APPLE_PRODUCT_IDS) &&
@@ -726,6 +872,89 @@ function moonRpcEntitlementProjection(
   return JSON.stringify({
     outcome: rows[0].outcome.toLowerCase(),
     entitlement_key: event.entitlement_key,
+    last_sequence: rows[0].last_sequence
+  });
+}
+
+function moonRpcCurrencyBalance(
+  ctx: nkruntime.Context,
+  _logger: nkruntime.Logger,
+  nk: nkruntime.Nakama,
+  _payload: string
+): string {
+  if (!ctx.userId) {
+    throw moonError("Authentication required.", nkruntime.Codes.UNAUTHENTICATED);
+  }
+  var rows = nk.sqlQuery(
+    "SELECT COALESCE(b.balance, 0)::text AS balance, " +
+      "GREATEST(COALESCE(b.balance, 0), 0)::text AS available, " +
+      "GREATEST(-COALESCE(b.balance, 0), 0)::text AS debt, " +
+      "COALESCE(b.last_sequence, 0)::text AS last_sequence " +
+      "FROM such_platform_identity i " +
+      "LEFT JOIN such_platform_currency_balance b " +
+      "ON b.subject_id = i.subject_id AND b.currency_key = $2 " +
+      "WHERE i.nakama_user_id = $1::uuid",
+    [ctx.userId, "moonrocks"]
+  );
+  if (rows.length !== 1 ||
+      !/^-?[0-9]+$/.test(rows[0].balance) ||
+      !/^[0-9]+$/.test(rows[0].available) ||
+      !/^[0-9]+$/.test(rows[0].debt) ||
+      !/^[0-9]+$/.test(rows[0].last_sequence)) {
+    throw moonError("Currency balance is unavailable.", nkruntime.Codes.FAILED_PRECONDITION);
+  }
+  return JSON.stringify({
+    contract_version: PLATFORM_CONTRACT_VERSION,
+    currency_key: "moonrocks",
+    balance: rows[0].balance,
+    available: rows[0].available,
+    debt: rows[0].debt,
+    last_sequence: rows[0].last_sequence
+  });
+}
+
+function moonRpcCurrencyProjection(
+  ctx: nkruntime.Context,
+  _logger: nkruntime.Logger,
+  nk: nkruntime.Nakama,
+  payload: string
+): string {
+  moonVerifyCurrencyRequest(ctx, nk, payload);
+  var event = moonParseCurrencyEvent(payload);
+  var eventDigest = nk.sha256Hash(payload).toLowerCase();
+  var rows = nk.sqlQuery(
+    "SELECT outcome, balance::text AS balance, " +
+      "last_sequence::text AS last_sequence " +
+      "FROM such_platform_apply_currency_event(" +
+      "$1, $2, $3, $4, $5, $6, $7, $8, $9, " +
+      "$10::timestamptz, $11, $12, $13, $14::timestamptz)",
+    [
+      event.event_id,
+      event.subject_id,
+      event.currency_key,
+      event.sequence,
+      event.operation,
+      event.amount,
+      event.original_event_id,
+      event.idempotency_key,
+      eventDigest,
+      event.effective_at,
+      event.source.provider,
+      event.source.transaction_id,
+      event.source.line_id,
+      event.source.occurred_at
+    ]
+  );
+  if (rows.length !== 1 ||
+      (rows[0].outcome !== "APPLIED" && rows[0].outcome !== "DUPLICATE") ||
+      !/^-?[0-9]+$/.test(rows[0].balance) ||
+      !/^[0-9]+$/.test(rows[0].last_sequence)) {
+    throw moonError("Currency projection failed.", nkruntime.Codes.INTERNAL);
+  }
+  return JSON.stringify({
+    outcome: rows[0].outcome.toLowerCase(),
+    currency_key: event.currency_key,
+    balance: rows[0].balance,
     last_sequence: rows[0].last_sequence
   });
 }

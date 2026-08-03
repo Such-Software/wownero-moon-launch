@@ -11,7 +11,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
 NAKAMA = ROOT / "server" / "nakama"
-CONTRACT_COMMIT = "851456cafa1f0ed68aff2760da8b62e7db3ac0aa"
+CONTRACT_COMMIT = "90a11e5c21ff1fbe3cec2522c837edd3996a9bf2"
 REQUIRED_RPCS = {
     "app_platform_health",
     "app_platform_readiness",
@@ -19,7 +19,9 @@ REQUIRED_RPCS = {
     "app_platform_entitlements",
     "app_platform_prepare_guest_claim",
     "app_platform_claim_guest",
+    "app_platform_currency_balance",
     "app_entitlement_projection",
+    "app_currency_projection",
     "moon_launch_room_register",
     "moon_launch_room_resolve",
     "moon_launch_room_close",
@@ -29,6 +31,8 @@ REQUIRED_TABLES = {
     "such_platform_entitlement",
     "such_platform_guest_claim_token",
     "such_platform_guest_claim",
+    "such_platform_currency_balance",
+    "such_platform_currency_event",
     "such_platform_migration_operation",
     "such_moon_launch_friendly_room",
 }
@@ -89,8 +93,8 @@ def main() -> None:
     if manifest.get("minimum_nakama_version") != "3.40.0":
         fail("runtime manifest Nakama floor drift")
     if (
-        manifest.get("schema_version") != 2
-        or manifest.get("migrations", {}).get("schema_version") != 2
+        manifest.get("schema_version") != 3
+        or manifest.get("migrations", {}).get("schema_version") != 3
     ):
         fail("runtime manifest schema version drift")
     if manifest.get("runtime", {}).get("sha256") is not None:
@@ -123,6 +127,7 @@ def main() -> None:
         "SUCH_ENTITLEMENT_PROVIDER_URL",
         "SUCH_ENTITLEMENT_PROVIDER_TOKEN",
         "SUCH_ENTITLEMENT_PROJECTION_HMAC_KEY",
+        "SUCH_CURRENCY_PROJECTION_HMAC_KEY",
         "SUCH_ROOM_SEED_HMAC_KEY",
         "SUCH_IAP_APPLE_PRODUCT_IDS",
         "SUCH_IAP_GOOGLE_PRODUCT_IDS",
@@ -173,6 +178,7 @@ def main() -> None:
         "BEGIN;",
         "COMMIT;",
         "such_platform_apply_entitlement_event",
+        "such_platform_apply_currency_event",
         "such_moon_launch_claim_guest",
         "ON CONFLICT (schema_version) DO NOTHING",
     ):

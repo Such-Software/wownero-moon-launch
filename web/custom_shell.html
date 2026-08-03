@@ -259,6 +259,11 @@ body {
 				</div>
 
 				<div id="nag-store-links">
+					<a href="https://moonlaunch.space/store"
+						class="nag-btn nag-btn-primary"
+						onclick="return !(window.SUCH_APP_startCheckout &amp;&amp; window.SUCH_APP_startCheckout())">
+						Visit the Hangar
+					</a>
 					<div id="nag-mobile-row">
 						<a href="https://apps.apple.com/us/app/such-moon-launch/id6767909623"
 							target="_blank" rel="noopener noreferrer"
@@ -285,6 +290,8 @@ body {
 		     AdManager), not AdSense. The old AdSense placeholders + JS bridge
 		     were never configured and are unused, so they were removed. -->
 
+		<script src="app-config.js"></script>
+		<script src="checkout.js"></script>
 		<script>
 		// Pre-game splash overlay. Dismissed by the "Continue to web version"
 		// button. (Web monetization / cross-promo is the in-game Godot nag, so

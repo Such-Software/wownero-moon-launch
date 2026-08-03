@@ -993,43 +993,56 @@ func _show_store_popup() -> void:
 
 	vbox.add_child(HSeparator.new())
 
-	# --- Remove Ads ---
+	# --- Lifetime access (one offer, channel-adapted presentation) ---
 	# Mobile (iOS/Android) ALWAYS shows the real-money IAP button regardless
 	# of whether StoreKit/Play Billing has finished its async product fetch.
 	# Otherwise Apple review opens Store within the few-second window before
 	# init completes, sees the moonrock fallback (and it's disabled because
 	# wallet is 0 on a fresh install), and rejects with "Remove Ads
 	# unresponsive" / "cannot locate IAPs".
-	if not globalvar.is_ads_removed():
+	var lifetime_owned := IAPManager.has_unlimited_races()
+	var should_show_lifetime := (
+		(IAPManager.is_supported() and (not AdManager.is_ad_free() or not lifetime_owned))
+		or (OS.get_name() == "Web" and not lifetime_owned)
+	)
+	if should_show_lifetime:
 		var ra_btn := Button.new()
 		ra_btn.custom_minimum_size = Vector2(420, 44)
 		ra_btn.add_theme_font_size_override("font_size", 16)
 		BS.apply_space_style(ra_btn, Color(0.9, 0.3, 0.9))
 		if IAPManager.is_supported():
-			ra_btn.text = "Remove Ads — %s" % IAPManager.get_price(IAPManager.PRODUCT_REMOVE_ADS)
-			ra_btn.pressed.connect(func(): IAPManager.purchase(IAPManager.PRODUCT_REMOVE_ADS))
-		else:
-			# Web/desktop fallback: spend 10k Moonrocks
-			ra_btn.text = "Remove Ads — %d Moonrocks" % globalvar.AD_REMOVAL_COST
-			ra_btn.disabled = globalvar.wallet < globalvar.AD_REMOVAL_COST
+			ra_btn.text = "%s — %s" % [
+				IAPManager.PRODUCT_LABELS[IAPManager.PRODUCT_REMOVE_ADS],
+				IAPManager.get_price(IAPManager.PRODUCT_REMOVE_ADS),
+			]
 			ra_btn.pressed.connect(func():
-				if AdManager.remove_ads():
-					_close_store_popup()
+				IAPManager.purchase_offer(IAPManager.OFFER_RACE_UNLIMITED)
+			)
+		elif OS.get_name() == "Web":
+			ra_btn.text = "Unlimited Races — $1.99"
+			ra_btn.disabled = not IAPManager.is_direct_checkout_available()
+			if ra_btn.disabled:
+				ra_btn.tooltip_text = "Checkout is sealed while release evidence is completed."
+				BS.apply_space_style(ra_btn, Color(0.25, 0.25, 0.35))
+			ra_btn.pressed.connect(func():
+				IAPManager.purchase_offer(IAPManager.OFFER_RACE_UNLIMITED)
 			)
 		vbox.add_child(ra_btn)
 	else:
-		var ad_free := Label.new()
-		ad_free.text = "✅ Ad-free unlocked — thank you!"
-		ad_free.add_theme_font_size_override("font_size", 14)
-		ad_free.add_theme_color_override("font_color", Color(0.4, 1.0, 0.6))
-		ad_free.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-		vbox.add_child(ad_free)
+		var lifetime_label := Label.new()
+		lifetime_label.text = "✅ Unlimited Races unlocked — thank you!"
+		if IAPManager.is_supported():
+			lifetime_label.text = "✅ Ad-free + Unlimited Races unlocked — thank you!"
+		lifetime_label.add_theme_font_size_override("font_size", 14)
+		lifetime_label.add_theme_color_override("font_color", Color(0.4, 1.0, 0.6))
+		lifetime_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		vbox.add_child(lifetime_label)
 
-	# --- Moonrock packs (real IAP only) ---
+	# --- Moonrock packs (native mobile billing or typed web checkout) ---
 	# Same fix as Remove Ads above — gate on is_supported (platform) not
 	# is_available (init state) so Apple review sees the buttons on first
 	# Store popup open before StoreKit's async product fetch finishes.
-	if IAPManager.is_supported():
+	if IAPManager.is_offer_surface_supported():
 		vbox.add_child(HSeparator.new())
 		var pack_header := Label.new()
 		pack_header.text = "Moonrock Packs"
@@ -1047,17 +1060,26 @@ func _show_store_popup() -> void:
 			btn.add_theme_font_size_override("font_size", 16)
 			BS.apply_space_style(btn, Color(0.5, 0.85, 1.0))
 			var product_id: String = pid
-			btn.pressed.connect(func(): IAPManager.purchase(product_id))
+			if OS.get_name() == "Web" and not IAPManager.is_direct_checkout_available():
+				btn.disabled = true
+				btn.tooltip_text = "Checkout is sealed while release evidence is completed."
+				BS.apply_space_style(btn, Color(0.25, 0.25, 0.35))
+			btn.pressed.connect(func():
+				var offer_id := IAPManager.get_offer_id_for_product(product_id)
+				if offer_id != "":
+					IAPManager.purchase_offer(offer_id)
+			)
 			vbox.add_child(btn)
 
-		var restore_btn := Button.new()
-		restore_btn.text = "Restore Purchases"
-		restore_btn.flat = true
-		restore_btn.custom_minimum_size = Vector2(420, 28)
-		restore_btn.add_theme_color_override("font_color", Color(0.55, 0.7, 0.85))
-		restore_btn.add_theme_font_size_override("font_size", 12)
-		restore_btn.pressed.connect(func(): IAPManager.restore_purchases())
-		vbox.add_child(restore_btn)
+		if IAPManager.is_supported():
+			var restore_btn := Button.new()
+			restore_btn.text = "Restore Purchases"
+			restore_btn.flat = true
+			restore_btn.custom_minimum_size = Vector2(420, 28)
+			restore_btn.add_theme_color_override("font_color", Color(0.55, 0.7, 0.85))
+			restore_btn.add_theme_font_size_override("font_size", 12)
+			restore_btn.pressed.connect(func(): IAPManager.restore_purchases())
+			vbox.add_child(restore_btn)
 
 	vbox.add_child(HSeparator.new())
 

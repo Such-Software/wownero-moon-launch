@@ -63,6 +63,8 @@ trap cleanup_container EXIT
     "$CONTAINER:/tmp/001_app_platform_v1.sql"
   docker cp server/nakama/migrations/002_friendly_room.sql \
     "$CONTAINER:/tmp/002_friendly_room.sql"
+  docker cp server/nakama/migrations/003_currency_wallet.sql \
+    "$CONTAINER:/tmp/003_currency_wallet.sql"
   docker cp server/nakama/test/migrations.integration.sql \
     "$CONTAINER:/tmp/migrations.integration.sql"
 
@@ -72,6 +74,12 @@ trap cleanup_container EXIT
   docker exec "$CONTAINER" \
     psql --username postgres --dbname sml_test \
     --file /tmp/002_friendly_room.sql
+  docker exec "$CONTAINER" \
+    psql --username postgres --dbname sml_test \
+    --file /tmp/003_currency_wallet.sql
+  docker exec "$CONTAINER" \
+    psql --username postgres --dbname sml_test \
+    --file /tmp/003_currency_wallet.sql
   docker exec "$CONTAINER" \
     psql --username postgres --dbname sml_test \
     --file /tmp/002_friendly_room.sql

@@ -8,44 +8,42 @@ deliberately and verify on-device.
 Company procedure: `~/src/docs/engineering/app-analytics.md` +
 `~/src/such-hq/private_docs/APP_ANALYTICS.md`. Reference bridge: `~/src/bloomword`.
 
-## Decision: reuse Bloomword's bridge (fastest) vs rebuild renamed (cleaner)
+## Decision: reuse the generic bridge vs rebuild renamed
 
 The bridge is a **generic** Firebase wrapper. Its singleton name is cosmetic; the
 `GoogleService-Info.plist` / `google-services.json` you ship decide which Firebase
 app receives the data. So:
 
-- **Option A — reuse Bloomword's compiled bridge as-is (recommended to start).**
-  Copy its binaries into moonlaunch, ship such_moon's GoogleService files, and set
-  `Analytics.gd` `FIREBASE_SINGLETON := "BloomwordFirebase"`. No Xcode/Gradle build.
-  Matches JW's "co-debug between bloomword and here" — literally the same bridge.
+- **Option A — reuse the reviewed generic bridge already vendored here.**
+  Keep `Analytics.gd` `FIREBASE_SINGLETON := "BloomwordFirebase"`. The singleton
+  label is a provider-adapter implementation detail; it is never an app ID.
 - **Option B — rebuild a shared/renamed bridge** (e.g. `SuchFirebase`). Cleaner long
   term, but needs the native toolchain (Xcode xcframework + Android `.aar`) and a
   rebuild of Bloomword too. Defer until the bridge is proven.
 
-`Analytics.gd` currently targets `MoonLaunchFirebase` — change that constant to match
-whichever bridge you ship (1 line).
+`Analytics.gd` currently targets the shared `BloomwordFirebase` wrapper. Its
+`app_id` user property is always the canonical `moon_launch`; any historical
+provider label remains confined to the provider/Fleet ingestion adapter.
 
-## iOS
+## Operations-owned enrollment and delivery
 
-1. Copy from `~/src/bloomword/godot/ios/`:
-   - `plugins/BloomwordFirebase.{gdip,release.xcframework,debug.xcframework}` → moonlaunch `ios/plugins/`
-   - `framework/Firebase*.xcframework` + `Google*`, `Promises`, `nanopb` → moonlaunch `ios/framework/`
-2. The `.gdip` already lists the linked frameworks, system frameworks, linker flags
-   (`-ObjC -lc++ -lsqlite3 -lz`), and `files=["GoogleService-Info.plist"]`.
-3. Firebase console → add the such_moon **iOS** app (bundle id) to the
-   `suchsoftwareapps` project → download `GoogleService-Info.plist` → drop in `ios/`
-   (already gitignored).
-4. Export preset (iOS): enable the plugin (`plugins/BloomwordFirebase=true`).
+Provider enrollment is an Operations ceremony against the exact release-contract
+bundle/package IDs. App developers do not create provider apps, infer IDs, download
+credentials into the checkout, or reuse Bloomword provider files. Operations stores
+the uniquely named provider artifacts in the approved secret authority and delivers
+them ephemerally to the protected release lane without echoing their contents.
 
-## Android
+- **iOS:** the reviewed seed contains the generic plugin/framework binaries. The
+  protected workflow overlays the Moon Launch `GoogleService-Info.plist` into its
+  ignored staging checkout immediately before export. The `.gdip` links that file.
+- **Android:** the generic editor export plugin and AARs are already vendored. The
+  protected workflow materializes the Moon Launch `google-services.json` below
+  Build and passes its exact path as `SML_ANDROID_GOOGLE_SERVICES_PATH` to
+  `tools/export_candidate.sh`.
 
-1. Copy `~/src/bloomword/godot/addons/BloomwordFirebase/` → moonlaunch `addons/`
-   (the EditorExportPlugin that injects the Firebase Maven deps:
-   `firebase-analytics:23.2.0`, `firebase-crashlytics:20.0.6`, `firebase-common:22.1.0`)
-   and its `bin/{debug,release}/*.aar`.
-2. Enable the plugin in Project Settings → Plugins.
-3. Firebase console → add the such_moon **Android** app (package name) → download
-   `google-services.json` → drop in `android/` (already gitignored).
+No provider configuration belongs in Git, a developer command line, Seafile, or a
+persistent source path. Release evidence records only identifiers and hashes safe to
+disclose; it never records provider-file contents.
 
 ## Verify (before shipping)
 
@@ -58,8 +56,9 @@ whichever bridge you ship (1 line).
 
 ## Register in such-hq (cockpit picks it up)
 
-- `inventory.yaml` `apps:` → such_moon row with `bundles:{ios,android}` (separate ids).
-- `projects.yaml` → `analytics:{source:bigquery, app:such_moon}` + `thresholds`
+- Fleet-generated inventory → canonical `moon_launch` with exact observed
+  `bundles:{ios,android}` (separate provider IDs).
+- `projects.yaml` → `analytics:{source:bigquery, app:moon_launch}` + `thresholds`
   (pull D1/D7/activation targets from the GTM/strategy doc). Activation = first
   successful launch.
 

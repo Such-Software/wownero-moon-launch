@@ -25,7 +25,7 @@ friendly room slice and merge invariants are recorded in
 | API domain | `api.moonlaunch.space` | assigned; route/TLS not provisioned |
 | Play/admin domains | provisioned values only | `null` |
 | Native OIDC client/redirect | provisioned exact values only | `null` |
-| Shared Premium offer mapping | reviewed catalog only | not provisioned |
+| App Platform offers | canonical registry only | none registered |
 | Nearby P2P | separate future adapter | disabled |
 
 The Medusa portfolio branch already declares Moon Launch as a disabled,
@@ -50,10 +50,12 @@ twice on staging, with the second run reusing the first run's identifiers:
 The dedicated channel is disabled, the tenant is inactive with no live
 domain, payment provider, catalog products, or production OIDC client, and
 the tenant lookup and historical apex host route return `404`. The
-Wownero projection lock matches the consumer pin and the linked publishable
-key count is exactly one. A validated pre-provision database dump is retained
-under the staging host's `~/Build`; no credential or database artifact was
-copied into this repository or Seafile.
+Wownero projection matched the then-pinned consumer lock and the linked
+publishable key count is exactly one. That historical staging proof predates
+the current `92cec272…` projection and must be reconciled and re-proved before
+activation; it is not current brand evidence. A validated pre-provision
+database dump is retained under the staging host's `~/Build`; no credential or
+database artifact was copied into this repository or Seafile.
 
 The staged source archive SHA-256 is
 `07785fc8b79391dff0b6739c90c1923d0fd23e9c92561bb2fdfa3161f5239282`.
@@ -64,8 +66,8 @@ service restart counters were unchanged.
 
 ## Domain and DNS posture
 
-The pushed App Platform registry at
-`docs@851456cafa1f0ed68aff2760da8b62e7db3ac0aa` assigns:
+The App Platform registry at
+`docs@90a11e5c21ff1fbe3cec2522c837edd3996a9bf2` assigns:
 
 - marketing: `moonlaunch.space`;
 - shop: `shop.moonlaunch.space`;
@@ -87,20 +89,18 @@ route, certificate path, health check, and rollback target are ready.
 ## Shop theme handoff
 
 The registry-pinned Wownero projection is generated from Such Graphics commit
-token `2d15861`. Keep the generated provisioner input outside this source
-worktree:
+`9f05ca86c04cb252a3c2a159f3c08c3677dbf5dc`. Keep generated provisioner
+input outside this source worktree:
 
 ```bash
-cd "$HOME/src/such-graphics"
-PYTHONDONTWRITEBYTECODE=1 PYTHONPATH=. \
-  python3 -m such_graphics project-brand packs/wownero \
-    --source-commit 2d15861 \
-    --out "$HOME/Build/such-moon-launch/brand/2d15861"
-sha256sum "$HOME/Build/such-moon-launch/brand/2d15861/brand.lock.json"
+PROJECTION_ROOT="$HOME/Build/such-graphics/brands"
+PROJECTION_COMMIT=9f05ca86c04cb252a3c2a159f3c08c3677dbf5dc
+PROJECTION_DIR="$PROJECTION_ROOT/$PROJECTION_COMMIT/wownero"
+sha256sum "$PROJECTION_DIR/brand.lock.json"
 ```
 
 The required lock SHA-256 is
-`4c684c369d81ff0b8012fc78410fbec72341f8d2f16408ff23b6071bec78be96`.
+`92cec272c4fb7dfda7595b14ec4b76cb285cf2d83d41db2ed641e3ca7086451f`.
 Provisioning must reject any other projection. The inactive Medusa
 provisioner still requires the real intended shop domain; no tenant, channel,
 client, domain, catalog, price, payment, or offer identifier may be invented
@@ -118,6 +118,16 @@ external digital checkout and cryptocurrency purchase surfaces closed. Web
 commerce remains outside official mobile artifacts. Clients consume only the
 neutral `premium` capability; they do not infer it from receipts, wallet
 activity, Medusa orders, or local save flags.
+
+`config/storefront-content-v1.json` is the app-owned, brand-locked storefront
+copy for the inactive tenant flow. `web/app-config.js` and `web/checkout.js`
+adapt the Bauhaus Echo client pattern to the Godot web shell. Source public
+configuration is all null/false, and the ordinary fallback remains the Hangar
+status page. The canonical registry currently has `offers: []` for Moon Launch,
+so Operations cannot enable digital checkout until a reviewed registry offer,
+provider records, OIDC client, ledger route, and coordinated evidence exist.
+The web client reads a resolved neutral Premium capability only in memory; it
+never persists that projection into the local ad-removal save flag.
 
 The existing Flask score/save API remains the compatibility authority until a
 reviewed migration moves writes through one idempotent adapter to app-owned
@@ -140,10 +150,10 @@ accepted rotation. Their existence is not permission to read or copy them.
 
 `server/nakama` implements the common App Platform v1 runtime surface against
 the Nakama 3.40.0 / runtime-types 1.47.0 compatibility pair. It includes the
-one-use IdP ticket hook, readiness and build metadata, neutral entitlement
-reads, independently signed ordered entitlement projection, hash-only
-guest-claim proofs, the Moon Launch merge invariants, and recoverable guest
-tombstones.
+one-use IdP ticket hook, readiness and build metadata, neutral entitlement and
+purchased-currency reads, independently signed ordered entitlement and
+currency projection, refund-debt state, hash-only guest-claim proofs, the Moon
+Launch merge invariants, and recoverable guest tombstones.
 
 The checked-in build entry point installs and compiles only inside Build:
 
@@ -168,10 +178,10 @@ belongs in the source worktree.
 
 The runtime consumes Fleet's exact `SUCH_*` environment roles. Readiness
 requires the reviewed app, schema, contract and source pins; independent
-runtime and migration digests; exact private IdP and entitlement paths;
-unique opaque secret roles; both native product catalogs; and Nakama 3.40.0
-or newer. Legacy `APP_*`, `IDP_*`, and unscoped entitlement-key roles are
-rejected by CI.
+runtime and migration digests; exact private IdP and entitlement paths; unique
+opaque secret roles, including a currency-projection key distinct from the
+entitlement key; both native product catalogs; and Nakama 3.40.0 or newer.
+Legacy `APP_*`, `IDP_*`, and unscoped entitlement-key roles are rejected by CI.
 
 The protected integration lane supplies a reviewed immutable PostgreSQL image
 and runs:
@@ -182,23 +192,26 @@ SML_POSTGRES_TEST_IMAGE='<registry/image@sha256:...>' \
 ```
 
 This applies the migration bundle twice in a disposable tmpfs database and
-exercises grant, duplicate, conflicting sequence, revoke, reinstate, full
-projection convergence, guest merge, idempotent claim replay, and guest
-tombstone preservation. A mutable image is never accepted by CI.
+exercises entitlement and Moonrock grant/credit, duplicate, conflicting
+sequence, revoke/reverse, reinstate, refund debt, full projection convergence,
+guest merge, idempotent claim replay, and guest tombstone preservation. A
+mutable image is never accepted by CI.
 
 ## Promotion gates
 
 Before test activation:
 
-1. retain the successful 2026-07-30 Fleet preflight evidence (3 CPUs,
+1. retain the successful 2026-07-30 Fleet capacity preflight evidence (3 CPUs,
    9951 MiB memory, 193746558976 bytes free on `/`, and no existing app
-   containers on `such-backend`);
+   containers on `such-backend`), while re-running all mutable content and
+   dependency gates against the current pins;
 2. build independently hashed runtime and migration artifacts from this repo;
 3. provision exact private IdP and entitlement routes plus unique
    Vaultwarden-backed credentials;
 4. provision and verify the five domain roles and OIDC callback;
 5. complete real Nakama/PostgreSQL/IdP tests and two-device room evidence;
-6. prove entitlement grant, duplicate, revoke, reinstate, and full replay;
+6. prove entitlement grant/revoke and Moonrock credit/reverse/reinstate,
+   duplicate delivery, refund debt, and full replay;
 7. restore the tagged app generation in isolation and measure RTO.
 
 Capacity is no longer the activation blocker. Fleet remains disabled with an

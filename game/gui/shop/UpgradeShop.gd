@@ -70,6 +70,9 @@ const UPGRADE_COLORS := {
 
 
 func _ready() -> void:
+	if not AdManager.premium_status_changed.is_connected(_on_premium_status_changed):
+		AdManager.premium_status_changed.connect(_on_premium_status_changed)
+
 	# Full-screen dark background with subtle gradient
 	var bg := ColorRect.new()
 	bg.color = Color(0.02, 0.02, 0.08, 1.0)
@@ -129,24 +132,31 @@ func _ready() -> void:
 		# Shift wallet panel left to make room
 		wallet_panel.position = Vector2(80, 50)
 
-		# Remove Ads — real-money IAP on mobile, Moonrock-spend fallback elsewhere.
-		# Gate on is_supported (platform) not is_available (init state) so
-		# the real-money button appears immediately on iOS/Android even
-		# before StoreKit has finished its async product fetch.
-		if not globalvar.is_ads_removed():
+		# One lifetime offer, adapted by channel. On mobile it removes ads and
+		# unlocks races; on web it is presented only as Unlimited Races.
+		var lifetime_owned := IAPManager.has_unlimited_races()
+		var should_show_lifetime := (
+			(IAPManager.is_supported() and (not AdManager.is_ad_free() or not lifetime_owned))
+			or (OS.get_name() == "Web" and not lifetime_owned)
+		)
+		if should_show_lifetime:
 			_remove_ads_btn = Button.new()
 			if IAPManager.is_supported():
-				_remove_ads_btn.text = "Remove Ads — %s" % IAPManager.get_price(IAPManager.PRODUCT_REMOVE_ADS)
+				_remove_ads_btn.text = "%s — %s" % [
+					IAPManager.PRODUCT_LABELS[IAPManager.PRODUCT_REMOVE_ADS],
+					IAPManager.get_price(IAPManager.PRODUCT_REMOVE_ADS),
+				]
 				BS.apply_space_style(_remove_ads_btn, Color(0.9, 0.3, 0.9))
 				_remove_ads_btn.pressed.connect(_on_remove_ads_iap)
-			else:
-				_remove_ads_btn.text = "Remove Ads — %d Moonrocks" % globalvar.AD_REMOVAL_COST
-				if globalvar.wallet >= globalvar.AD_REMOVAL_COST:
+			elif OS.get_name() == "Web":
+				_remove_ads_btn.text = "Unlimited Races — $1.99"
+				if IAPManager.is_direct_checkout_available():
 					BS.apply_space_style(_remove_ads_btn, Color(0.9, 0.3, 0.9))
 				else:
 					_remove_ads_btn.disabled = true
+					_remove_ads_btn.tooltip_text = "Checkout is sealed while release evidence is completed."
 					BS.apply_space_style(_remove_ads_btn, Color(0.25, 0.25, 0.35))
-				_remove_ads_btn.pressed.connect(_on_remove_ads)
+				_remove_ads_btn.pressed.connect(_on_race_unlimited_direct)
 			_remove_ads_btn.custom_minimum_size = Vector2(240, 34)
 			_remove_ads_btn.position = Vector2(660, 50)
 			add_child(_remove_ads_btn)
@@ -186,7 +196,7 @@ func _ready() -> void:
 	# that supports IAPs, even if StoreKit/Play Billing hasn't finished
 	# product fetch yet — Apple review opened the shop too fast and saw
 	# no Moonrock buttons in earlier rejections.
-	if IAPManager.is_supported():
+	if IAPManager.is_offer_surface_supported():
 		_build_moonrock_store(vbox)
 
 	# --- Skin gallery section ---
@@ -329,6 +339,10 @@ func _build_moonrock_store(parent: VBoxContainer) -> void:
 		btn.custom_minimum_size = Vector2(420, 56)
 		btn.add_theme_font_size_override("font_size", 16)
 		BS.apply_space_style(btn, Color(0.5, 0.85, 1.0))
+		if OS.get_name() == "Web" and not IAPManager.is_direct_checkout_available():
+			btn.disabled = true
+			btn.tooltip_text = "Checkout is sealed while release evidence is completed."
+			BS.apply_space_style(btn, Color(0.25, 0.25, 0.35))
 		btn.pressed.connect(_on_buy_moonrocks.bind(pid))
 		row.add_child(btn)
 		_moonrocks_buttons[pid] = btn
@@ -338,8 +352,17 @@ func _on_remove_ads_iap() -> void:
 	_start_iap_purchase(IAPManager.PRODUCT_REMOVE_ADS, _remove_ads_btn)
 
 
+func _on_race_unlimited_direct() -> void:
+	IAPManager.purchase_offer(IAPManager.OFFER_RACE_UNLIMITED)
+
+
 func _on_buy_moonrocks(product_id: String) -> void:
-	_start_iap_purchase(product_id, _moonrocks_buttons.get(product_id, null))
+	if IAPManager.is_supported():
+		_start_iap_purchase(product_id, _moonrocks_buttons.get(product_id, null))
+		return
+	var offer_id := IAPManager.get_offer_id_for_product(product_id)
+	if offer_id != "":
+		IAPManager.purchase_offer(offer_id)
 
 
 ## Unified IAP purchase entry point. Enforces a single in-flight purchase,
@@ -447,7 +470,13 @@ func _on_restore_purchases() -> void:
 func _on_iap_restored(_restored_ids: Array) -> void:
 	# IAPManager.apply_purchase has already been called per restored ID.
 	_update_wallet_label()
-	if globalvar.is_ads_removed() and _remove_ads_btn and is_instance_valid(_remove_ads_btn):
+	if AdManager.is_ad_free() and _remove_ads_btn and is_instance_valid(_remove_ads_btn):
+		_remove_ads_btn.queue_free()
+		_remove_ads_btn = null
+
+
+func _on_premium_status_changed(is_premium: bool) -> void:
+	if is_premium and _remove_ads_btn and is_instance_valid(_remove_ads_btn):
 		_remove_ads_btn.queue_free()
 		_remove_ads_btn = null
 
@@ -469,7 +498,8 @@ func _on_rewarded_result(success: bool) -> void:
 			_style_buy_button(uname)
 		# Refresh skin buttons too
 		_refresh_skin_buttons()
-		# Refresh Remove Ads button (may now be affordable)
+		# Re-evaluate the lifetime-offer adapter. Moonrocks never determine
+		# whether this real-money checkout button is enabled.
 		_refresh_remove_ads_button()
 		if _ad_button:
 			_ad_button.text = "+%d Moonrocks!" % AdManager.REWARDED_AD_MOONROCKS
@@ -511,13 +541,16 @@ func _on_remove_ads() -> void:
 
 
 func _refresh_remove_ads_button() -> void:
-	if _remove_ads_btn and is_instance_valid(_remove_ads_btn):
-		if globalvar.wallet >= globalvar.AD_REMOVAL_COST:
-			_remove_ads_btn.disabled = false
-			BS.apply_space_style(_remove_ads_btn, Color(0.9, 0.3, 0.9))
-		else:
-			_remove_ads_btn.disabled = true
-			BS.apply_space_style(_remove_ads_btn, Color(0.25, 0.25, 0.35))
+	if not _remove_ads_btn or not is_instance_valid(_remove_ads_btn):
+		return
+	var adapter_ready := IAPManager.is_supported() or (
+		OS.get_name() == "Web" and IAPManager.is_direct_checkout_available()
+	)
+	_remove_ads_btn.disabled = not adapter_ready
+	BS.apply_space_style(
+		_remove_ads_btn,
+		Color(0.9, 0.3, 0.9) if adapter_ready else Color(0.25, 0.25, 0.35),
+	)
 
 
 func _create_upgrade_card(upgrade_name: String) -> PanelContainer:

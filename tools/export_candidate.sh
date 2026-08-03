@@ -169,6 +169,15 @@ fi
 "$GODOT_BIN" --headless --path . --export-release "$PRESET" "$OUTPUT" \
   2>&1 | tee "$LOG_DIR/export.log"
 
+if [[ "$PRESET" == "Web" ]]; then
+  # Godot renders the custom shell but does not promote arbitrary public JS
+  # beside it. These are source-controlled, public, all-null commerce assets;
+  # deployment may replace app-config.js only after Operations admission.
+  install -m 0644 web/app-config.js "$PRODUCT_DIR/web/app-config.js"
+  install -m 0644 web/checkout.js "$PRODUCT_DIR/web/checkout.js"
+  install -m 0644 config/commerce-catalog-v1.json "$PRODUCT_DIR/web/commerce-catalog-v1.json"
+fi
+
 {
   printf 'project=such-moon-launch\n'
   printf 'git_sha=%s\n' "$SHA"

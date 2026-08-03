@@ -1,0 +1,59 @@
+{
+  "contract_version": 1,
+  "app_id": "moon_launch",
+  "intended_storefront_host": "shop.moonlaunch.space",
+  "marketing_host": "moonlaunch.space",
+  "brand_lock_sha256": "92cec272c4fb7dfda7595b14ec4b76cb285cf2d83d41db2ed641e3ca7086451f",
+  "theme": {
+    "showStoreNameWithLogo": true,
+    "headerLayout": "centered",
+    "density": "spacious",
+    "cardStyle": "sticker",
+    "cardHoverFx": "tilt",
+    "gridColumns": 3,
+    "homeSections": [
+      "hero",
+      "editorial",
+      "categoryTiles",
+      "featured",
+      "rails",
+      "cta",
+      "recentlyViewed"
+    ],
+    "editorial": {
+      "title": "Artifacts for impossible landings",
+      "body": "Such Moon Launch turns careful thrust, scarce fuel, and spectacular mistakes into an arcade trip across the solar system. Explore the wider mission from the same bright, strange universe as the game.",
+      "imageSide": "right",
+      "ctaText": "Visit mission control",
+      "ctaLink": "https://moonlaunch.space"
+    },
+    "homeCta": {
+      "title": "Ready for another flight?",
+      "subtitle": "Practice the landing, tune the rocket, and try not to become a crater.",
+      "buttonText": "Play Such Moon Launch",
+      "buttonLink": "https://moonlaunch.space/play"
+    },
+    "categoryTiles": {
+      "title": "From the Moon Launch hangar"
+    },
+    "categoryNavEnabled": true,
+    "categorySidebarEnabled": false,
+    "productTypeSidebarEnabled": false,
+    "heroEnabled": true,
+    "heroStyle": "kinetic",
+    "heroTitle": "Land softly. Fly farther.",
+    "heroSubtitle": "Mission artifacts from a solar system full of improbable landings.",
+    "heroButtonText": "Explore the hangar",
+    "heroOverlayOpacity": "heavy",
+    "blogEnabled": false,
+    "footerLayout": "standard",
+    "footerText": "Such Moon Launch — such moon, many landings, wow.",
+    "footerShowSocial": false,
+    "surfaceStyle": "bordered",
+    "vibe": "modern",
+    "showSearch": true,
+    "compactCart": true,
+    "compactAccount": true,
+    "productImageFit": "contain"
+  }
+}

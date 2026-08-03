@@ -35,6 +35,7 @@ func before_test() -> void:
 	globalvar.level_bounces_used = 0
 	globalvar.has_checkpoint = false
 	globalvar.ads_removed = false
+	globalvar.race_unlimited_cached = false
 	for key in globalvar.upgrades.keys():
 		globalvar.upgrades[key] = 0
 
@@ -753,7 +754,7 @@ func test_get_save_data_contains_all_keys() -> void:
 		"difficulty", "selected_skin", "owned_skins", "endless_best_wave",
 		"levels_unlocked", "total_crypto_earned", "total_deaths",
 		"landings_since_install", "rate_prompt_shown",
-		"ads_removed",
+		"ads_removed", "race_unlimited_cached",
 	]
 	for key in required_keys:
 		assert_bool(data.has(key)).is_true()
@@ -775,6 +776,7 @@ func test_save_data_roundtrip() -> void:
 	globalvar.levels_unlocked = true
 	globalvar.endless_best_wave = 7
 	globalvar.ads_removed = true
+	globalvar.race_unlimited_cached = true
 	globalvar.opening_intro_version = globalvar.CURRENT_OPENING_INTRO_VERSION
 	globalvar.first_flight_briefing_shown = true
 
@@ -801,6 +803,7 @@ func test_save_data_roundtrip() -> void:
 	assert_bool(globalvar.levels_unlocked).is_true()
 	assert_int(globalvar.endless_best_wave).is_equal(7)
 	assert_bool(globalvar.ads_removed).is_true()
+	assert_bool(globalvar.race_unlimited_cached).is_true()
 	assert_int(globalvar.opening_intro_version).is_equal(globalvar.CURRENT_OPENING_INTRO_VERSION)
 	assert_bool(globalvar.first_flight_briefing_shown).is_true()
 
@@ -912,6 +915,26 @@ func test_ads_removed_restores_from_save_data() -> void:
 func test_ads_removed_defaults_false_in_old_save() -> void:
 	globalvar._apply_save_data({"wallet": 100})
 	assert_bool(globalvar.ads_removed).is_false()
+	assert_bool(globalvar.race_unlimited_cached).is_false()
+
+func test_unlimited_races_cache_round_trips_separately_from_ad_removal() -> void:
+	globalvar.race_unlimited_cached = true
+	var data := globalvar.get_save_data()
+	globalvar.race_unlimited_cached = false
+	globalvar._apply_save_data(data)
+	assert_bool(globalvar.has_cached_unlimited_races()).is_true()
+
+func test_moonrock_ad_removal_does_not_grant_paid_race_access() -> void:
+	globalvar.wallet = globalvar.AD_REMOVAL_COST
+	assert_bool(globalvar.buy_ad_removal()).is_true()
+	assert_bool(globalvar.has_cached_unlimited_races()).is_false()
+
+func test_reset_progress_preserves_permanent_benefits() -> void:
+	globalvar.ads_removed = true
+	globalvar.race_unlimited_cached = true
+	globalvar.reset_progress()
+	assert_bool(globalvar.ads_removed).is_true()
+	assert_bool(globalvar.race_unlimited_cached).is_true()
 
 func test_ad_removal_cost_constant() -> void:
 	assert_int(globalvar.AD_REMOVAL_COST).is_equal(10000)

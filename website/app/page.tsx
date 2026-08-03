@@ -234,10 +234,11 @@ export default function Home() {
         </div>
         <div>
           <p className="eyebrow">The Hangar</p>
-          <h2>A brand-new shop is being fueled.</h2>
+          <h2>The release catalog is locked.</h2>
           <p>
-            The MoonLaunch storefront is outfitting behind closed doors. No
-            checkout or products are open during platform testing.
+            Unlimited Races and both Moonrock packs are pinned for web and
+            desktop. Checkout stays closed during payment, refund, and wallet
+            recovery testing.
           </p>
           <a
             className="secondary-action"
