@@ -10,6 +10,7 @@ extends Node
 
 signal rewarded_ad_completed(success: bool)
 signal interstitial_closed
+signal premium_status_changed(is_premium: bool)
 
 const ExternalLinks = preload("res://game/net/ExternalLinks.gd")
 
@@ -67,6 +68,8 @@ var _rewarded_callback: Callable
 var _is_web: bool = false
 var _is_mobile: bool = false
 var _platform: String = ""
+var _web_window = null
+var _web_entitlement_callback = null
 
 ## New AdMob plugin (godot-sdk-integrations/godot-admob) — single Admob node
 ## owns banner / interstitial / rewarded lifecycles. Created lazily on mobile.
@@ -136,6 +139,15 @@ func _ready() -> void:
 			_init_admob_once()
 
 
+func _exit_tree() -> void:
+	if _web_window != null and _web_entitlement_callback != null:
+		_web_window.removeEventListener(
+			"such-app-entitlements-changed", _web_entitlement_callback
+		)
+	_web_entitlement_callback = null
+	_web_window = null
+
+
 func _init_admob_once() -> void:
 	if _admob_init_started:
 		return
@@ -147,7 +159,19 @@ func _init_admob_once() -> void:
 func is_ad_free() -> bool:
 	if _platform in AD_FREE_PLATFORMS:
 		return true
+	if _is_web and _web_has_neutral_premium():
+		return true
 	return globalvar.is_ads_removed()
+
+
+## Web Premium is ephemeral provider-neutral capability state resolved by the
+## user's OIDC session. Never copy it into the local save's ad-removal flag.
+func _web_has_neutral_premium() -> bool:
+	if not Engine.has_singleton("JavaScriptBridge"):
+		return false
+	return JavaScriptBridge.eval(
+		"window.SUCH_APP && window.SUCH_APP.premium === true", true
+	) == true
 
 
 ## Returns true if ads are supported on this platform (web or mobile).
@@ -498,8 +522,26 @@ func _finish_rewarded(success: bool) -> void:
 # ============================================================
 
 func _setup_web_bridge() -> void:
-	# No JS ad bridge needed — using in-game nag banners instead
-	pass
+	if not Engine.has_singleton("JavaScriptBridge"):
+		return
+	_web_window = JavaScriptBridge.get_interface("window")
+	if _web_window == null:
+		return
+	_web_entitlement_callback = JavaScriptBridge.create_callback(
+		_on_web_entitlements_changed
+	)
+	_web_window.addEventListener(
+		"such-app-entitlements-changed", _web_entitlement_callback
+	)
+	# Covers a cached entitlement that resolved before this autoload was ready.
+	_on_web_entitlements_changed([])
+
+
+func _on_web_entitlements_changed(_arguments: Array) -> void:
+	var premium := _web_has_neutral_premium()
+	if premium:
+		_web_hide_nag_banner()
+	premium_status_changed.emit(premium)
 
 
 func _web_show_nag_banner() -> void:

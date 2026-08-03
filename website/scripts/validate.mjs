@@ -114,6 +114,7 @@ for (const required of [
   "https://play.google.com/store/apps/details?id=com.suchsoftware.suchmoonlaunch",
   "https://suchsoftware.itch.io/such-moon-launch",
   "Checkout is closed",
+  "No App Platform offer is registered",
   "Mobile purchases remain available only through Apple and Google",
   "NEXT_PUBLIC_UMAMI_WEBSITE_ID",
   "data-umami-event=\"cta_click\"",

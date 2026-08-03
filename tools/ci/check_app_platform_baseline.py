@@ -8,7 +8,7 @@ import sys
 from pathlib import Path
 
 
-EXPECTED_CONTRACT_COMMIT = "851456cafa1f0ed68aff2760da8b62e7db3ac0aa"
+EXPECTED_CONTRACT_COMMIT = "75d167f230bc42b834e13ffbb2056dbeb2b719f4"
 
 
 def digest(path: Path) -> str:

@@ -3,7 +3,8 @@
 This is the intentional apex marketing/play surface for `moonlaunch.space`.
 Commerce belongs on the dedicated Medusa tenant at
 `shop.moonlaunch.space`; `/store` reports its inactive setup status and
-contains no checkout.
+contains no checkout. The canonical App Platform registry currently contains
+no Moon Launch offer.
 
 The website consumes the generated Wownero `brand.css` and `brand.json`
 projections pinned by `config/app-platform-v1.json`. Do not hand-copy Such

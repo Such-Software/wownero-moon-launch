@@ -70,6 +70,9 @@ const UPGRADE_COLORS := {
 
 
 func _ready() -> void:
+	if not AdManager.premium_status_changed.is_connected(_on_premium_status_changed):
+		AdManager.premium_status_changed.connect(_on_premium_status_changed)
+
 	# Full-screen dark background with subtle gradient
 	var bg := ColorRect.new()
 	bg.color = Color(0.02, 0.02, 0.08, 1.0)
@@ -133,7 +136,7 @@ func _ready() -> void:
 		# Gate on is_supported (platform) not is_available (init state) so
 		# the real-money button appears immediately on iOS/Android even
 		# before StoreKit has finished its async product fetch.
-		if not globalvar.is_ads_removed():
+		if not AdManager.is_ad_free():
 			_remove_ads_btn = Button.new()
 			if IAPManager.is_supported():
 				_remove_ads_btn.text = "Remove Ads — %s" % IAPManager.get_price(IAPManager.PRODUCT_REMOVE_ADS)
@@ -447,7 +450,13 @@ func _on_restore_purchases() -> void:
 func _on_iap_restored(_restored_ids: Array) -> void:
 	# IAPManager.apply_purchase has already been called per restored ID.
 	_update_wallet_label()
-	if globalvar.is_ads_removed() and _remove_ads_btn and is_instance_valid(_remove_ads_btn):
+	if AdManager.is_ad_free() and _remove_ads_btn and is_instance_valid(_remove_ads_btn):
+		_remove_ads_btn.queue_free()
+		_remove_ads_btn = null
+
+
+func _on_premium_status_changed(is_premium: bool) -> void:
+	if is_premium and _remove_ads_btn and is_instance_valid(_remove_ads_btn):
 		_remove_ads_btn.queue_free()
 		_remove_ads_btn = null
 

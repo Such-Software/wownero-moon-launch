@@ -36,7 +36,7 @@ function completeContext(overrides = {}) {
       SUCH_PLATFORM_MIGRATION_SHA256: "c".repeat(64),
       SUCH_PLATFORM_CONTRACT_VERSION: "1",
       SUCH_PLATFORM_CONTRACT_COMMIT:
-        "851456cafa1f0ed68aff2760da8b62e7db3ac0aa",
+        "75d167f230bc42b834e13ffbb2056dbeb2b719f4",
       SUCH_IDP_CONSUME_URL:
         "https://idp.internal.example/internal/consume-nakama-ticket",
       SUCH_IDP_CONSUMER_TOKEN: "i".repeat(32),

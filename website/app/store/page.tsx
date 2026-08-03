@@ -24,9 +24,10 @@ export default function StorePage() {
         <p className="eyebrow">Hangar status · inactive</p>
         <h1>The shop doors are still sealed.</h1>
         <p>
-          We are setting up a dedicated MoonLaunch storefront, catalog, and
-          account-linked Premium system. Checkout is closed while identity,
-          payment, entitlement replay, and recovery testing are completed.
+          We are setting up a dedicated MoonLaunch storefront and catalog.
+          Checkout is closed while identity, payment, entitlement replay, and
+          recovery testing are completed. No App Platform offer is registered
+          for Moon Launch yet.
         </p>
         <div className="status-list" role="list" aria-label="Store setup status">
           <div role="listitem">

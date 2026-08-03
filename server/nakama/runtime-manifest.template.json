@@ -2,7 +2,7 @@
   "schema_version": 2,
   "app_id": "moon_launch",
   "contract_version": 1,
-  "contract_source_commit": "851456cafa1f0ed68aff2760da8b62e7db3ac0aa",
+  "contract_source_commit": "75d167f230bc42b834e13ffbb2056dbeb2b719f4",
   "source_commit": null,
   "minimum_nakama_version": "3.40.0",
   "runtime_types": {

@@ -1000,7 +1000,7 @@ func _show_store_popup() -> void:
 	# init completes, sees the moonrock fallback (and it's disabled because
 	# wallet is 0 on a fresh install), and rejects with "Remove Ads
 	# unresponsive" / "cannot locate IAPs".
-	if not globalvar.is_ads_removed():
+	if not AdManager.is_ad_free():
 		var ra_btn := Button.new()
 		ra_btn.custom_minimum_size = Vector2(420, 44)
 		ra_btn.add_theme_font_size_override("font_size", 16)
