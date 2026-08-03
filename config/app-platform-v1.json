@@ -5,7 +5,7 @@
   "runtime": "godot",
   "contract_pin": {
     "repo": "docs",
-    "commit": "75d167f230bc42b834e13ffbb2056dbeb2b719f4"
+    "commit": "90a11e5c21ff1fbe3cec2522c837edd3996a9bf2"
   },
   "brand": {
     "repo": "such-graphics",

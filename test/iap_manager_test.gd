@@ -47,6 +47,7 @@ func test_restore_emits_empty_when_unavailable() -> void:
 
 func test_product_catalog_has_three_entries() -> void:
 	assert_int(IAPManager.PRODUCT_IDS.size()).is_equal(3)
+	assert_int(IAPManager.OFFER_TO_NATIVE_PRODUCT.size()).is_equal(3)
 
 
 func test_product_ids_are_bundle_prefixed() -> void:
@@ -65,3 +66,25 @@ func test_get_price_returns_fallback_when_unavailable() -> void:
 	# No store API to query → fallback string.
 	assert_str(IAPManager.get_price(IAPManager.PRODUCT_REMOVE_ADS)).is_equal("$1.99")
 	assert_str(IAPManager.get_price(IAPManager.PRODUCT_MOONROCKS_50K)).is_equal("$7.99")
+
+
+func test_stable_offers_map_to_existing_native_products() -> void:
+	assert_str(IAPManager.get_offer_id_for_product(IAPManager.PRODUCT_REMOVE_ADS)).is_equal(
+		IAPManager.OFFER_RACE_UNLIMITED
+	)
+	assert_str(IAPManager.get_offer_id_for_product(IAPManager.PRODUCT_MOONROCKS_10K)).is_equal(
+		IAPManager.OFFER_MOONROCKS_10K
+	)
+	assert_str(IAPManager.get_offer_id_for_product("not-a-product")).is_empty()
+
+
+func test_invalid_stable_offer_fails_closed() -> void:
+	assert_bool(IAPManager.purchase_offer("moonrocks_9999999_v1")).is_false()
+
+
+func test_remove_ads_purchase_grandfathers_unlimited_races() -> void:
+	globalvar.ads_removed = false
+	globalvar.race_unlimited_cached = false
+	IAPManager.apply_purchase(IAPManager.PRODUCT_REMOVE_ADS)
+	assert_bool(globalvar.ads_removed).is_true()
+	assert_bool(globalvar.race_unlimited_cached).is_true()

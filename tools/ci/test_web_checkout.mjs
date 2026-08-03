@@ -56,7 +56,13 @@ async function flushTasks() {
   }
 }
 
-async function boot({ config, search = "", storage, entitled = false } = {}) {
+async function boot({
+  config,
+  search = "",
+  storage,
+  entitled = false,
+  raceUnlimited = false,
+} = {}) {
   const sessionStorage = storage || memoryStorage();
   const assignments = [];
   const requests = [];
@@ -106,8 +112,19 @@ async function boot({ config, search = "", storage, entitled = false } = {}) {
       if (String(url).endsWith("/token")) {
         return { ok: true, async json() { return { access_token: "user-token" }; } };
       }
-      if (String(url).endsWith("/me/entitlements")) {
-        return { ok: true, async json() { return { premium: entitled }; } };
+      if (String(url).endsWith("/me/apps/moon_launch/commerce")) {
+        return {
+          ok: true,
+          async json() {
+            return {
+              premium: entitled,
+              race_unlimited: raceUnlimited,
+              entitlements: raceUnlimited
+                ? [{ entitlement_key: "race_unlimited", state: "active" }]
+                : [],
+            };
+          },
+        };
       }
       throw new Error(`unexpected request: ${url}`);
     },
@@ -131,6 +148,15 @@ async function testCheckedInConfigIsInert() {
   assert.equal(result.window.SUCH_APP.checkoutEnabled, false);
   assert.equal(result.window.SUCH_APP.checkoutUrl, null);
   assert.equal(result.window.SUCH_APP.premium, false);
+  assert.equal(result.window.SUCH_APP.raceUnlimited, false);
+  assert.deepEqual(
+    JSON.parse(JSON.stringify(result.window.SUCH_APP.catalogOfferIds)),
+    [
+      "race_unlimited_lifetime_v1",
+      "moonrocks_10k_v1",
+      "moonrocks_50k_v1",
+    ],
+  );
   assert.equal(result.window.SUCH_APP_startCheckout(), false);
   assert.equal(await result.window.SUCH_APP_refreshEntitlements(), false);
   assert.deepEqual(result.assignments, []);
@@ -138,9 +164,12 @@ async function testCheckedInConfigIsInert() {
   assert.equal(result.sessionStorage.values.size, 0);
 }
 
-async function testPkceLoginAndNonOwnerHandoff() {
+async function testPkceLoginAndConsumableHandoff() {
   const login = await boot({ config: LIVE_CONFIG });
-  assert.equal(login.window.SUCH_APP_startCheckout(), true);
+  assert.equal(
+    login.window.SUCH_APP_startCheckout("moonrocks_10k_v1"),
+    true,
+  );
   await flushTasks();
   assert.equal(login.assignments.length, 1);
 
@@ -154,7 +183,10 @@ async function testPkceLoginAndNonOwnerHandoff() {
   assert.ok(authorization.searchParams.get("code_challenge"));
   const state = authorization.searchParams.get("state");
   assert.equal(state, login.sessionStorage.getItem("such_moon_launch_oidc_state"));
-  assert.equal(login.sessionStorage.getItem("such_moon_launch_pending_checkout"), "1");
+  assert.equal(
+    login.sessionStorage.getItem("such_moon_launch_pending_checkout"),
+    "moonrocks_10k_v1",
+  );
 
   const callback = await boot({
     config: LIVE_CONFIG,
@@ -165,31 +197,61 @@ async function testPkceLoginAndNonOwnerHandoff() {
   assert.equal(callback.requests.length, 2);
   assert.equal(callback.requests[0].url, "https://identity.example.test/token");
   assert.match(callback.requests[0].options.body, /code_verifier=/);
-  assert.equal(callback.requests[1].url, "https://ledger.example.test/me/entitlements");
+  assert.equal(
+    callback.requests[1].url,
+    "https://ledger.example.test/me/apps/moon_launch/commerce",
+  );
   assert.equal(callback.requests[1].options.headers.Authorization, "Bearer user-token");
-  assert.deepEqual(callback.assignments, ["https://shop.moonlaunch.space"]);
+  assert.deepEqual(callback.assignments, [
+    "https://shop.moonlaunch.space/offers/moonrocks_10k_v1",
+  ]);
   assert.equal(callback.window.SUCH_APP.premium, false);
   assert.equal(callback.sessionStorage.getItem("such_moon_launch_pending_checkout"), null);
   assert.equal(callback.replacements.length, 1);
 }
 
-async function testOwnerDoesNotReturnToCheckout() {
+async function testLifetimeOwnerDoesNotReturnToCheckout() {
   const storage = memoryStorage({
     such_moon_launch_pkce_verifier: "verifier",
     such_moon_launch_oidc_state: "expected-state",
-    such_moon_launch_pending_checkout: "1",
+    such_moon_launch_pending_checkout: "race_unlimited_lifetime_v1",
   });
   const result = await boot({
     config: LIVE_CONFIG,
     search: "?code=one-use-code&state=expected-state",
     storage,
     entitled: true,
+    raceUnlimited: true,
   });
   assert.equal(result.window.SUCH_APP.premium, true);
   assert.deepEqual(result.assignments, []);
   assert.equal(result.events.length, 1);
   assert.equal(result.events[0].type, "such-app-entitlements-changed");
-  assert.deepEqual(JSON.parse(JSON.stringify(result.events[0].detail)), { premium: true });
+  assert.deepEqual(JSON.parse(JSON.stringify(result.events[0].detail)), {
+    premium: true,
+    race_unlimited: true,
+  });
+}
+
+async function testCatalogBrowseAndInvalidOfferHandling() {
+  const browse = await boot({ config: LIVE_CONFIG });
+  assert.equal(browse.window.SUCH_APP_startCheckout(), true);
+  await flushTasks();
+  assert.equal(
+    browse.sessionStorage.getItem("such_moon_launch_pending_checkout"),
+    "__catalog__",
+  );
+
+  const invalid = await boot({ config: LIVE_CONFIG });
+  assert.equal(
+    invalid.window.SUCH_APP_startCheckout("moonrocks_9999999_v1"),
+    false,
+  );
+  assert.equal(
+    invalid.sessionStorage.getItem("such_moon_launch_pending_checkout"),
+    null,
+  );
+  assert.deepEqual(invalid.assignments, []);
 }
 
 async function testStateMismatchFailsClosed() {
@@ -210,8 +272,27 @@ async function testStateMismatchFailsClosed() {
   assert.equal(result.replacements.length, 1);
 }
 
+async function testMalformedProjectedUrlsFailClosed() {
+  const variants = [
+    { ...LIVE_CONFIG, checkoutUrl: "https://shop.moonlaunch.space/not-root" },
+    { ...LIVE_CONFIG, checkoutUrl: "https://shop.moonlaunch.space?offer=forged" },
+    { ...LIVE_CONFIG, checkoutUrl: "https://other.example.test" },
+    { ...LIVE_CONFIG, oidcIssuer: "https://identity.example.test#fragment" },
+    { ...LIVE_CONFIG, ledgerBase: "https://ledger.example.test?token=leak" },
+  ];
+  for (const config of variants) {
+    const result = await boot({ config });
+    assert.equal(result.window.SUCH_APP.checkoutEnabled, false);
+    assert.equal(result.window.SUCH_APP_startCheckout("moonrocks_10k_v1"), false);
+    assert.deepEqual(result.assignments, []);
+    assert.deepEqual(result.requests, []);
+  }
+}
+
 await testCheckedInConfigIsInert();
-await testPkceLoginAndNonOwnerHandoff();
-await testOwnerDoesNotReturnToCheckout();
+await testPkceLoginAndConsumableHandoff();
+await testLifetimeOwnerDoesNotReturnToCheckout();
+await testCatalogBrowseAndInvalidOfferHandling();
 await testStateMismatchFailsClosed();
+await testMalformedProjectedUrlsFailClosed();
 console.log("PASS Moon Launch fail-closed web checkout");

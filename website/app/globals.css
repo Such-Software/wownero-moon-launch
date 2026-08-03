@@ -638,7 +638,7 @@ footer {
 
 .status-card {
   position: relative;
-  width: min(680px, 100%);
+  width: min(820px, 100%);
   padding: 70px;
   border: 1px solid var(--line);
   border-radius: 20px;
@@ -648,6 +648,51 @@ footer {
     rgba(23, 18, 54, 0.9);
   box-shadow: 0 45px 120px rgba(0, 0, 0, 0.5);
   backdrop-filter: blur(20px);
+}
+
+.offer-catalog {
+  display: grid;
+  gap: 10px;
+  margin: 32px 0;
+  text-align: left;
+}
+
+.offer-catalog article {
+  padding: 16px 18px;
+  border: 1px solid rgba(245, 197, 24, 0.25);
+  border-radius: 10px;
+  background: rgba(10, 9, 24, 0.68);
+}
+
+.offer-catalog article > div {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 20px;
+}
+
+.offer-catalog h2 {
+  margin: 0;
+  color: var(--ink);
+  font: 18px/1.2 var(--display);
+  text-transform: uppercase;
+}
+
+.offer-catalog strong {
+  color: var(--gold);
+  font: 17px/1 var(--display);
+}
+
+.offer-catalog p {
+  margin: 8px 0;
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.offer-catalog code {
+  color: var(--particle);
+  font-size: 11px;
 }
 
 .status-character {

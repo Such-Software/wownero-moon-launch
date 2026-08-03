@@ -114,6 +114,133 @@ BEGIN
 END;
 $test$;
 
+DO $test$
+DECLARE
+    result record;
+    lifecycle_rejected boolean := false;
+BEGIN
+    SELECT *
+      INTO result
+      FROM such_platform_apply_currency_event(
+          '01MOONCURRENCYPGCREDIT',
+          'usr_01MOONLAUNCHPGSUBJECT',
+          'moonrocks',
+          1,
+          'CREDIT',
+          10000,
+          NULL,
+          'test:moon:currency:pg:credit',
+          repeat('1', 64),
+          '2026-08-03T15:00:00Z',
+          'test',
+          'transaction-currency-credit',
+          'moonrocks_10k_v1',
+          '2026-08-03T14:59:58Z'
+      );
+    IF result.outcome <> 'APPLIED' OR result.balance <> 10000 THEN
+        RAISE EXCEPTION 'initial currency projection did not apply';
+    END IF;
+
+    SELECT *
+      INTO result
+      FROM such_platform_apply_currency_event(
+          '01MOONCURRENCYPGCREDIT',
+          'usr_01MOONLAUNCHPGSUBJECT',
+          'moonrocks',
+          1,
+          'CREDIT',
+          10000,
+          NULL,
+          'test:moon:currency:pg:credit',
+          repeat('1', 64),
+          '2026-08-03T15:00:00Z',
+          'test',
+          'transaction-currency-credit',
+          'moonrocks_10k_v1',
+          '2026-08-03T14:59:58Z'
+      );
+    IF result.outcome <> 'DUPLICATE' OR result.balance <> 10000 THEN
+        RAISE EXCEPTION 'currency replay was not idempotent';
+    END IF;
+
+    -- Simulate currency spent by the authoritative gameplay wallet before a
+    -- provider refund. Reversal must record debt rather than reject the event.
+    UPDATE such_platform_currency_balance
+       SET balance = 1000
+     WHERE subject_id = 'usr_01MOONLAUNCHPGSUBJECT'
+       AND currency_key = 'moonrocks';
+
+    SELECT *
+      INTO result
+      FROM such_platform_apply_currency_event(
+          '01MOONCURRENCYPGREVERSE',
+          'usr_01MOONLAUNCHPGSUBJECT',
+          'moonrocks',
+          2,
+          'REVERSE',
+          10000,
+          '01MOONCURRENCYPGCREDIT',
+          'test:moon:currency:pg:reverse',
+          repeat('2', 64),
+          '2026-08-03T15:01:00Z',
+          'test',
+          'transaction-currency-reverse',
+          'moonrocks_10k_v1',
+          '2026-08-03T15:00:58Z'
+      );
+    IF result.outcome <> 'APPLIED' OR result.balance <> -9000 THEN
+        RAISE EXCEPTION 'currency reversal did not preserve refund debt';
+    END IF;
+
+    BEGIN
+        PERFORM *
+          FROM such_platform_apply_currency_event(
+              '01MOONCURRENCYPGREVERSE2',
+              'usr_01MOONLAUNCHPGSUBJECT',
+              'moonrocks',
+              3,
+              'REVERSE',
+              10000,
+              '01MOONCURRENCYPGCREDIT',
+              'test:moon:currency:pg:reverse2',
+              repeat('3', 64),
+              '2026-08-03T15:02:00Z',
+              'test',
+              'transaction-currency-reverse2',
+              'moonrocks_10k_v1',
+              '2026-08-03T15:01:58Z'
+          );
+    EXCEPTION WHEN integrity_constraint_violation THEN
+        lifecycle_rejected := true;
+    END;
+    IF NOT lifecycle_rejected THEN
+        RAISE EXCEPTION 'duplicate currency reversal lifecycle was accepted';
+    END IF;
+
+    SELECT *
+      INTO result
+      FROM such_platform_apply_currency_event(
+          '01MOONCURRENCYPGREINSTATE',
+          'usr_01MOONLAUNCHPGSUBJECT',
+          'moonrocks',
+          3,
+          'REINSTATE',
+          10000,
+          '01MOONCURRENCYPGCREDIT',
+          'test:moon:currency:pg:reinstate',
+          repeat('4', 64),
+          '2026-08-03T15:03:00Z',
+          'test',
+          'transaction-currency-reinstate',
+          'moonrocks_10k_v1',
+          '2026-08-03T15:02:58Z'
+      );
+    IF result.outcome <> 'APPLIED' OR result.balance <> 1000 THEN
+        RAISE EXCEPTION 'currency reinstatement did not converge';
+    END IF;
+END;
+$test$;
+
 INSERT INTO such_platform_identity (
     subject_id,
     canonical_auth_id,

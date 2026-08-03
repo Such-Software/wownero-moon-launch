@@ -1,8 +1,8 @@
 {
-  "schema_version": 2,
+  "schema_version": 3,
   "app_id": "moon_launch",
   "contract_version": 1,
-  "contract_source_commit": "75d167f230bc42b834e13ffbb2056dbeb2b719f4",
+  "contract_source_commit": "90a11e5c21ff1fbe3cec2522c837edd3996a9bf2",
   "source_commit": null,
   "minimum_nakama_version": "3.40.0",
   "runtime_types": {
@@ -21,7 +21,7 @@
   },
   "migrations": {
     "file": "migrations.sql",
-    "schema_version": 2,
+    "schema_version": 3,
     "sha256": null
   },
   "tests": {

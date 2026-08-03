@@ -23,6 +23,79 @@ def main() -> int:
     errors: list[str] = []
     consumer = json.loads(read("config/app-platform-v1.json"))
     storefront = json.loads(read("config/storefront-content-v1.json"))
+    catalog = json.loads(read("config/commerce-catalog-v1.json"))
+
+    expected_offers = {
+        "race_unlimited_lifetime_v1": {
+            "kind": "lifetime",
+            "price": ("usd", 1.99),
+            "fulfillment": {
+                "type": "entitlement",
+                "entitlement_key": "race_unlimited",
+            },
+            "mobile_title": "Remove Ads + Unlimited Races",
+        },
+        "moonrocks_10k_v1": {
+            "kind": "consumable",
+            "price": ("usd", 1.99),
+            "fulfillment": {
+                "type": "currency_credit",
+                "currency_key": "moonrocks",
+                "amount": 10000,
+            },
+            "mobile_title": "10,000 Moonrocks",
+        },
+        "moonrocks_50k_v1": {
+            "kind": "consumable",
+            "price": ("usd", 7.99),
+            "fulfillment": {
+                "type": "currency_credit",
+                "currency_key": "moonrocks",
+                "amount": 50000,
+            },
+            "mobile_title": "50,000 Moonrocks",
+        },
+    }
+    if set(catalog) != {
+        "$schema", "contract_version", "app_id", "activation", "offers"
+    }:
+        errors.append("commerce catalog has an unexpected top-level shape")
+    if (
+        catalog.get("contract_version") != 1
+        or catalog.get("app_id") != APP_ID
+        or catalog.get("activation") != "disabled"
+    ):
+        errors.append("checked-in commerce catalog must be Moon Launch v1 and disabled")
+    catalog_offers = catalog.get("offers", [])
+    if not isinstance(catalog_offers, list):
+        catalog_offers = []
+        errors.append("commerce catalog offers must be an array")
+    offer_ids = [offer.get("offer_id") for offer in catalog_offers if isinstance(offer, dict)]
+    if set(offer_ids) != set(expected_offers) or len(offer_ids) != len(set(offer_ids)):
+        errors.append("commerce catalog must contain exactly the three canonical offers")
+    for offer in catalog_offers:
+        if not isinstance(offer, dict) or offer.get("offer_id") not in expected_offers:
+            continue
+        expected = expected_offers[offer["offer_id"]]
+        price = offer.get("direct_price", {})
+        presentation = offer.get("presentation", {})
+        adapters = offer.get("adapters", {})
+        if offer.get("kind") != expected["kind"]:
+            errors.append(f"{offer['offer_id']} kind drift")
+        if (price.get("currency"), price.get("amount")) != expected["price"]:
+            errors.append(f"{offer['offer_id']} direct price drift")
+        if offer.get("fulfillment") != expected["fulfillment"]:
+            errors.append(f"{offer['offer_id']} fulfillment drift")
+        if presentation.get("official_mobile_title") != expected["mobile_title"]:
+            errors.append(f"{offer['offer_id']} mobile title drift")
+        if adapters != {
+            "official_ios": "native_iap",
+            "official_android": "native_iap",
+            "sideload_android": "direct_checkout",
+            "web": "direct_checkout",
+            "desktop_self_distributed": "direct_checkout",
+        }:
+            errors.append(f"{offer['offer_id']} adapter policy drift")
 
     expected_storefront = {
         "contract_version": 1,
@@ -69,8 +142,13 @@ def main() -> int:
         'code_challenge_method: "S256"',
         'response_type: "code"',
         'returnedState !== expectedState',
-        'LEDGER + "/me/entitlements"',
+        'LEDGER + "/me/apps/moon_launch/commerce"',
         'entitlements.premium === true',
+        'race_unlimited_lifetime_v1: "lifetime"',
+        'moonrocks_10k_v1: "consumable"',
+        'moonrocks_50k_v1: "consumable"',
+        'SHOP_URL + "/offers/" + encodeURIComponent(pendingOffer)',
+        "window.SUCH_APP.raceUnlimited",
         "window.SUCH_APP_startCheckout",
     ):
         if required not in checkout:
@@ -100,10 +178,27 @@ def main() -> int:
         errors.append("unconfigured checkout must retain the canonical Hangar fallback")
 
     exporter = read("tools/export_candidate.sh")
-    for asset in ("app-config.js", "checkout.js"):
-        expected = f'install -m 0644 web/{asset} "$PRODUCT_DIR/web/{asset}"'
+    for source, asset in (
+        ("web/app-config.js", "app-config.js"),
+        ("web/checkout.js", "checkout.js"),
+        ("config/commerce-catalog-v1.json", "commerce-catalog-v1.json"),
+    ):
+        expected = f'install -m 0644 {source} "$PRODUCT_DIR/web/{asset}"'
         if expected not in exporter:
             errors.append(f"web candidate does not package {asset}")
+
+    iap = read("game/net/IAPManager.gd")
+    for required in (
+        'OFFER_RACE_UNLIMITED := "race_unlimited_lifetime_v1"',
+        'OFFER_MOONROCKS_10K := "moonrocks_10k_v1"',
+        'OFFER_MOONROCKS_50K := "moonrocks_50k_v1"',
+        '"Remove Ads + Unlimited Races"',
+        "func purchase_offer(offer_id: String) -> bool:",
+        "window.SUCH_APP_startCheckout",
+        "globalvar.race_unlimited_cached = true",
+    ):
+        if required not in iap:
+            errors.append(f"channel-adapted IAP invariant is missing: {required}")
 
     analytics = read("game/net/Analytics.gd")
     if 'const APP_ID := "moon_launch"' not in analytics:

@@ -14,6 +14,7 @@ SOURCE_COMMIT="$(git rev-parse HEAD)"
 
 RUNTIME_INPUT_STATUS="$(git status --porcelain --untracked-files=all -- \
   config/app-platform-v1.json \
+  config/commerce-catalog-v1.json \
   server/nakama \
   tools/ci/build_nakama_runtime.sh \
   tools/ci/render_nakama_artifacts.mjs)"

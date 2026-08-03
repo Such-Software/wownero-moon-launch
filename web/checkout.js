@@ -3,8 +3,10 @@
  *
  * This is the Bauhaus Echo pattern adapted to Godot's web shell. Only a complete
  * Operations-supplied public config can start OIDC Authorization Code + S256
- * PKCE, hand off to the canonical Moon Launch storefront, and resolve the
- * provider-neutral `premium` capability through the user's own access token.
+ * PKCE, hand off one catalog-pinned offer to the canonical Moon Launch
+ * storefront, and resolve provider-neutral capabilities through the user's own
+ * access token. The caller can select only a stable offer ID from the list
+ * below; it can never select a grant amount or provider product/variant ID.
  * Source config is all-null/false, so the Hangar CTA follows its ordinary status
  * link and premium remains false. No provider credential or shared ledger token
  * is ever present in this client.
@@ -16,6 +18,12 @@
   var EXPECTED_SHOP_HOST = "shop.moonlaunch.space";
   var REDIRECT = window.location.origin + window.location.pathname;
   var SCOPE = "openid";
+  var CATALOG = Object.freeze({
+    race_unlimited_lifetime_v1: "lifetime",
+    moonrocks_10k_v1: "consumable",
+    moonrocks_50k_v1: "consumable",
+  });
+  var CATALOG_BROWSE = "__catalog__";
 
   function httpsUrl(value, expectedHost) {
     if (!value) return null;
@@ -26,6 +34,9 @@
         parsed.username ||
         parsed.password ||
         parsed.port ||
+        parsed.search ||
+        parsed.hash ||
+        (expectedHost && parsed.pathname !== "/") ||
         (expectedHost && parsed.hostname.toLowerCase() !== expectedHost)
       ) {
         return null;
@@ -60,7 +71,11 @@
   window.SUCH_APP = window.SUCH_APP || {};
   window.SUCH_APP.checkoutEnabled = configured;
   window.SUCH_APP.checkoutUrl = configured ? SHOP_URL : null;
+  window.SUCH_APP.catalogOfferIds = Object.keys(CATALOG);
   if (window.SUCH_APP.premium !== true) window.SUCH_APP.premium = false;
+  if (window.SUCH_APP.raceUnlimited !== true) {
+    window.SUCH_APP.raceUnlimited = false;
+  }
 
   var encode = encodeURIComponent;
   function form(values) {
@@ -108,12 +123,28 @@
     sessionStorage.removeItem(K_PENDING);
   }
 
+  function normalizeOfferId(value) {
+    if (value == null || value === "") return CATALOG_BROWSE;
+    if (
+      typeof value === "string" &&
+      Object.prototype.hasOwnProperty.call(CATALOG, value)
+    ) {
+      return value;
+    }
+    return null;
+  }
+
+  function checkoutTarget(pendingOffer) {
+    if (!SHOP_URL || pendingOffer === CATALOG_BROWSE) return SHOP_URL;
+    if (!Object.prototype.hasOwnProperty.call(CATALOG, pendingOffer)) return null;
+    return SHOP_URL + "/offers/" + encodeURIComponent(pendingOffer);
+  }
+
   async function startLogin() {
     var verifier = randomToken();
     var state = randomToken();
     sessionStorage.setItem(K_VERIFIER, verifier);
     sessionStorage.setItem(K_STATE, state);
-    sessionStorage.setItem(K_PENDING, "1");
     var challenge = await challengeFor(verifier);
     var authorizationUrl = ISSUER + "/authorize?" + form({
       client_id: CLIENT,
@@ -183,10 +214,11 @@
 
   async function resolvePremium() {
     window.SUCH_APP.premium = false;
+    window.SUCH_APP.raceUnlimited = false;
     var token = sessionStorage.getItem(K_TOKEN);
     if (!configured || !token) return false;
     try {
-      var response = await fetch(LEDGER + "/me/entitlements", {
+      var response = await fetch(LEDGER + "/me/apps/moon_launch/commerce", {
         headers: {
           Authorization: "Bearer " + token,
           Accept: "application/json",
@@ -197,8 +229,23 @@
       window.SUCH_APP.premium = !!(
         entitlements && entitlements.premium === true
       );
+      var capabilities = entitlements && Array.isArray(entitlements.entitlements)
+        ? entitlements.entitlements
+        : [];
+      window.SUCH_APP.raceUnlimited = !!(
+        entitlements && entitlements.race_unlimited === true
+      ) || capabilities.some(function (entry) {
+        if (!entry || typeof entry !== "object") return false;
+        var key = entry.entitlement_key || entry.product || entry.key;
+        var active = entry.active === true || entry.entitled === true ||
+          entry.state === "active" || entry.state === "grace";
+        return key === "race_unlimited" && active;
+      });
       window.dispatchEvent(new CustomEvent("such-app-entitlements-changed", {
-        detail: { premium: window.SUCH_APP.premium },
+        detail: {
+          premium: window.SUCH_APP.premium,
+          race_unlimited: window.SUCH_APP.raceUnlimited,
+        },
       }));
       return window.SUCH_APP.premium;
     } catch (_error) {
@@ -206,8 +253,11 @@
     }
   }
 
-  window.SUCH_APP_startCheckout = function () {
+  window.SUCH_APP_startCheckout = function (offerId) {
     if (!configured) return false;
+    var pendingOffer = normalizeOfferId(offerId);
+    if (pendingOffer === null) return false;
+    sessionStorage.setItem(K_PENDING, pendingOffer);
     startLogin().catch(clearLoginIntent);
     return true;
   };
@@ -218,12 +268,16 @@
     await resolvePremium();
     if (
       configured &&
-      sessionStorage.getItem(K_PENDING) === "1" &&
+      sessionStorage.getItem(K_PENDING) &&
       sessionStorage.getItem(K_TOKEN)
     ) {
+      var pendingOffer = sessionStorage.getItem(K_PENDING);
       sessionStorage.removeItem(K_PENDING);
-      if (window.SUCH_APP.premium !== true) {
-        window.location.assign(SHOP_URL);
+      var alreadyOwned = pendingOffer === "race_unlimited_lifetime_v1" &&
+        window.SUCH_APP.raceUnlimited === true;
+      var target = checkoutTarget(pendingOffer);
+      if (!alreadyOwned && target) {
+        window.location.assign(target);
       }
     }
   })();

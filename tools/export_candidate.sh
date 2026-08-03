@@ -175,6 +175,7 @@ if [[ "$PRESET" == "Web" ]]; then
   # deployment may replace app-config.js only after Operations admission.
   install -m 0644 web/app-config.js "$PRODUCT_DIR/web/app-config.js"
   install -m 0644 web/checkout.js "$PRODUCT_DIR/web/checkout.js"
+  install -m 0644 config/commerce-catalog-v1.json "$PRODUCT_DIR/web/commerce-catalog-v1.json"
 fi
 
 {

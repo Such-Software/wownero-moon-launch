@@ -67,7 +67,7 @@ service restart counters were unchanged.
 ## Domain and DNS posture
 
 The App Platform registry at
-`docs@75d167f230bc42b834e13ffbb2056dbeb2b719f4` assigns:
+`docs@90a11e5c21ff1fbe3cec2522c837edd3996a9bf2` assigns:
 
 - marketing: `moonlaunch.space`;
 - shop: `shop.moonlaunch.space`;
@@ -150,10 +150,10 @@ accepted rotation. Their existence is not permission to read or copy them.
 
 `server/nakama` implements the common App Platform v1 runtime surface against
 the Nakama 3.40.0 / runtime-types 1.47.0 compatibility pair. It includes the
-one-use IdP ticket hook, readiness and build metadata, neutral entitlement
-reads, independently signed ordered entitlement projection, hash-only
-guest-claim proofs, the Moon Launch merge invariants, and recoverable guest
-tombstones.
+one-use IdP ticket hook, readiness and build metadata, neutral entitlement and
+purchased-currency reads, independently signed ordered entitlement and
+currency projection, refund-debt state, hash-only guest-claim proofs, the Moon
+Launch merge invariants, and recoverable guest tombstones.
 
 The checked-in build entry point installs and compiles only inside Build:
 
@@ -178,10 +178,10 @@ belongs in the source worktree.
 
 The runtime consumes Fleet's exact `SUCH_*` environment roles. Readiness
 requires the reviewed app, schema, contract and source pins; independent
-runtime and migration digests; exact private IdP and entitlement paths;
-unique opaque secret roles; both native product catalogs; and Nakama 3.40.0
-or newer. Legacy `APP_*`, `IDP_*`, and unscoped entitlement-key roles are
-rejected by CI.
+runtime and migration digests; exact private IdP and entitlement paths; unique
+opaque secret roles, including a currency-projection key distinct from the
+entitlement key; both native product catalogs; and Nakama 3.40.0 or newer.
+Legacy `APP_*`, `IDP_*`, and unscoped entitlement-key roles are rejected by CI.
 
 The protected integration lane supplies a reviewed immutable PostgreSQL image
 and runs:
@@ -192,9 +192,10 @@ SML_POSTGRES_TEST_IMAGE='<registry/image@sha256:...>' \
 ```
 
 This applies the migration bundle twice in a disposable tmpfs database and
-exercises grant, duplicate, conflicting sequence, revoke, reinstate, full
-projection convergence, guest merge, idempotent claim replay, and guest
-tombstone preservation. A mutable image is never accepted by CI.
+exercises entitlement and Moonrock grant/credit, duplicate, conflicting
+sequence, revoke/reverse, reinstate, refund debt, full projection convergence,
+guest merge, idempotent claim replay, and guest tombstone preservation. A
+mutable image is never accepted by CI.
 
 ## Promotion gates
 
@@ -209,7 +210,8 @@ Before test activation:
    Vaultwarden-backed credentials;
 4. provision and verify the five domain roles and OIDC callback;
 5. complete real Nakama/PostgreSQL/IdP tests and two-device room evidence;
-6. prove entitlement grant, duplicate, revoke, reinstate, and full replay;
+6. prove entitlement grant/revoke and Moonrock credit/reverse/reinstate,
+   duplicate delivery, refund debt, and full replay;
 7. restore the tagged app generation in isolation and measure RTO.
 
 Capacity is no longer the activation blocker. Fleet remains disabled with an

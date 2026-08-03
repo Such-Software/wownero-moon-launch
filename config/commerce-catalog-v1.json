@@ -1,0 +1,82 @@
+{
+  "$schema": "https://such.software/contracts/app-platform/v1/app-commerce-catalog.schema.json",
+  "contract_version": 1,
+  "app_id": "moon_launch",
+  "activation": "disabled",
+  "offers": [
+    {
+      "offer_id": "race_unlimited_lifetime_v1",
+      "kind": "lifetime",
+      "presentation": {
+        "default_title": "Unlimited Races",
+        "official_mobile_title": "Remove Ads + Unlimited Races",
+        "description": "Race the CPU whenever you want. Mobile purchases also remove ads for life."
+      },
+      "direct_price": {
+        "currency": "usd",
+        "amount": 1.99
+      },
+      "fulfillment": {
+        "type": "entitlement",
+        "entitlement_key": "race_unlimited"
+      },
+      "adapters": {
+        "official_ios": "native_iap",
+        "official_android": "native_iap",
+        "sideload_android": "direct_checkout",
+        "web": "direct_checkout",
+        "desktop_self_distributed": "direct_checkout"
+      }
+    },
+    {
+      "offer_id": "moonrocks_10k_v1",
+      "kind": "consumable",
+      "presentation": {
+        "default_title": "10,000 Moonrocks",
+        "official_mobile_title": "10,000 Moonrocks",
+        "description": "Credit exactly 10,000 Moonrocks to your Moon Launch account."
+      },
+      "direct_price": {
+        "currency": "usd",
+        "amount": 1.99
+      },
+      "fulfillment": {
+        "type": "currency_credit",
+        "currency_key": "moonrocks",
+        "amount": 10000
+      },
+      "adapters": {
+        "official_ios": "native_iap",
+        "official_android": "native_iap",
+        "sideload_android": "direct_checkout",
+        "web": "direct_checkout",
+        "desktop_self_distributed": "direct_checkout"
+      }
+    },
+    {
+      "offer_id": "moonrocks_50k_v1",
+      "kind": "consumable",
+      "presentation": {
+        "default_title": "50,000 Moonrocks",
+        "official_mobile_title": "50,000 Moonrocks",
+        "description": "Credit exactly 50,000 Moonrocks to your Moon Launch account."
+      },
+      "direct_price": {
+        "currency": "usd",
+        "amount": 7.99
+      },
+      "fulfillment": {
+        "type": "currency_credit",
+        "currency_key": "moonrocks",
+        "amount": 50000
+      },
+      "adapters": {
+        "official_ios": "native_iap",
+        "official_android": "native_iap",
+        "sideload_android": "direct_checkout",
+        "web": "direct_checkout",
+        "desktop_self_distributed": "direct_checkout"
+      }
+    }
+  ]
+}

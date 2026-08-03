@@ -20,6 +20,14 @@ function InitModule(
     moonRpcEntitlementProjection
   );
   initializer.registerRpc(
+    "app_platform_currency_balance",
+    moonRpcCurrencyBalance
+  );
+  initializer.registerRpc(
+    "app_currency_projection",
+    moonRpcCurrencyProjection
+  );
+  initializer.registerRpc(
     "moon_launch_room_register",
     moonRpcRoomRegister
   );
