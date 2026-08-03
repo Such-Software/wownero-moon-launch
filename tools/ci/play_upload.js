@@ -48,9 +48,68 @@ function createAssertion(serviceAccount, nowSeconds = Math.floor(Date.now() / 10
   return `${signingInput}.${base64Url(signature)}`;
 }
 
+function safeProviderToken(value) {
+  return typeof value === 'string' && /^[A-Za-z0-9_.-]{1,80}$/.test(value)
+    ? value
+    : '';
+}
+
+function classifyGoogleError(payload, text) {
+  const message = payload && payload.error && typeof payload.error.message === 'string'
+    ? payload.error.message
+    : '';
+  const lowered = `${message} ${text}`.toLowerCase();
+  if (/wrong (?:signing )?(?:key|certificate)|signed with the wrong|certificate.*(?:expected|mismatch)/.test(lowered)) {
+    return 'signing';
+  }
+  if (/does not have permission|permission denied|not authorized|forbidden/.test(lowered)) {
+    return 'authorization';
+  }
+  if (/version\s*code|versioncode|already exists/.test(lowered)) {
+    return 'version';
+  }
+  if (/permission declaration|policy|compliance|sensitive permission/.test(lowered)) {
+    return 'policy';
+  }
+  if (/quota|rate limit|too many requests/.test(lowered)) {
+    return 'quota';
+  }
+  return 'unknown';
+}
+
+function googleApiError(statusCode, text, operation) {
+  let payload = {};
+  try {
+    payload = JSON.parse(text);
+  } catch (_) {
+    // Classification still works against the in-memory response text. Raw provider
+    // text is never returned, printed, or persisted.
+  }
+  const error = payload && payload.error && typeof payload.error === 'object'
+    ? payload.error
+    : {};
+  const providerStatus = safeProviderToken(error.status);
+  const reasons = [];
+  const errorItems = Array.isArray(error.errors) ? error.errors : [];
+  const detailItems = Array.isArray(error.details) ? error.details : [];
+  for (const item of [...errorItems, ...detailItems]) {
+    const reason = safeProviderToken(item && item.reason);
+    if (reason && !reasons.includes(reason)) reasons.push(reason);
+  }
+  const safeOperation = safeProviderToken(operation) || 'request';
+  const parts = [
+    `Google API ${safeOperation} failed: HTTP ${statusCode}`,
+    `category=${classifyGoogleError(payload, text)}`,
+  ];
+  if (providerStatus) parts.push(`status=${providerStatus}`);
+  if (reasons.length) parts.push(`reason=${reasons.slice(0, 3).join(',')}`);
+  return new Error(parts.join('; '));
+}
+
 function request(options, body) {
   return new Promise((resolve, reject) => {
-    const outgoing = https.request(options, (incoming) => {
+    const { operation = 'request', ...requestOptions } = options;
+    const outgoing = https.request(requestOptions, (incoming) => {
       const chunks = [];
       incoming.on('data', (chunk) => chunks.push(chunk));
       incoming.on('end', () => {
@@ -60,10 +119,12 @@ function request(options, body) {
           try {
             return resolve(JSON.parse(text));
           } catch (_) {
-            return reject(new Error(`${options.method} ${options.path} returned invalid JSON`));
+            return reject(new Error(
+              `Google API ${safeProviderToken(operation) || 'request'} returned invalid JSON`,
+            ));
           }
         }
-        return reject(new Error(`${options.method} ${options.path} -> ${incoming.statusCode}`));
+        return reject(googleApiError(incoming.statusCode, text, operation));
       });
     });
     outgoing.on('error', reject);
@@ -85,6 +146,7 @@ async function accessToken(serviceAccount, requester = request) {
     host: 'oauth2.googleapis.com',
     path: '/token',
     method: 'POST',
+    operation: 'oauth-token',
     headers: {
       'Content-Type': 'application/x-www-form-urlencoded',
       'Content-Length': Buffer.byteLength(form),
@@ -98,10 +160,11 @@ function apiClient(packageName, token, requester = request) {
   const application = `/androidpublisher/v3/applications/${encodeURIComponent(packageName)}`;
   const headers = (extra = {}) => ({ Authorization: `Bearer ${token}`, ...extra });
   return {
-    request: (method, suffix, body, extraHeaders = {}) => requester({
+    request: (method, suffix, body, extraHeaders = {}, operation = 'publisher-request') => requester({
       host: 'androidpublisher.googleapis.com',
       path: `${application}${suffix}`,
       method,
+      operation,
       headers: headers(extraHeaders),
     }, body),
     upload: (editId, aabPath) => requester({
@@ -110,6 +173,7 @@ function apiClient(packageName, token, requester = request) {
         `/upload/androidpublisher/v3/applications/${encodeURIComponent(packageName)}` +
         `/edits/${encodeURIComponent(editId)}/bundles?uploadType=media`,
       method: 'POST',
+      operation: 'upload-bundle',
       headers: headers({
         'Content-Type': 'application/octet-stream',
         'Content-Length': fs.statSync(aabPath).size,
@@ -166,21 +230,21 @@ function writeJson(file, value) {
 async function openEdit(client) {
   const edit = await client.request('POST', '/edits', '{}', {
     'Content-Type': 'application/json',
-  });
+  }, 'open-edit');
   if (!edit.id) throw new Error('Google Play did not return an edit ID');
   return edit.id;
 }
 
 async function deleteEdit(client, editId) {
-  await client.request('DELETE', `/edits/${encodeURIComponent(editId)}`);
+  await client.request('DELETE', `/edits/${encodeURIComponent(editId)}`, undefined, {}, 'delete-edit');
 }
 
 async function fetchObservedCodes(client, editId) {
   const prefix = `/edits/${encodeURIComponent(editId)}`;
   const [bundles, apks, tracks] = await Promise.all([
-    client.request('GET', `${prefix}/bundles`),
-    client.request('GET', `${prefix}/apks`),
-    client.request('GET', `${prefix}/tracks`),
+    client.request('GET', `${prefix}/bundles`, undefined, {}, 'list-bundles'),
+    client.request('GET', `${prefix}/apks`, undefined, {}, 'list-apks'),
+    client.request('GET', `${prefix}/tracks`, undefined, {}, 'list-tracks'),
   ]);
   return observedVersionCodes(bundles, apks, tracks);
 }
@@ -230,8 +294,11 @@ async function runUpload(context) {
         releases: [{ versionCodes: [String(returnedCode)], status: 'completed' }],
       }),
       { 'Content-Type': 'application/json' },
+      'update-track',
     );
-    const commit = await context.client.request('POST', `${prefix}:commit`);
+    const commit = await context.client.request(
+      'POST', `${prefix}:commit`, undefined, {}, 'commit-edit',
+    );
     committed = true;
     const receipt = {
       schema_version: 1,
@@ -294,6 +361,8 @@ module.exports = {
   assertMonotonic,
   base64Url,
   createAssertion,
+  classifyGoogleError,
+  googleApiError,
   observedVersionCodes,
   positiveInteger,
   runPreflight,
