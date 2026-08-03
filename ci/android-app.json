@@ -52,7 +52,11 @@
     "export_presets.cfg",
     "project.godot",
     "tools/ci/check_android_release_contract.py",
+    "tools/ci/activate_ci_jdk.sh",
+    "tools/ci/play_upload.js",
     "tools/ci/prepare_android_template.py",
+    "tools/ci/test_play_upload.js",
+    "tools/ci/verify.sh",
     "tools/export_candidate.sh"
   ]
 }

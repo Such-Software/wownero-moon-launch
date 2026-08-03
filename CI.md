@@ -38,9 +38,11 @@ keeps its custom Gradle template and project cache under Build, and verifies
 the exact package, version, API levels, native-plugin manifest markers,
 Firebase client, JAR signature, and signing-certificate fingerprint in the
 finished AAB. A no-upload dispatch retains the inspected AAB, checksums, and
-provenance. An upload dispatch validates and publishes that same AAB to the
-Google Play internal track with pinned fastlane, then retains a receipt and
-logs.
+provenance. An upload dispatch first opens a disposable Play edit and rejects
+a reused or non-monotonic versionCode. A built-in-only Node client then uploads
+that same AAB, verifies Play's returned versionCode, assigns the `internal`
+track, commits the edit, and retains preflight/delivery receipts. The runner
+does not preinstall or update a mutable release CLI.
 
 Godot 4.6.1's stock disposable Gradle template is API 35 / AGP 8.6.1. The
 candidate wrapper prepares only the copy below Build with compile/target API
@@ -110,15 +112,18 @@ All products, logs, test reports, downloads, and caches are rooted below
 
 - Register one locked-down Linux runner with the exact
   `such-android-release` label. Its runner workspace must be below `~/src/_ci`,
-  not Seafile.
-- Install JDK 17, Android SDK platform 36, and Build Tools 36.0.0. Accept the
-  Android SDK licenses for the runner account and export `ANDROID_HOME`.
+  not Seafile. Scope the registration to `Builds/such-moon-launch`; do not map
+  this label to an instance-wide generic host executor.
+- Provide only the base host tools used to activate reviewed toolchains:
+  Bash, Git, Python 3, Node, curl, unzip, OpenSSL, tar, and SHA-256/SHA-512
+  utilities. The lane checksum-installs exact Temurin JDK 17, Android command
+  line tools, platform 36, and Build Tools 36.0.0 below the runner's Build
+  cache and accepts licenses within that release account.
 - The lane resolves Godot's stock template only below `~/Build`, upgrades it to
   AGP 8.9.1 / compile and target API 36, and rejects a final bundle unless
   bundletool reports `PAGE_ALIGNMENT_16K`.
 - Install the private Git server CA as trusted for Git, curl, and Node actions.
   Do not bypass TLS verification.
-- Preinstall fastlane `2.237.0` for optional Play delivery.
 - Provision these Gitea repository secrets from Vaultwarden through the
   approved non-echoing secret broker:
 
@@ -126,6 +131,8 @@ All products, logs, test reports, downloads, and caches are rooted below
   ANDROID_KEYSTORE_BASE64
   ANDROID_KEYSTORE_PASSWORD
   ANDROID_KEY_ALIAS
+  ANDROID_KEY_PASSWORD
+  ANDROID_UPLOAD_CERT_SHA256
   ANDROID_GOOGLE_SERVICES_BASE64
   ANDROID_PLAY_SERVICE_ACCOUNT_JSON_BASE64
   ```
@@ -134,7 +141,11 @@ All products, logs, test reports, downloads, and caches are rooted below
   Credentials belong in Vaultwarden, never Git, Build artifacts, or Seafile
   Source.
 
-For first rollout, run the secret-free verifier, dispatch a no-upload Android
-candidate from `main`, inspect its retained AAB/checksums/provenance, and test
-an internal build on physical devices. Only then dispatch with
-`upload_to_play=true`.
+For first rollout, run the secret-free verifier and dispatch a no-upload
+Android candidate from `main` with the exact reviewed SHA. Inspect its retained
+AAB/checksums/provenance. Only then dispatch the same exact SHA with
+`upload_to_play=true` and the committed versionCode explicitly confirmed.
+Install that internal build through Google Play on the designated physical S23
+and record install, launch, login, purchase-restore, rewarded-ad, unlimited
+race, and race-result checks. Production promotion remains closed until that
+physical-device pass is attached to the release evidence.
