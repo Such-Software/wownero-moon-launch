@@ -6,6 +6,15 @@ name: Such Moon Launch Android candidate / Play internal
 on:
   workflow_dispatch:
     inputs:
+      expected_sha:
+        description: "Full reviewed main commit SHA; must equal the dispatched SHA"
+        required: true
+        type: string
+      version_code:
+        description: "Committed versionCode; required as an explicit Play upload confirmation"
+        required: false
+        default: ""
+        type: string
       upload_to_play:
         description: "Upload the inspected AAB to the Google Play internal track (main only)"
         required: true
@@ -31,8 +40,8 @@ env:
   MINIMUM_SDK: "24"
   TARGET_SDK: "36"
   BUILD_TOOLS_VERSION: "36.0.0"
+  ANDROID_COMMAND_LINE_TOOLS_SHA256: "2d2d50857e4eb553af5a6dc3ad507a17adf43d115264b1afc116f95c92e5e258"
   BUNDLETOOL_VERSION: "1.18.3"
-  FASTLANE_VERSION: "2.237.0"
 
 jobs:
   candidate:
@@ -51,6 +60,91 @@ jobs:
         run: |
           python3 tools/check_app_platform.py --expect-app moon_launch
           python3 tools/ci/check_app_platform_baseline.py
+
+      - name: Validate exact release request
+        env:
+          REQUESTED_SHA: ${{ inputs.expected_sha }}
+          REQUESTED_VERSION_CODE: ${{ inputs.version_code }}
+          UPLOAD_TO_PLAY: ${{ inputs.upload_to_play }}
+        run: |
+          set -euo pipefail
+          [ "${GITHUB_REF:-}" = "refs/heads/main" ] || {
+            echo "FATAL: signed candidates and delivery are main-only."
+            exit 1
+          }
+          [[ "$REQUESTED_SHA" =~ ^[0-9a-f]{40}$ ]] || {
+            echo "FATAL: expected_sha must be one full lowercase commit SHA."
+            exit 1
+          }
+          [ "$REQUESTED_SHA" = "${GITHUB_SHA:-}" ] || {
+            echo "FATAL: expected_sha does not equal the dispatched source."
+            exit 1
+          }
+          case "$UPLOAD_TO_PLAY" in
+            true|false) ;;
+            *) echo "FATAL: upload_to_play must be true or false"; exit 1 ;;
+          esac
+          SOURCE_VERSION_CODE="$(python3 -c '
+          import json
+          value = json.load(open("ci/android-app.json", encoding="utf-8"))
+          code = str(value.get("version_code", ""))
+          if not code.isdigit() or code.startswith("0"):
+              raise SystemExit("FATAL: committed Android versionCode is invalid")
+          print(code)
+          ')"
+          if [ -n "$REQUESTED_VERSION_CODE" ] && \
+             [ "$REQUESTED_VERSION_CODE" != "$SOURCE_VERSION_CODE" ]; then
+            echo "FATAL: requested versionCode differs from the committed contract."
+            exit 1
+          fi
+          if [ "$UPLOAD_TO_PLAY" = "true" ] && \
+             [ "$REQUESTED_VERSION_CODE" != "$SOURCE_VERSION_CODE" ]; then
+            echo "FATAL: Play upload requires explicit confirmation of the committed versionCode."
+            exit 1
+          fi
+          echo "EXPECTED_VERSION_CODE=$SOURCE_VERSION_CODE" >> "$GITHUB_ENV"
+          echo "Exact reviewed source request: PASS"
+
+      - name: Activate exact JDK 17 from Build cache
+        run: bash tools/ci/activate_ci_jdk.sh
+
+      - name: Install exact Android SDK components in Build cache
+        run: |
+          set -euo pipefail
+          SDK_ROOT="$HOME/Build/such-moon-launch/cache/android-sdk"
+          CLT="$SDK_ROOT/cmdline-tools/latest/bin"
+          if [ ! -x "$CLT/sdkmanager" ]; then
+            mkdir -p "$SDK_ROOT/cmdline-tools"
+            ARCHIVE="$RUNNER_TEMP/android-command-line-tools.zip"
+            curl --fail --location --proto '=https' --tlsv1.2 --retry 3 \
+              --output "$ARCHIVE" \
+              https://dl.google.com/android/repository/commandlinetools-linux-11076708_latest.zip
+            printf '%s  %s\n' "$ANDROID_COMMAND_LINE_TOOLS_SHA256" "$ARCHIVE" |
+              sha256sum --check
+            EXPANDED="$RUNNER_TEMP/moon-command-line-tools"
+            rm -rf -- "$EXPANDED"
+            mkdir -p "$EXPANDED"
+            unzip -q "$ARCHIVE" -d "$EXPANDED"
+            rm -rf -- "$SDK_ROOT/cmdline-tools/latest"
+            mv "$EXPANDED/cmdline-tools" "$SDK_ROOT/cmdline-tools/latest"
+          fi
+          export ANDROID_SDK_ROOT="$SDK_ROOT"
+          export ANDROID_HOME="$SDK_ROOT"
+          export PATH="$CLT:$SDK_ROOT/platform-tools:$PATH"
+          yes | sdkmanager --licenses >/dev/null 2>&1 || true
+          sdkmanager --install \
+            "platform-tools" \
+            "platforms;android-$TARGET_SDK" \
+            "build-tools;$BUILD_TOOLS_VERSION" >/dev/null
+          {
+            echo "ANDROID_SDK_ROOT=$SDK_ROOT"
+            echo "ANDROID_HOME=$SDK_ROOT"
+          } >> "$GITHUB_ENV"
+          {
+            echo "$CLT"
+            echo "$SDK_ROOT/platform-tools"
+          } >> "$GITHUB_PATH"
+          sdkmanager --version
 
       - name: Initialize isolated Build workspace
         run: |
@@ -198,6 +292,8 @@ jobs:
           ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
           ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
           ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+          ANDROID_UPLOAD_CERT_SHA256: ${{ secrets.ANDROID_UPLOAD_CERT_SHA256 }}
           ANDROID_GOOGLE_SERVICES_BASE64: ${{ secrets.ANDROID_GOOGLE_SERVICES_BASE64 }}
           UPLOAD_TO_PLAY: ${{ inputs.upload_to_play }}
           ANDROID_PLAY_SERVICE_ACCOUNT_JSON_BASE64: ${{ secrets.ANDROID_PLAY_SERVICE_ACCOUNT_JSON_BASE64 }}
@@ -208,6 +304,8 @@ jobs:
             ANDROID_KEYSTORE_BASE64 \
             ANDROID_KEYSTORE_PASSWORD \
             ANDROID_KEY_ALIAS \
+            ANDROID_KEY_PASSWORD \
+            ANDROID_UPLOAD_CERT_SHA256 \
             ANDROID_GOOGLE_SERVICES_BASE64; do
             [ -n "${!variable}" ] || {
               echo "FATAL: $variable is not configured on this Gitea repository."
@@ -236,6 +334,7 @@ jobs:
             echo "CI_ANDROID_KEYSTORE=$KEYSTORE"
             echo "CI_ANDROID_GOOGLE_SERVICES=$GOOGLE_SERVICES"
             echo "CI_ANDROID_PLAY_KEY=$PLAY_KEY"
+            echo "SA_JSON=$PLAY_KEY"
           } >> "$GITHUB_ENV"
 
           python3 - "$GOOGLE_SERVICES" "$PLAY_KEY" "$UPLOAD_TO_PLAY" <<'PY'
@@ -276,8 +375,14 @@ jobs:
         env:
           ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
           ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+          ANDROID_UPLOAD_CERT_SHA256: ${{ secrets.ANDROID_UPLOAD_CERT_SHA256 }}
         run: |
           set -euo pipefail
+          [ "$ANDROID_KEYSTORE_PASSWORD" = "$ANDROID_KEY_PASSWORD" ] || {
+            echo "FATAL: this Godot export lane requires identical store and key passwords."
+            exit 1
+          }
           CERT_PEM="$SML_SECRET_DIR/android-signing-cert.pem"
           keytool -J-Duser.language=en -J-Duser.country=US \
             -list -v -keystore "$CI_ANDROID_KEYSTORE" \
@@ -295,8 +400,31 @@ jobs:
             exit 1
           }
           CERT_SHA256="$(openssl x509 -in "$CERT_PEM" -outform der | sha256sum | awk '{print $1}')"
+          EXPECTED_CERT_SHA256="$(
+            printf '%s' "$ANDROID_UPLOAD_CERT_SHA256" |
+              tr -d ':[:space:]' |
+              tr '[:upper:]' '[:lower:]'
+          )"
+          [ "${#EXPECTED_CERT_SHA256}" = 64 ] && \
+            [ "$CERT_SHA256" = "$EXPECTED_CERT_SHA256" ] || {
+            echo "FATAL: upload certificate does not match reviewed custody."
+            exit 1
+          }
+
+          DESTINATION_STORE="$SML_SECRET_DIR/private-key-proof.p12"
+          DESTINATION_PASSWORD="$(openssl rand -hex 32)"
+          keytool -importkeystore -noprompt \
+            -srckeystore "$CI_ANDROID_KEYSTORE" \
+            -srcstorepass:env ANDROID_KEYSTORE_PASSWORD \
+            -srcalias "$ANDROID_KEY_ALIAS" \
+            -srckeypass:env ANDROID_KEY_PASSWORD \
+            -destkeystore "$DESTINATION_STORE" \
+            -deststoretype PKCS12 \
+            -deststorepass "$DESTINATION_PASSWORD" \
+            -destkeypass "$DESTINATION_PASSWORD" >/dev/null
+          rm -f -- "$DESTINATION_STORE"
           echo "CI_ANDROID_CERT_SHA256=$CERT_SHA256" >> "$GITHUB_ENV"
-          echo "Android signing identity PASS (certificate SHA-256 $CERT_SHA256)"
+          echo "Android signing identity and private-key proof: PASS"
 
       - name: Import project and run the secret-free gate
         run: bash tools/ci/verify.sh
@@ -491,7 +619,7 @@ jobs:
               encoding="utf-8",
           )
           PY
-          cat "$SML_PRODUCT_DIR/provenance.json"
+          echo "Candidate provenance retained without printing signing identity."
 
       - name: Retain signed candidate
         uses: actions/upload-artifact@ff15f0306b3f739f7b6fd43fb5d26cd321bd4de5 # v3.2.1
@@ -505,73 +633,21 @@ jobs:
           if-no-files-found: error
           retention-days: 30
 
-      - name: Upload inspected AAB to Google Play internal
+      - name: Reject reused or non-monotonic Play versionCode
         if: ${{ inputs.upload_to_play == 'true' }}
         env:
-          FASTLANE_DISABLE_COLORS: "1"
-          FASTLANE_SKIP_UPDATE_CHECK: "1"
-        run: |
-          set -euo pipefail
-          command -v fastlane >/dev/null || {
-            echo "FATAL: release runner must preinstall fastlane $FASTLANE_VERSION."
-            exit 1
-          }
-          INSTALLED_FASTLANE="$(fastlane --version | sed -nE 's/.*fastlane ([0-9.]+).*/\1/p' | tail -1)"
-          [ "$INSTALLED_FASTLANE" = "$FASTLANE_VERSION" ] || {
-            echo "FATAL: expected fastlane $FASTLANE_VERSION, found ${INSTALLED_FASTLANE:-unknown}."
-            exit 1
-          }
+          PKG: ${{ env.BUNDLE_ID }}
+          PLAY_RECEIPT_PATH: ${{ env.SML_PRODUCT_DIR }}/play-preflight.json
+        run: node tools/ci/play_upload.js assert-monotonic
 
-          COMMON=(
-            --aab "$AAB"
-            --package_name "$BUNDLE_ID"
-            --json_key "$CI_ANDROID_PLAY_KEY"
-            --track internal
-            --release_status completed
-            --skip_upload_apk true
-            --skip_upload_metadata true
-            --skip_upload_images true
-            --skip_upload_screenshots true
-          )
-          fastlane supply "${COMMON[@]}" --validate_only true \
-            2>&1 | tee "$SML_LOG_DIR/play-validate.log"
-          fastlane supply "${COMMON[@]}" \
-            2>&1 | tee "$SML_LOG_DIR/play-upload.log"
-          grep -Fq "Successfully finished the upload to Google Play" \
-            "$SML_LOG_DIR/play-upload.log" || {
-              echo "FATAL: fastlane exited successfully without a positive Play upload marker."
-              exit 1
-            }
-
-          python3 - <<'PY'
-          import datetime
-          import hashlib
-          import json
-          import os
-          import pathlib
-
-          aab = pathlib.Path(os.environ["AAB"])
-          contract = json.loads(pathlib.Path("ci/android-app.json").read_text())
-          receipt = {
-              "schema_version": 1,
-              "bundle_id": os.environ["BUNDLE_ID"],
-              "version": contract["version_name"],
-              "version_code": contract["version_code"],
-              "track": "internal",
-              "release_status": "completed",
-              "uploaded": True,
-              "aab_sha256": hashlib.sha256(aab.read_bytes()).hexdigest(),
-              "source_sha": os.environ.get("GITHUB_SHA", ""),
-              "source_ref": os.environ.get("GITHUB_REF", ""),
-              "uploaded_utc": datetime.datetime.now(datetime.timezone.utc)
-              .replace(microsecond=0)
-              .isoformat()
-              .replace("+00:00", "Z"),
-          }
-          output = pathlib.Path(os.environ["SML_PRODUCT_DIR"]) / "play-internal-receipt.json"
-          output.write_text(json.dumps(receipt, indent=2, sort_keys=True) + "\n")
-          PY
-          cat "$SML_PRODUCT_DIR/play-internal-receipt.json"
+      - name: Upload exact inspected AAB to Play internal
+        if: ${{ inputs.upload_to_play == 'true' }}
+        env:
+          PKG: ${{ env.BUNDLE_ID }}
+          TRACK: internal
+          SOURCE_SHA: ${{ github.sha }}
+          PLAY_RECEIPT_PATH: ${{ env.SML_PRODUCT_DIR }}/play-internal-receipt.json
+        run: node tools/ci/play_upload.js upload
 
       - name: Retain Play receipt
         if: ${{ always() && inputs.upload_to_play == 'true' }}
@@ -579,9 +655,8 @@ jobs:
         with:
           name: such-moon-launch-play-internal-${{ github.sha }}
           path: |
+            ${{ env.SML_PRODUCT_DIR }}/play-preflight.json
             ${{ env.SML_PRODUCT_DIR }}/play-internal-receipt.json
-            ${{ env.SML_LOG_DIR }}/play-validate.log
-            ${{ env.SML_LOG_DIR }}/play-upload.log
           if-no-files-found: warn
           retention-days: 30
 
