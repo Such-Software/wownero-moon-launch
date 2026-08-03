@@ -51,7 +51,7 @@ const MOONROCK_REWARDS := {
 
 # Display labels (for UI). Real prices come from the store API at runtime.
 const PRODUCT_LABELS := {
-	PRODUCT_REMOVE_ADS:    "Remove Ads + Unlimited Races",
+	PRODUCT_REMOVE_ADS:    "Remove Ads & Unlimited Races",
 	PRODUCT_MOONROCKS_10K: "10,000 Moonrocks",
 	PRODUCT_MOONROCKS_50K: "50,000 Moonrocks",
 }

@@ -33,7 +33,7 @@ def main() -> int:
                 "type": "entitlement",
                 "entitlement_key": "race_unlimited",
             },
-            "mobile_title": "Remove Ads + Unlimited Races",
+            "mobile_title": "Remove Ads & Unlimited Races",
         },
         "moonrocks_10k_v1": {
             "kind": "consumable",
@@ -192,7 +192,7 @@ def main() -> int:
         'OFFER_RACE_UNLIMITED := "race_unlimited_lifetime_v1"',
         'OFFER_MOONROCKS_10K := "moonrocks_10k_v1"',
         'OFFER_MOONROCKS_50K := "moonrocks_50k_v1"',
-        '"Remove Ads + Unlimited Races"',
+        '"Remove Ads & Unlimited Races"',
         "func purchase_offer(offer_id: String) -> bool:",
         "window.SUCH_APP_startCheckout",
         "globalvar.race_unlimited_cached = true",
