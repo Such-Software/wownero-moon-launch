@@ -198,6 +198,35 @@ def main() -> int:
             if not tracked(repo, relative):
                 fail(f"Android release input is not tracked by Git: {relative}")
 
+        workflow = (repo / ".gitea/workflows/build-android-candidate.yml").read_text(
+            encoding="utf-8"
+        )
+        required_workflow_markers = (
+            "runs-on: such-android-release",
+            "expected_sha:",
+            "version_code:",
+            "tools/ci/activate_ci_jdk.sh",
+            "tools/ci/play_upload.js assert-monotonic",
+            "tools/ci/play_upload.js upload",
+        )
+        for marker in required_workflow_markers:
+            if marker not in workflow:
+                fail(f"Android workflow is missing required marker: {marker}")
+        required_secrets = (
+            "ANDROID_KEYSTORE_BASE64",
+            "ANDROID_KEYSTORE_PASSWORD",
+            "ANDROID_KEY_ALIAS",
+            "ANDROID_KEY_PASSWORD",
+            "ANDROID_UPLOAD_CERT_SHA256",
+            "ANDROID_GOOGLE_SERVICES_BASE64",
+            "ANDROID_PLAY_SERVICE_ACCOUNT_JSON_BASE64",
+        )
+        for secret in required_secrets:
+            if f"secrets.{secret}" not in workflow:
+                fail(f"Android workflow does not reference canonical secret: {secret}")
+        if "fastlane" in workflow.casefold():
+            fail("Android workflow must use the self-contained Play delivery client")
+
         tracked_files = subprocess.check_output(
             ["git", "-C", str(repo), "ls-files"], text=True
         ).splitlines()

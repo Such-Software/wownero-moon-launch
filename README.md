@@ -58,6 +58,6 @@ evidence, and verifier. See [marketing/README.md](marketing/README.md).
 Real worktrees live under `~/src`; this repository should be worked from
 `~/src/WowneroMoonLaunch`. `~/Seafile/Source` is Fleet-managed recovery only:
 never clone, edit, build, seed, rename, delete, or manually synchronize it.
-Credentials remain in Vaultwarden. The private Gitea rollout and release-lane
-prerequisites—including manual TestFlight and Google Play internal
-candidates—are tracked in [CI.md](CI.md).
+Credentials remain in Vaultwarden. The private Gitea rollout, exact-SHA
+candidate automation, Play-internal delivery, and physical-device promotion
+gate are tracked in [CI.md](CI.md).
