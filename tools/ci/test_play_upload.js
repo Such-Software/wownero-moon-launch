@@ -9,12 +9,34 @@ const test = require('node:test');
 
 const {
   assertMonotonic,
+  classifyGoogleError,
   createAssertion,
+  googleApiError,
   observedVersionCodes,
   positiveInteger,
   runPreflight,
   runUpload,
 } = require('./play_upload.js');
+
+test('provider errors are classified without exposing response details', () => {
+  const signingText = JSON.stringify({
+    error: {
+      status: 'PERMISSION_DENIED',
+      message: 'Bundle was signed with the wrong key; expected SHA1: AA:BB, caller release@example.invalid',
+      errors: [{ reason: 'forbidden' }],
+    },
+  });
+  const error = googleApiError(403, signingText, 'upload-bundle');
+  assert.match(error.message, /category=signing/);
+  assert.match(error.message, /status=PERMISSION_DENIED/);
+  assert.match(error.message, /reason=forbidden/);
+  assert.doesNotMatch(error.message, /SHA1|AA:BB|example\.invalid|expected/);
+  assert.equal(classifyGoogleError({}, 'The caller does not have permission'), 'authorization');
+  assert.equal(
+    googleApiError(500, 'opaque provider text with release@example.invalid', 'upload-bundle').message,
+    'Google API upload-bundle failed: HTTP 500; category=unknown',
+  );
+});
 
 test('service-account assertion has a valid RSA signature', () => {
   const { privateKey, publicKey } = crypto.generateKeyPairSync('rsa', {
