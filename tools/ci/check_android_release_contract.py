@@ -205,6 +205,9 @@ def main() -> int:
             "runs-on: such-android-release",
             "expected_sha:",
             "version_code:",
+            "printf '%s\\n' \"$TEMPLATE_VERSION\" > android/.build_version",
+            "SML_ANDROID_TEMPLATE_IDENTIFIER=$TEMPLATE_VERSION",
+            "rm -f android/.build_version",
             "tools/ci/activate_ci_jdk.sh",
             "tools/ci/play_upload.js assert-monotonic",
             "tools/ci/play_upload.js upload",
@@ -226,6 +229,17 @@ def main() -> int:
                 fail(f"Android workflow does not reference canonical secret: {secret}")
         if "fastlane" in workflow.casefold():
             fail("Android workflow must use the self-contained Play delivery client")
+
+        export_wrapper = (repo / "tools/export_candidate.sh").read_text(
+            encoding="utf-8"
+        )
+        for marker in (
+            "SML_ANDROID_TEMPLATE_IDENTIFIER:-4.6.1.stable",
+            "android/.build_version",
+            "Android build template identifier does not match Godot",
+        ):
+            if marker not in export_wrapper:
+                fail(f"Android export wrapper is missing template gate: {marker}")
 
         tracked_files = subprocess.check_output(
             ["git", "-C", str(repo), "ls-files"], text=True
