@@ -249,11 +249,17 @@ jobs:
             echo "FATAL: checkout unexpectedly contains android/build."
             exit 1
           }
+          [ ! -e android/.build_version ] && [ ! -L android/.build_version ] || {
+            echo "FATAL: checkout unexpectedly contains an Android template identifier."
+            exit 1
+          }
           [ ! -e .godot ] && [ ! -L .godot ] || {
             echo "FATAL: checkout unexpectedly contains a project cache."
             exit 1
           }
           mkdir -p android
+          echo "SML_ANDROID_TEMPLATE_IDENTIFIER=$TEMPLATE_VERSION" >> "$GITHUB_ENV"
+          printf '%s\n' "$TEMPLATE_VERSION" > android/.build_version
           ln -s "$SML_ANDROID_TEMPLATE_DIR" android/build
           ln -s "$SML_PROJECT_CACHE" .godot
 
@@ -668,6 +674,11 @@ jobs:
              [ "$(readlink android/build)" = "${SML_ANDROID_TEMPLATE_DIR:-unset}" ]; then
             rm -f android/build
           fi
+          if [ -f android/.build_version ] && [ ! -L android/.build_version ] && \
+             [ "$(cat android/.build_version)" = "${SML_ANDROID_TEMPLATE_IDENTIFIER:-unset}" ]; then
+            rm -f android/.build_version
+          fi
+          rmdir android 2>/dev/null || true
           if [ -L .godot ] && \
              [ "$(readlink .godot)" = "${SML_PROJECT_CACHE:-unset}" ]; then
             rm -f .godot

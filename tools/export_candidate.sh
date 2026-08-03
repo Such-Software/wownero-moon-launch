@@ -151,6 +151,15 @@ PY
     echo "FATAL: install the Godot Android build template at android/build first." >&2
     exit 1
   }
+  TEMPLATE_IDENTIFIER="${SML_ANDROID_TEMPLATE_IDENTIFIER:-4.6.1.stable}"
+  [[ -f android/.build_version && ! -L android/.build_version ]] || {
+    echo "FATAL: Android build template identifier is missing or unsafe." >&2
+    exit 1
+  }
+  [[ "$(cat android/.build_version)" == "$TEMPLATE_IDENTIFIER" ]] || {
+    echo "FATAL: Android build template identifier does not match Godot." >&2
+    exit 1
+  }
   python3 tools/ci/prepare_android_template.py --root android/build
   export GRADLE_USER_HOME="${GRADLE_USER_HOME:-$BUILD_ROOT/cache/gradle}"
 fi
