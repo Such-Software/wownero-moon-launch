@@ -10,6 +10,7 @@ var _level_select_container: VBoxContainer = null
 var _options_popup: PanelContainer = null
 var _options_diff_label: Label = null
 var _lock_popup: PanelContainer = null
+var _race_access_popup: PanelContainer = null
 var _lb_popup: PanelContainer = null
 var _lb_content: RichTextLabel = null
 var _lb_level_label: Label = null
@@ -129,6 +130,9 @@ func _ready():
 	race_btn.pressed.connect(_on_race_pressed)
 	$VButtonArray.add_child(race_btn)
 	$VButtonArray.move_child(race_btn, $VButtonArray/PlayButton.get_index() + 1)
+	_refresh_race_button()
+	if not IAPManager.purchase_completed.is_connected(_on_race_iap_completed):
+		IAPManager.purchase_completed.connect(_on_race_iap_completed)
 	_build_help_options_buttons()
 	_build_level_select()
 	_build_pgs_buttons()
@@ -651,6 +655,7 @@ func _show_options_popup() -> void:
 	_options_popup.add_child(scroll)
 
 	var vbox := VBoxContainer.new()
+	vbox.name = "Content"
 	vbox.add_theme_constant_override("separation", 12)
 	vbox.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	scroll.add_child(vbox)
@@ -1683,10 +1688,144 @@ func _on_PlayButton_pressed():
 
 
 func _on_race_pressed():
+	# The native mobile free tier includes one race per UTC day. Rewarded access
+	# is always an explicit pre-race choice; no ad is forced after gameplay.
+	if _is_mobile_ui() and not IAPManager.has_unlimited_races():
+		if not globalvar.consume_limited_race():
+			_show_race_access_popup()
+			return
+	_start_cpu_race()
+
+
+func _start_cpu_race() -> void:
 	# Race always uses Level 1 (the only level the CPU reliably lands in race time).
 	globalvar.nowlevel = 1
 	globalvar.race_mode = true
 	WarpTransition.warp_to(globalvar.get_level_scene(1))
+
+
+func _refresh_race_button() -> void:
+	var race_btn := $VButtonArray.get_node_or_null("RaceButton") as Button
+	if race_btn == null:
+		return
+	if not _is_mobile_ui():
+		race_btn.text = "🏁 Race the CPU"
+	elif IAPManager.has_unlimited_races():
+		race_btn.text = "🏁 Race the CPU — Unlimited"
+	elif globalvar.can_start_limited_race():
+		race_btn.text = "🏁 Race the CPU — Free Today"
+	else:
+		race_btn.text = "🏁 Race the CPU — Watch Ad or Unlock"
+
+
+func _show_race_access_popup() -> void:
+	if _race_access_popup and is_instance_valid(_race_access_popup):
+		_race_access_popup.queue_free()
+	var popup := _build_styled_popup(Color(1.0, 0.5, 0.5, 0.8))
+	popup.name = "RaceAccessPopup"
+	popup.z_index = 20
+	add_child(popup)
+	popup.set_anchors_preset(Control.PRESET_CENTER)
+	popup.offset_left = -250
+	popup.offset_right = 250
+	popup.offset_top = -185
+	popup.offset_bottom = 185
+	_race_access_popup = popup
+
+	var vbox := VBoxContainer.new()
+	vbox.add_theme_constant_override("separation", 14)
+	popup.add_child(vbox)
+	var title := Label.new()
+	title.text = "🏁 Race Access"
+	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	title.add_theme_font_size_override("font_size", 22)
+	title.add_theme_color_override("font_color", Color(1.0, 0.6, 0.6))
+	vbox.add_child(title)
+	vbox.add_child(HSeparator.new())
+	var status := Label.new()
+	status.name = "Status"
+	status.text = "Today's free CPU race has been used."
+	status.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	status.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	status.add_theme_font_size_override("font_size", 14)
+	status.add_theme_color_override("font_color", Color(0.78, 0.86, 1.0))
+	vbox.add_child(status)
+
+	var rewarded := Button.new()
+	rewarded.name = "RewardedRaceButton"
+	rewarded.text = "Watch a Rewarded Ad for One Race"
+	rewarded.custom_minimum_size = Vector2(430, 44)
+	rewarded.disabled = not AdManager.is_rewarded_available()
+	BS.apply_space_style(rewarded, Color(1.0, 0.8, 0.2))
+	rewarded.pressed.connect(func() -> void:
+		rewarded.disabled = true
+		status.text = "Loading your opt-in rewarded ad…"
+		AdManager.show_rewarded(_on_rewarded_race_completed)
+	)
+	vbox.add_child(rewarded)
+
+	var unlock := Button.new()
+	unlock.text = "%s — %s" % [
+		IAPManager.PRODUCT_LABELS[IAPManager.PRODUCT_REMOVE_ADS],
+		IAPManager.get_price(IAPManager.PRODUCT_REMOVE_ADS),
+	]
+	unlock.custom_minimum_size = Vector2(430, 44)
+	BS.apply_space_style(unlock, Color(0.9, 0.3, 0.9))
+	unlock.pressed.connect(func() -> void:
+		status.text = "Opening the store…"
+		if not IAPManager.purchase_offer(IAPManager.OFFER_RACE_UNLIMITED):
+			status.text = "The store is not available yet. Please try again shortly."
+	)
+	vbox.add_child(unlock)
+
+	var close := Button.new()
+	close.text = "Not Now"
+	close.custom_minimum_size = Vector2(160, 36)
+	BS.apply_space_style(close, Color(0.55, 0.65, 0.8))
+	close.pressed.connect(func() -> void:
+		popup.queue_free()
+		_race_access_popup = null
+	)
+	var close_row := HBoxContainer.new()
+	close_row.alignment = BoxContainer.ALIGNMENT_CENTER
+	close_row.add_child(close)
+	vbox.add_child(close_row)
+
+
+func _on_rewarded_race_completed(success: bool) -> void:
+	if not _race_access_popup or not is_instance_valid(_race_access_popup):
+		return
+	var status := _race_access_popup.get_node_or_null("Content/Status") as Label
+	var rewarded := _race_access_popup.get_node_or_null("Content/RewardedRaceButton") as Button
+	if not success:
+		if status:
+			status.text = "No ad was completed. Nothing was charged or consumed."
+		if rewarded:
+			rewarded.disabled = false
+		return
+	globalvar.grant_rewarded_race()
+	if not globalvar.consume_limited_race():
+		if status:
+			status.text = "Race access could not be granted. Please try again."
+		return
+	_race_access_popup.queue_free()
+	_race_access_popup = null
+	_start_cpu_race()
+
+
+func _on_race_iap_completed(product_id: String, success: bool) -> void:
+	if product_id != IAPManager.PRODUCT_REMOVE_ADS:
+		return
+	if not success:
+		if _race_access_popup and is_instance_valid(_race_access_popup):
+			var status := _race_access_popup.get_node_or_null("Content/Status") as Label
+			if status:
+				status.text = "The store did not open. Please try again shortly."
+		return
+	_refresh_race_button()
+	if _race_access_popup and is_instance_valid(_race_access_popup):
+		_race_access_popup.queue_free()
+		_race_access_popup = null
 
 func _on_LevelsButton_pressed():
 	_toggle_level_select()
