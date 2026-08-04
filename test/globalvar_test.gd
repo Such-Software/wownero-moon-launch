@@ -36,6 +36,8 @@ func before_test() -> void:
 	globalvar.has_checkpoint = false
 	globalvar.ads_removed = false
 	globalvar.race_unlimited_cached = false
+	globalvar.race_free_utc_day = ""
+	globalvar.race_rewarded_credits = 0
 	for key in globalvar.upgrades.keys():
 		globalvar.upgrades[key] = 0
 
@@ -754,7 +756,7 @@ func test_get_save_data_contains_all_keys() -> void:
 		"difficulty", "selected_skin", "owned_skins", "endless_best_wave",
 		"levels_unlocked", "total_crypto_earned", "total_deaths",
 		"landings_since_install", "rate_prompt_shown",
-		"ads_removed", "race_unlimited_cached",
+		"ads_removed", "race_unlimited_cached", "race_free_utc_day", "race_rewarded_credits",
 	]
 	for key in required_keys:
 		assert_bool(data.has(key)).is_true()
@@ -923,6 +925,35 @@ func test_unlimited_races_cache_round_trips_separately_from_ad_removal() -> void
 	globalvar.race_unlimited_cached = false
 	globalvar._apply_save_data(data)
 	assert_bool(globalvar.has_cached_unlimited_races()).is_true()
+
+
+func test_daily_race_is_consumed_once_per_utc_day() -> void:
+	assert_bool(globalvar.has_daily_free_race("2026-08-04")).is_true()
+	assert_bool(globalvar.consume_limited_race("2026-08-04")).is_true()
+	assert_bool(globalvar.has_daily_free_race("2026-08-04")).is_false()
+	assert_bool(globalvar.consume_limited_race("2026-08-04")).is_false()
+	assert_bool(globalvar.has_daily_free_race("2026-08-05")).is_true()
+
+
+func test_completed_reward_grants_exactly_one_extra_race() -> void:
+	globalvar.race_free_utc_day = "2026-08-04"
+	assert_bool(globalvar.grant_rewarded_race()).is_true()
+	assert_bool(globalvar.grant_rewarded_race()).is_false()
+	assert_bool(globalvar.consume_limited_race("2026-08-04")).is_true()
+	assert_int(globalvar.race_rewarded_credits).is_equal(0)
+	assert_bool(globalvar.consume_limited_race("2026-08-04")).is_false()
+
+
+func test_race_gate_fields_round_trip_and_clamp_reward_inventory() -> void:
+	globalvar._apply_save_data({
+		"race_free_utc_day": "2026-08-04",
+		"race_rewarded_credits": 99,
+	})
+	assert_str(globalvar.race_free_utc_day).is_equal("2026-08-04")
+	assert_int(globalvar.race_rewarded_credits).is_equal(1)
+	var data := globalvar.get_save_data()
+	assert_str(str(data["race_free_utc_day"])).is_equal("2026-08-04")
+	assert_int(int(data["race_rewarded_credits"])).is_equal(1)
 
 func test_moonrock_ad_removal_does_not_grant_paid_race_access() -> void:
 	globalvar.wallet = globalvar.AD_REMOVAL_COST
