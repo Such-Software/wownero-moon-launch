@@ -289,12 +289,50 @@ var ads_removed: bool = false
 # cache makes a verified native purchase usable offline; it is never payment
 # authority and must be reconciled from provider/App Platform truth.
 var race_unlimited_cached: bool = false
+# Limited mobile access is persisted independently from the paid lifetime
+# capability. A free player receives one CPU race per UTC day; an explicitly
+# completed rewarded ad grants one additional race credit. The server ledger
+# can replace this local compatibility cache when App Platform activation is
+# enabled without changing the product entitlement.
+var race_free_utc_day: String = ""
+var race_rewarded_credits: int = 0
 
 func is_ads_removed() -> bool:
 	return ads_removed
 
 func has_cached_unlimited_races() -> bool:
 	return race_unlimited_cached
+
+func race_utc_day() -> String:
+	return Time.get_date_string_from_system(true)
+
+func has_daily_free_race(utc_day: String = "") -> bool:
+	var day := utc_day if utc_day != "" else race_utc_day()
+	return race_free_utc_day != day
+
+func can_start_limited_race(utc_day: String = "") -> bool:
+	return has_daily_free_race(utc_day) or race_rewarded_credits > 0
+
+func consume_limited_race(utc_day: String = "") -> bool:
+	var day := utc_day if utc_day != "" else race_utc_day()
+	if has_daily_free_race(day):
+		race_free_utc_day = day
+		save_game()
+		return true
+	if race_rewarded_credits > 0:
+		race_rewarded_credits -= 1
+		save_game()
+		return true
+	return false
+
+func grant_rewarded_race() -> bool:
+	# Do not bank an unbounded inventory of ad grants. The confirmation flow
+	# consumes this credit immediately; the cap also fails closed after a crash.
+	if race_rewarded_credits >= 1:
+		return false
+	race_rewarded_credits = 1
+	save_game()
+	return true
 
 func buy_ad_removal() -> bool:
 	if ads_removed or wallet < AD_REMOVAL_COST:
@@ -910,6 +948,8 @@ func get_save_data() -> Dictionary:
 		"rate_prompt_shown": rate_prompt_shown,
 		"ads_removed": ads_removed,
 		"race_unlimited_cached": race_unlimited_cached,
+		"race_free_utc_day": race_free_utc_day,
+		"race_rewarded_credits": race_rewarded_credits,
 	}
 
 func save_game() -> void:
@@ -1001,6 +1041,8 @@ func _apply_save_data(data: Dictionary) -> void:
 	rate_prompt_shown = bool(data.get("rate_prompt_shown", false))
 	ads_removed = bool(data.get("ads_removed", false))
 	race_unlimited_cached = bool(data.get("race_unlimited_cached", false))
+	race_free_utc_day = str(data.get("race_free_utc_day", ""))
+	race_rewarded_credits = clampi(int(data.get("race_rewarded_credits", 0)), 0, 1)
 
 func load_game() -> void:
 	if not FileAccess.file_exists("user://savegame.json"):
