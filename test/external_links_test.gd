@@ -16,7 +16,7 @@ func test_store_links_are_canonical_and_platform_specific() -> void:
 	)
 
 
-func test_privacy_policy_uses_the_live_https_page() -> void:
+func test_privacy_policy_names_this_app_not_the_umbrella_policy() -> void:
 	assert_str(ExternalLinks.PRIVACY_POLICY_URL).is_equal(
-		"https://such.software/privacy"
+		"https://such.software/products/such-moon-launch/privacy"
 	)
