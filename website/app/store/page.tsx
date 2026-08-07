@@ -42,13 +42,12 @@ export default function StorePage() {
           width="240"
           height="240"
         />
-        <p className="eyebrow">Hangar catalog · pinned, inactive</p>
-        <h1>Three offers. Checkout still sealed.</h1>
+        <p className="eyebrow">Hangar catalog · preview</p>
+        <h1>Three offers. Checkout opens soon.</h1>
         <p>
-          The release catalog is locked below. Checkout is closed while
-          identity, signed Moonrock delivery, refund reversal, duplicate
-          replay, and recovery evidence are completed. Nothing on this page can
-          start a payment.
+          Here is what the launch catalog will include. Checkout is not open
+          yet while we finish sign-in, Moonrock delivery, and refund handling.
+          Nothing on this page can start a payment.
         </p>
         <div className="offer-catalog" aria-label="Pinned release offers">
           {offers.map((offer) => (
@@ -65,26 +64,25 @@ export default function StorePage() {
         <div className="status-list" role="list" aria-label="Store setup status">
           <div role="listitem">
             <span aria-hidden="true">✓</span>
-            Catalog and exact grants pinned
+            Catalog and offers set
           </div>
           <div role="listitem">
             <span aria-hidden="true">✓</span>
-            Brand projection locked
+            Store design finished
           </div>
           <div role="listitem" className="status-pending">
             <span aria-hidden="true">○</span>
-            Provider IDs and payment proof
+            Payments
           </div>
           <div role="listitem" className="status-pending">
             <span aria-hidden="true">○</span>
-            Refund, restore, and replay proof
+            Refund and restore testing
           </div>
         </div>
         <p className="store-policy">
-          Official mobile purchases remain available only through Apple and
-          Google native billing inside their apps. Web and self-distributed
-          desktop checkout will use the dedicated Moon Launch storefront after
-          its activation evidence passes.
+          Mobile purchases are handled by Apple and Google billing inside
+          their apps. Web and desktop checkout will run through the Moon
+          Launch storefront once it opens.
         </p>
       </div>
     </main>
