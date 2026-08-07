@@ -136,6 +136,50 @@ func _apply_ui_scale() -> void:
 		return
 	t.root.content_scale_factor = ui_scale()
 
+## Display cutouts (the iPhone camera/Dynamic Island oval, the home indicator, and
+## the rounded corners) sit ON TOP of a full-screen framebuffer. The render is
+## correct — a screenshot looks fine — but anything drawn under them is physically
+## covered, which is why testers reported a hidden pause button and bottom buttons
+## that "aren't showing" while the screenshot showed them present.
+##
+## Returned in the SAME units UI code positions in (post content-scale viewport
+## units), so callers just add these to their existing margins. Zero everywhere
+## the platform reports no cutout, so desktop and web layout is unchanged.
+func safe_area_insets() -> Dictionary:
+	var t := get_tree()
+	if t == null or t.root == null:
+		return NO_INSETS.duplicate()
+	return compute_safe_area_insets(
+		DisplayServer.window_get_size(),
+		DisplayServer.get_display_safe_area(),
+		t.root.get_visible_rect().size
+	)
+
+const NO_INSETS := {"left": 0.0, "top": 0.0, "right": 0.0, "bottom": 0.0}
+
+## Pure inset math, split out from the DisplayServer read so it is testable.
+## `window` and `safe` are screen pixels; `view` is post-content-scale viewport
+## units. Returns the four insets in VIEW units, ready to add to UI margins.
+static func compute_safe_area_insets(
+	window: Vector2i, safe: Rect2i, view: Vector2
+) -> Dictionary:
+	if window.x <= 0 or window.y <= 0 or view.x <= 0.0 or view.y <= 0.0:
+		return NO_INSETS.duplicate()
+	# A zero/degenerate rect means "no cutout reported" — never read that as
+	# "the whole screen is unsafe", which would push every control off-screen.
+	if safe.size.x <= 0 or safe.size.y <= 0:
+		return NO_INSETS.duplicate()
+	# Screen pixels -> view units. content_scale_factor is already folded into
+	# the visible rect, so this stays correct in portrait's boosted scale too.
+	var per_x := view.x / float(window.x)
+	var per_y := view.y / float(window.y)
+	return {
+		"left": maxf(0.0, float(safe.position.x)) * per_x,
+		"top": maxf(0.0, float(safe.position.y)) * per_y,
+		"right": maxf(0.0, float(window.x - (safe.position.x + safe.size.x))) * per_x,
+		"bottom": maxf(0.0, float(window.y - (safe.position.y + safe.size.y))) * per_y,
+	}
+
 # --- Input-hint resolver ---
 # Single source of truth for "which control style are we teaching right now?".
 # Every place that branches control-instruction text (tutorial, Help, coach

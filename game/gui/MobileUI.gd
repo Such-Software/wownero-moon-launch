@@ -26,6 +26,7 @@ var _wallet_hud: Control = null
 var _debug_overlay: Control = null
 var _target_arrow: Control = null
 var _pause_controls_btn: Button = null
+var _pause_btn: Button = null
 var _highlight_tweens: Dictionary = {}
 
 # List of old TouchScreenButton node names to hide/disable
@@ -60,6 +61,12 @@ func _ready() -> void:
 	# HUD widgets — always visible on all platforms
 	_setup_hud()
 
+	# Lay everything out once all widgets exist, then keep it correct across
+	# rotation and window resizes. Connected here (not in _setup_mobile) so the
+	# desktop HUD gets the same treatment and it is connected exactly once.
+	_layout_controls()
+	get_viewport().size_changed.connect(_layout_controls)
+
 	# Live control-scheme hot-swap (WP-A2): joystick visibility + tilt
 	# recalibration update the instant the setting changes, no level reload.
 	globalvar.control_scheme_changed.connect(_on_control_scheme_changed)
@@ -70,7 +77,6 @@ func _ready() -> void:
 
 
 func _setup_pause_button() -> void:
-	var vp := get_viewport().get_visible_rect().size
 	var btn := Button.new()
 	btn.name = "PauseButton"
 	btn.text = "II"
@@ -81,13 +87,10 @@ func _setup_pause_button() -> void:
 	btn.process_mode = Node.PROCESS_MODE_ALWAYS
 	BS.apply_space_style(btn, Color(0.7, 0.7, 0.85))
 	add_child(btn)
-	btn.position = Vector2(vp.x - 66.0, 12.0)
+	_pause_btn = btn
 	btn.pressed.connect(_on_menu_pressed)
-	get_viewport().size_changed.connect(func() -> void:
-		if is_instance_valid(btn):
-			var v := get_viewport().get_visible_rect().size
-			btn.position = Vector2(v.x - 66.0, 12.0)
-	)
+	# Positioned by _layout_controls, the single place that knows about display
+	# cutouts, so the button no longer needs its own size_changed lambda.
 
 
 func _setup_mobile() -> void:
@@ -97,14 +100,11 @@ func _setup_mobile() -> void:
 		if btn:
 			btn.visible = false
 
-	var vp := get_viewport().get_visible_rect().size
-
 	# Create virtual joystick (bottom-left) — hidden when tilt-to-turn is active
 	_joystick = Control.new()
 	_joystick.set_script(VirtualJoystickScript)
 	_joystick.name = "VirtualJoystick"
 	add_child(_joystick)
-	_joystick.position = Vector2(20, vp.y - 170)
 	_joystick.visible = (globalvar.control_scheme == globalvar.ControlScheme.JOYSTICK)
 
 	# Create thrust button (right side, upper)
@@ -114,7 +114,6 @@ func _setup_mobile() -> void:
 	_thrust_btn.set("action_name", "thrust")
 	_thrust_btn.set("arrow_up", true)
 	add_child(_thrust_btn)
-	_thrust_btn.position = Vector2(vp.x - 104, vp.y - 250)
 
 	# Create reverse thrust button (right side, lower)
 	_reverse_btn = Control.new()
@@ -123,7 +122,6 @@ func _setup_mobile() -> void:
 	_reverse_btn.set("action_name", "revthrust")
 	_reverse_btn.set("arrow_up", false)
 	add_child(_reverse_btn)
-	_reverse_btn.position = Vector2(vp.x - 104, vp.y - 140)
 
 	# Full-tilt (portrait) has NO on-screen thrust/reverse buttons — pitch drives them.
 	var _full_tilt: bool = globalvar.control_scheme == globalvar.ControlScheme.FULL_TILT
@@ -136,13 +134,11 @@ func _setup_mobile() -> void:
 		_fire_btn.set_script(FireButtonScript)
 		_fire_btn.name = "FireBtn"
 		add_child(_fire_btn)
-		_fire_btn.position = Vector2(20, vp.y - 260)
 		# First-encounter weapon hints (WP-B4). One-time, keyed + capture-gated by
 		# HintService — fire the first time each weapon button actually appears.
 		HintService.show_hint("weapon_cannon", "CANNON armed — tap to fire")
 
-	# Weapon buttons — stack vertically on right side above thrust buttons
-	var weapon_y := vp.y - 320
+	# Weapon buttons — stack vertically on right side above thrust buttons.
 	if globalvar.upgrades.get("missile", 0) > 0:
 		_missile_btn = Control.new()
 		_missile_btn.set_script(WeaponButtonScript)
@@ -153,8 +149,6 @@ func _setup_mobile() -> void:
 		_missile_btn.set("ring_color", Color(1.0, 0.4, 0.2, 0.35))
 		_missile_btn.set("ammo_count", globalvar.upgrades.get("missile", 0) * 2)
 		add_child(_missile_btn)
-		_missile_btn.position = Vector2(vp.x - 174, weapon_y)
-		weapon_y -= 68.0
 		HintService.show_hint("weapon_missile", "MISSILE armed — tap to fire")
 
 	if globalvar.upgrades.get("laser", 0) > 0:
@@ -166,8 +160,6 @@ func _setup_mobile() -> void:
 		_laser_btn.set("base_color", Color(0.2, 0.8, 1.0))
 		_laser_btn.set("ring_color", Color(0.3, 0.7, 1.0, 0.35))
 		add_child(_laser_btn)
-		_laser_btn.position = Vector2(vp.x - 174, weapon_y)
-		weapon_y -= 68.0
 		HintService.show_hint("weapon_laser", "LASER armed — tap to fire")
 
 	if globalvar.upgrades.get("emp", 0) > 0:
@@ -180,27 +172,47 @@ func _setup_mobile() -> void:
 		_emp_btn.set("ring_color", Color(0.5, 0.7, 1.0, 0.35))
 		_emp_btn.set("ammo_count", globalvar.upgrades.get("emp", 0))
 		add_child(_emp_btn)
-		_emp_btn.position = Vector2(vp.x - 174, weapon_y)
 		HintService.show_hint("weapon_emp", "EMP ready — tap to stun nearby enemies")
 
-	# Reposition controls on viewport resize (orientation change, etc.)
-	get_viewport().size_changed.connect(_reposition_controls)
+	# Layout and the resize hookup are owned by _ready, once all widgets exist.
 
 
-func _reposition_controls() -> void:
+## Single source of truth for every edge-anchored control, so nothing can be
+## placed without accounting for display cutouts. Runs on setup and on every
+## viewport resize (rotation, cutout change, desktop window drag).
+##
+## The design margins below are unchanged; the insets are ADDED to them, so a
+## device that reports no cutout lays out exactly as before.
+func _layout_controls() -> void:
+	if not is_inside_tree():
+		return
 	var vp := get_viewport().get_visible_rect().size
-	if _joystick:
-		_joystick.position = Vector2(20, vp.y - 170)
-	if _thrust_btn:
-		_thrust_btn.position = Vector2(vp.x - 104, vp.y - 250)
-	if _reverse_btn:
-		_reverse_btn.position = Vector2(vp.x - 104, vp.y - 140)
-	if _fire_btn:
-		_fire_btn.position = Vector2(20, vp.y - 260)
-	var weapon_y := vp.y - 320
+	var inset := globalvar.safe_area_insets()
+	var left: float = inset["left"]
+	var top: float = inset["top"]
+	# The oval camera cutout is what covered the pause button; the home indicator
+	# is what hid the bottom row.
+	var right: float = inset["right"]
+	var bottom: float = inset["bottom"]
+
+	if is_instance_valid(_pause_btn):
+		_pause_btn.position = Vector2(vp.x - 66.0 - right, 12.0 + top)
+	if is_instance_valid(_fuel_bar):
+		_fuel_bar.position = Vector2(120.0 + left, 10.0 + top)
+	if is_instance_valid(_wallet_hud):
+		_wallet_hud.position = Vector2(120.0 + left, 28.0 + top)
+	if is_instance_valid(_joystick):
+		_joystick.position = Vector2(20.0 + left, vp.y - 170.0 - bottom)
+	if is_instance_valid(_thrust_btn):
+		_thrust_btn.position = Vector2(vp.x - 104.0 - right, vp.y - 250.0 - bottom)
+	if is_instance_valid(_reverse_btn):
+		_reverse_btn.position = Vector2(vp.x - 104.0 - right, vp.y - 140.0 - bottom)
+	if is_instance_valid(_fire_btn):
+		_fire_btn.position = Vector2(20.0 + left, vp.y - 260.0 - bottom)
+	var weapon_y := vp.y - 320.0 - bottom
 	for btn in [_missile_btn, _laser_btn, _emp_btn]:
 		if btn and is_instance_valid(btn):
-			btn.position = Vector2(vp.x - 174, weapon_y)
+			btn.position = Vector2(vp.x - 174.0 - right, weapon_y)
 			weapon_y -= 68.0
 
 
@@ -218,14 +230,12 @@ func _setup_hud() -> void:
 	_fuel_bar.set_script(FuelBarScript)
 	_fuel_bar.name = "FuelBar"
 	add_child(_fuel_bar)
-	_fuel_bar.position = Vector2(120, 10)
 
 	# Wallet display — next to fuel bar
 	_wallet_hud = Control.new()
 	_wallet_hud.set_script(WalletHUDScript)
 	_wallet_hud.name = "WalletHUD"
 	add_child(_wallet_hud)
-	_wallet_hud.position = Vector2(120, 28)
 
 	# Debug overlay — toggled with F3 (starts hidden)
 	_debug_overlay = Control.new()
