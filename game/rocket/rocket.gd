@@ -410,11 +410,13 @@ func _apply_portrait_view() -> void:
 			$Camera2D.zoom = Vector2(cz, cz)
 			return
 	var ws := DisplayServer.window_get_size()
-	if ws.y > ws.x:  # portrait
-		var z := 0.65 / globalvar.ui_scale()
-		$Camera2D.zoom = Vector2(z, z)
-	else:
-		$Camera2D.zoom = Vector2.ONE
+	# Portrait keeps its deliberately wider view; landscape frames at 1.0. Both
+	# then divide out the content scale so raising it for readability changes the
+	# UI size only, never how much of the world is on screen. Landscape used to
+	# skip this because its scale was always 1.0 — it no longer is on mobile.
+	var base := 0.65 if ws.y > ws.x else 1.0
+	var z: float = base / globalvar.ui_scale()
+	$Camera2D.zoom = Vector2(z, z)
 
 
 func _is_full_tilt() -> bool:

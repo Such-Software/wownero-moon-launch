@@ -121,12 +121,46 @@ const ORIENTATION_NAMES := { 0: "Landscape", 1: "Portrait" }
 ## portrait so the world view is unchanged (see rocket.gd _apply_portrait_view).
 const PORTRAIT_UI_SCALE := 1.6
 
+## The 1024x600 base is a desktop-era canvas, and on a phone EVERY orientation
+## renders text far too small — not just portrait. On an iPhone 16 Pro a 13-unit
+## font lands at ~8.7pt in landscape and ~8.2pt in portrait, both well under
+## Apple's ~11pt legibility floor. PORTRAIT_UI_SCALE only equalized the two; it
+## never made either readable, which is what testers reported as "TOO SMALL" and
+## "a lot of TINY text".
+##
+## Fix it by targeting a fixed number of UI units across the SHORT screen axis on
+## mobile, so one unit is a consistent physical size in both orientations. 475 is
+## chosen as the smallest canvas the widest dialog (the 340-unit death panel plus
+## margins) still fits in — going lower reads better but clips it in landscape,
+## where the canvas is only 600 units tall.
+const MOBILE_SHORT_AXIS_UNITS := 475.0
+const BASE_VIEWPORT := Vector2(1024.0, 600.0)
+
+func _is_mobile_platform() -> bool:
+	return OS.has_feature("mobile") or OS.has_feature("android") or OS.has_feature("ios")
+
 ## Current content-scale multiplier, driven by the LIVE window aspect (not the
 ## mobile setting) so it is correct on-device AND for desktop portrait renders.
 ## Gameplay code that must undo the world zoom (the camera) divides by this.
 func ui_scale() -> float:
-	var ws := DisplayServer.window_get_size()
-	return PORTRAIT_UI_SCALE if ws.y > ws.x else 1.0
+	return compute_ui_scale(DisplayServer.window_get_size(), _is_mobile_platform())
+
+## Pure scale math, split from the DisplayServer read so it is testable. Desktop
+## keeps its existing behaviour exactly (including desktop portrait renders); only
+## mobile gets the short-axis target.
+static func compute_ui_scale(window: Vector2i, mobile: bool) -> float:
+	if window.x <= 0 or window.y <= 0:
+		return 1.0
+	var portrait := window.y > window.x
+	if not mobile:
+		return PORTRAIT_UI_SCALE if portrait else 1.0
+	# Godot's "expand" fits the base viewport, then grows the leftover axis.
+	var stretch := minf(float(window.x) / BASE_VIEWPORT.x, float(window.y) / BASE_VIEWPORT.y)
+	if stretch <= 0.0:
+		return 1.0
+	var logical_short := minf(float(window.x) / stretch, float(window.y) / stretch)
+	# Never shrink the UI below the existing size, whatever the device reports.
+	return maxf(1.0, logical_short / MOBILE_SHORT_AXIS_UNITS)
 
 ## Push ui_scale() onto the root. Wired to the window's size_changed in _ready so
 ## rotation, resize, and render-time viewport swaps all keep the UI physically sized.
