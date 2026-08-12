@@ -40,10 +40,9 @@ func submit_score(level: int, completion_time: float, fuel_remaining: float,
 	# not the player — same treatment as capture/sim runs, marks no leaderboard entry.
 	if globalvar.demo_mode:
 		return
-	# Never post bot scores from automated sims / captures / RL training to the live
-	# leaderboard (--disable-render-loop marks a godot_rl_agents training env binary).
-	var argv := OS.get_cmdline_args()
-	if "--sim" in argv or "--autopilot" in argv or "--capture" in argv or "--disable-render-loop" in argv:
+	# Never post bot scores from automated sims / captures / RL training to the
+	# live leaderboard.
+	if globalvar.is_automated_run():
 		return
 	var body := {
 		"device_uuid": globalvar.device_uuid,

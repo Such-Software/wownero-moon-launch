@@ -60,9 +60,7 @@ func _ready() -> void:
 
 	# Automated bot runs (headless sims / Movie Maker captures / RL training) must
 	# not write to the live events backend, so leave telemetry uninitialized for them.
-	# --disable-render-loop is added by godot_rl_agents to every training env binary.
-	var argv := OS.get_cmdline_args()
-	if "--sim" in argv or "--autopilot" in argv or "--capture" in argv or "--disable-render-loop" in argv:
+	if globalvar.is_automated_run():
 		return
 
 	_initialized = true

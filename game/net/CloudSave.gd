@@ -32,6 +32,13 @@ func upload_save() -> void:
 	if OS.get_environment("SML_TEST_MODE") == "1":
 		save_uploaded.emit(false)
 		return
+	# SML_TEST_MODE only covers tools/ci/verify.sh. Bot sims, Movie Maker captures
+	# and RL training envs don't set it, and they share the real device_uuid — so
+	# ungated, an RL sweep (thousands of parallel episodes) PUTs bot progress over
+	# that device's genuine cloud save. Same gate the other net clients use.
+	if globalvar.is_automated_run():
+		save_uploaded.emit(false)
+		return
 	if not is_instance_valid(_upload_http):
 		return  # Not ready yet (called before _ready)
 	var save_data = globalvar.get_save_data()
@@ -75,6 +82,12 @@ func _on_upload_completed(result: int, response_code: int, _headers: PackedStrin
 func download_save() -> void:
 	## Download cloud save for the current device_uuid.
 	if OS.get_environment("SML_TEST_MODE") == "1":
+		save_downloaded.emit(false, {})
+		return
+	# A bot run must start from clean state, not whatever progress/upgrades the
+	# real device has synced — pulling those in silently changes the physics an
+	# RL episode trains against.
+	if globalvar.is_automated_run():
 		save_downloaded.emit(false, {})
 		return
 	var url := "%s/save?device_uuid=%s" % [API_BASE, globalvar.device_uuid]

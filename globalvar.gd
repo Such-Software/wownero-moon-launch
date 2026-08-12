@@ -772,6 +772,26 @@ func save_checkpoint(pos: Vector2, vel: Vector2, fuel_amt: float, planet_name: S
 	checkpoint_planet_name = planet_name
 	has_checkpoint = true
 
+## True when this process is an automated run — a headless bot sim, a Movie Maker
+## capture, or a godot_rl_agents training env (which adds --disable-render-loop to
+## every env binary) — rather than a real player session.
+##
+## Single source of truth for "don't touch the live backend": Telemetry, Analytics,
+## ScoreClient and CloudSave all gate on this. Adding a new network client means
+## calling this, not copying the flag list a fifth time. User args are included so
+## the check still holds if a harness passes flags after `--`.
+##
+## This is deliberately separate from SML_TEST_MODE, which tools/ci/verify.sh sets
+## for the test suite: that one stubs transport while letting the clients still
+## initialize, so tests can exercise buffering. This one is for bot runs, which no
+## harness sets SML_TEST_MODE for.
+func is_automated_run() -> bool:
+	var argv := OS.get_cmdline_args() + OS.get_cmdline_user_args()
+	for flag in ["--sim", "--autopilot", "--capture", "--disable-render-loop"]:
+		if flag in argv:
+			return true
+	return false
+
 func get_platform_string() -> String:
 	## Returns platform identifier for leaderboard submissions.
 	match OS.get_name():
