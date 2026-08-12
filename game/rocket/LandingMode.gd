@@ -142,8 +142,12 @@ func _build_3d_viewport() -> void:
 	_camera_3d = Camera3D.new()
 	_camera_3d.fov = 65.0
 	_camera_3d.position = Vector3(0, ALTITUDE_3D_MAX + 2, 4)
-	_camera_3d.look_at(Vector3.ZERO)
+	# look_at() needs a global transform, so it only works once the camera is in
+	# the tree. Called before add_child() it fails outright ("Node not inside
+	# tree") and the camera silently keeps its default orientation — aimed level
+	# instead of down at the landing site. Add first, then aim.
 	_scene_3d.add_child(_camera_3d)
+	_camera_3d.look_at(Vector3.ZERO)
 
 	# Rocket as Sprite3D
 	_rocket_sprite_3d = Sprite3D.new()
