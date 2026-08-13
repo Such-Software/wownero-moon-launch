@@ -7,6 +7,8 @@ server/nakama/dist/
 website/node_modules/
 website/.next/
 website/out/
+# Packaged Sites worker emitted by website/scripts/package-sites.mjs.
+website/dist/
 # Website assets are served by Next.js and must not acquire Godot import
 # sidecars during whole-project headless verification.
 website/public/*.import
