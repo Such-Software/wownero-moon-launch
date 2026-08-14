@@ -786,8 +786,15 @@ func save_checkpoint(pos: Vector2, vel: Vector2, fuel_amt: float, planet_name: S
 ## initialize, so tests can exercise buffering. This one is for bot runs, which no
 ## harness sets SML_TEST_MODE for.
 func is_automated_run() -> bool:
-	var argv := OS.get_cmdline_args() + OS.get_cmdline_user_args()
-	for flag in ["--sim", "--autopilot", "--capture", "--disable-render-loop"]:
+	return is_automated_argv(OS.get_cmdline_args() + OS.get_cmdline_user_args())
+
+## Pure argv predicate behind is_automated_run(), split out so the gate is
+## testable: the real command line cannot be injected under gdUnit, and an
+## untested gate here silently re-opens the live backend to bot runs.
+const AUTOMATED_RUN_FLAGS := ["--sim", "--autopilot", "--capture", "--disable-render-loop"]
+
+func is_automated_argv(argv: PackedStringArray) -> bool:
+	for flag in AUTOMATED_RUN_FLAGS:
 		if flag in argv:
 			return true
 	return false

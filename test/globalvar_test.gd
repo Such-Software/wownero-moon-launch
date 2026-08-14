@@ -969,3 +969,39 @@ func test_reset_progress_preserves_permanent_benefits() -> void:
 
 func test_ad_removal_cost_constant() -> void:
 	assert_int(globalvar.AD_REMOVAL_COST).is_equal(10000)
+
+
+# ==========================================================================
+#  AUTOMATED-RUN GATE
+#  Single source of truth for "don't touch the live backend". Telemetry,
+#  Analytics, ScoreClient and CloudSave all gate on it, so a silent regression
+#  here re-opens the production API to bot sims and RL training sweeps — the
+#  path that could PUT bot progress over a real player's cloud save.
+# ==========================================================================
+
+func test_automated_argv_detects_each_harness_flag() -> void:
+	for flag in globalvar.AUTOMATED_RUN_FLAGS:
+		assert_bool(globalvar.is_automated_argv(PackedStringArray([flag]))) \
+			.override_failure_message("flag %s must mark the run automated" % flag) \
+			.is_true()
+
+func test_automated_argv_covers_the_rl_training_binary() -> void:
+	# godot_rl_agents adds --disable-render-loop to every training env binary;
+	# that is the only marker an RL sweep carries.
+	assert_bool(globalvar.is_automated_argv(
+		PackedStringArray(["--disable-render-loop"]))).is_true()
+
+func test_automated_argv_finds_the_flag_among_other_args() -> void:
+	assert_bool(globalvar.is_automated_argv(
+		PackedStringArray(["--headless", "--path", ".", "--capture", "res://x.tscn"]))).is_true()
+
+func test_automated_argv_is_false_for_a_real_player_session() -> void:
+	assert_bool(globalvar.is_automated_argv(PackedStringArray())).is_false()
+	assert_bool(globalvar.is_automated_argv(
+		PackedStringArray(["--fullscreen", "--audio-driver", "PulseAudio"]))).is_false()
+
+func test_automated_argv_does_not_substring_match() -> void:
+	# "--simulate-x" is not "--sim"; a loose match would disable telemetry for
+	# real players whose launcher passes an unrelated flag.
+	assert_bool(globalvar.is_automated_argv(
+		PackedStringArray(["--simulate-something"]))).is_false()
