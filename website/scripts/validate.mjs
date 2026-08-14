@@ -20,6 +20,7 @@ const sourceFiles = [
   "app/play/page.tsx",
   "app/store/page.tsx",
   "app/sitemap.ts",
+  "app/robots.ts",
   "app/globals.css",
 ];
 
@@ -122,6 +123,10 @@ for (const required of [
   "Credits exactly 10,000 Moonrocks",
   "Credits exactly 50,000 Moonrocks",
   "NEXT_PUBLIC_UMAMI_WEBSITE_ID",
+  // The whole indexing decision for moonlaunch.space rides on this one env read
+  // in app/robots.ts. Pin it so the flag cannot be dropped or hardcoded, which
+  // would either strand the site permanently uncrawlable or publish it early.
+  "NEXT_PUBLIC_SITE_INDEX",
   "data-umami-event=\"cta_click\"",
   "data-umami-event=\"store_click\"",
   "data-umami-event=\"gameplay_open\"",
