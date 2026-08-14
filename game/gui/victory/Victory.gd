@@ -364,6 +364,11 @@ func _on_rewarded_complete(success: bool) -> void:
 	if success:
 		Telemetry.log_event(Telemetry.EVENT_REWARDED_WATCHED, {"surface": "victory"})
 		globalvar.add_crypto(AdManager.REWARDED_AD_MOONROCKS)
+		# Persist immediately, like the IAP grant path (IAPManager.apply_purchase).
+		# add_crypto() only mutates memory, and Menu._ready() calls load_game() on
+		# every return to the menu — without this the player watches a full rewarded
+		# ad and the Moonrocks are silently rolled back off the next menu entry.
+		globalvar.save_game()
 		_rewarded_btn.text = "+%d Moonrocks!" % AdManager.REWARDED_AD_MOONROCKS
 		# Hide after a beat — single-use per Victory screen.
 		var t := get_tree().create_timer(1.2)

@@ -259,6 +259,11 @@ func _on_rewarded_result(success: bool) -> void:
 	if success:
 		Telemetry.log_event(Telemetry.EVENT_REWARDED_WATCHED, {"surface": "death"})
 		globalvar.add_crypto(AdManager.REWARDED_AD_MOONROCKS)
+		# Persist immediately, like the IAP grant path (IAPManager.apply_purchase).
+		# add_crypto() only mutates memory, and Menu._ready() calls load_game() on
+		# every return to the menu — without this the player watches a full rewarded
+		# ad and the Moonrocks are silently rolled back off the next menu entry.
+		globalvar.save_game()
 		if _ad_button:
 			_ad_button.text = "+%d Moonrocks!" % AdManager.REWARDED_AD_MOONROCKS
 			_ad_button.disabled = true
