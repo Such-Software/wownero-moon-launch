@@ -1005,3 +1005,59 @@ func test_automated_argv_does_not_substring_match() -> void:
 	# real players whose launcher passes an unrelated flag.
 	assert_bool(globalvar.is_automated_argv(
 		PackedStringArray(["--simulate-something"]))).is_false()
+
+
+# ==========================================================================
+#  CLOUD RESTORE MERGE
+#  The only path in the game that can destroy paid state. It merges a remote
+#  save over local progress, and until now had no tests at all.
+# ==========================================================================
+
+func test_cloud_restore_ignores_a_failed_or_empty_download() -> void:
+	globalvar.wallet = 5000
+	globalvar._on_cloud_save_downloaded(false, {"wallet": 1})
+	assert_int(globalvar.wallet).is_equal(5000)
+	globalvar._on_cloud_save_downloaded(true, {})
+	assert_int(globalvar.wallet).is_equal(5000)
+
+func test_cloud_restore_keeps_local_when_cloud_is_behind_on_both_axes() -> void:
+	globalvar.wallet = 5000
+	globalvar.highest_level_completed = 5
+	globalvar._on_cloud_save_downloaded(true, {"wallet": 200, "highest_completed": 2})
+	assert_int(globalvar.wallet).is_equal(5000)
+	assert_int(globalvar.highest_level_completed).is_equal(5)
+
+func test_cloud_restore_keeps_a_bigger_local_wallet_when_levels_are_tied() -> void:
+	# The regression: `cloud_highest < highest` made a TIE fail the guard, so a
+	# stale cloud copy overwrote a wallet holding real-money Moonrocks.
+	globalvar.wallet = 50000
+	globalvar.highest_level_completed = 3
+	globalvar._on_cloud_save_downloaded(true, {"wallet": 200, "highest_completed": 3})
+	assert_int(globalvar.wallet).is_equal(50000)
+
+func test_cloud_restore_never_revokes_paid_entitlements() -> void:
+	# A cloud copy predating the Remove Ads purchase must not clear it: the
+	# purchase is permanent and nothing would re-grant it.
+	globalvar.ads_removed = true
+	globalvar.race_unlimited_cached = true
+	globalvar.wallet = 0
+	globalvar.highest_level_completed = 0
+	globalvar._on_cloud_save_downloaded(true, {"wallet": 999, "highest_completed": 9})
+	assert_bool(globalvar.ads_removed).is_true()
+	assert_bool(globalvar.race_unlimited_cached).is_true()
+
+func test_cloud_restore_never_lowers_lifetime_crypto_earned() -> void:
+	globalvar.total_crypto_earned = 12345
+	globalvar.wallet = 0
+	globalvar.highest_level_completed = 0
+	globalvar._on_cloud_save_downloaded(true, {
+		"wallet": 999, "highest_completed": 9, "total_crypto_earned": 7,
+	})
+	assert_int(globalvar.total_crypto_earned).is_greater_equal(12345)
+
+func test_cloud_restore_applies_a_genuinely_ahead_cloud_save() -> void:
+	globalvar.wallet = 10
+	globalvar.highest_level_completed = 1
+	globalvar._on_cloud_save_downloaded(true, {"wallet": 8000, "highest_completed": 7})
+	assert_int(globalvar.wallet).is_equal(8000)
+	assert_int(globalvar.highest_level_completed).is_equal(7)

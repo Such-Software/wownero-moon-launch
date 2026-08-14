@@ -23,6 +23,14 @@ const CURRENT_OPENING_INTRO_VERSION := 2
 var opening_intro_version: int = 0  # Versioned so existing players see a materially improved opening once
 var first_flight_briefing_shown: bool = false  # One-time pre-action Level 1 mission briefing
 var seen_hints: Array[String] = []  # one-time HintService hint ids already shown (persisted)
+## Google Play purchase tokens whose CONSUMABLE grant has already been credited.
+## Play keeps returning an unconsumed purchase from query_purchases(), which the
+## client runs on every launch and on every Restore Purchases tap — so without a
+## record of what was already credited, a consumable whose consume call failed
+## re-credits its Moonrocks on every single launch. Persisted, and capped because
+## it only ever needs to outlive an in-flight consume.
+var granted_purchase_tokens: Array[String] = []
+const MAX_GRANTED_TOKENS := 64
 
 # --- Endless mode ---
 var endless_mode: bool = false
@@ -785,6 +793,21 @@ func save_checkpoint(pos: Vector2, vel: Vector2, fuel_amt: float, planet_name: S
 ## for the test suite: that one stubs transport while letting the clients still
 ## initialize, so tests can exercise buffering. This one is for bot runs, which no
 ## harness sets SML_TEST_MODE for.
+## True the first time a purchase token is presented for a consumable grant;
+## false forever after. Callers must credit the purchase ONLY when this returns
+## true, so a replayed Play query cannot double-credit real money.
+func claim_purchase_token(token: String) -> bool:
+	if token == "":
+		return true  # nothing to dedupe against; treat as a fresh grant
+	if token in granted_purchase_tokens:
+		return false
+	granted_purchase_tokens.append(token)
+	if granted_purchase_tokens.size() > MAX_GRANTED_TOKENS:
+		granted_purchase_tokens = granted_purchase_tokens.slice(
+			granted_purchase_tokens.size() - MAX_GRANTED_TOKENS)
+	save_game()
+	return true
+
 func is_automated_run() -> bool:
 	return is_automated_argv(OS.get_cmdline_args() + OS.get_cmdline_user_args())
 
@@ -977,6 +1000,7 @@ func get_save_data() -> Dictionary:
 		"race_unlimited_cached": race_unlimited_cached,
 		"race_free_utc_day": race_free_utc_day,
 		"race_rewarded_credits": race_rewarded_credits,
+		"granted_purchase_tokens": granted_purchase_tokens.duplicate(),
 	}
 
 func save_game() -> void:
@@ -998,12 +1022,26 @@ func restore_from_cloud() -> void:
 func _on_cloud_save_downloaded(success: bool, data: Dictionary) -> void:
 	if not success or data.is_empty():
 		return
-	# Only overwrite if cloud has more progress (higher wallet or more levels completed)
+	# Only overwrite if cloud has more progress (higher wallet or more levels completed).
+	# `<=` on highest, not `<`: with `<` a TIE on highest_level_completed made the
+	# whole guard false, so a stale cloud copy with a SMALLER wallet overwrote the
+	# local one — and save_game() below then persisted the loss and re-uploaded it.
 	var cloud_highest := int(data.get("highest_completed", 0))
 	var cloud_wallet := int(data.get("wallet", 0))
-	if cloud_highest < highest_level_completed and cloud_wallet <= wallet:
+	if cloud_highest <= highest_level_completed and cloud_wallet <= wallet:
 		return  # Local save is ahead — keep it
+	# Paid entitlements are permanent: once bought they are never revoked, so a
+	# cloud copy predating the purchase must not clear them. _apply_save_data
+	# assigns them straight from the dict (correct when loading local disk, wrong
+	# when merging a remote copy), and Android consumables are consumed at grant
+	# time, so nothing would ever re-grant them. Lifetime counters only ever rise.
+	var had_ads_removed := ads_removed
+	var had_race_unlimited := race_unlimited_cached
+	var had_total_earned := total_crypto_earned
 	_apply_save_data(data)
+	ads_removed = ads_removed or had_ads_removed
+	race_unlimited_cached = race_unlimited_cached or had_race_unlimited
+	total_crypto_earned = maxi(total_crypto_earned, had_total_earned)
 	save_game()
 
 func _apply_save_data(data: Dictionary) -> void:
@@ -1070,6 +1108,9 @@ func _apply_save_data(data: Dictionary) -> void:
 	race_unlimited_cached = bool(data.get("race_unlimited_cached", false))
 	race_free_utc_day = str(data.get("race_free_utc_day", ""))
 	race_rewarded_credits = clampi(int(data.get("race_rewarded_credits", 0)), 0, 1)
+	granted_purchase_tokens.clear()
+	for t in data.get("granted_purchase_tokens", []):
+		granted_purchase_tokens.append(str(t))
 
 func load_game() -> void:
 	if not FileAccess.file_exists("user://savegame.json"):

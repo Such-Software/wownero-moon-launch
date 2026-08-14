@@ -367,7 +367,15 @@ func _handle_android_purchase(purchase: Dictionary, _is_query: bool) -> void:
 	var token := str(purchase.get("purchase_token", ""))
 	for pid_variant in purchase.get("product_ids", []):
 		var pid := str(pid_variant)
-		apply_purchase(pid)
+		# Consumables must be credited exactly once per purchase token. Play keeps
+		# returning an unconsumed purchase from query_purchases(), which runs on
+		# every launch (_on_android_connected) and on every Restore Purchases tap —
+		# so if the consume call below ever fails, or the app dies before Play
+		# records it, an uncredited-looking moonrocks_50k would re-credit 50,000
+		# every launch. Non-consumables stay unconditional: apply_purchase() is
+		# idempotent for them, and a restore MUST re-grant an owned entitlement.
+		if pid not in CONSUMABLE_PRODUCTS or globalvar.claim_purchase_token(token):
+			apply_purchase(pid)
 		if pid in CONSUMABLE_PRODUCTS:
 			# Consume so the player can re-buy.
 			if token != "":

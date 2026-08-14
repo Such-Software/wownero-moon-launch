@@ -5,6 +5,16 @@ extends GdUnitTestSuite
 ## all calls must safely no-op.
 
 
+func before_test() -> void:
+	## Real-money grants mutate the shared globalvar autoload and write the real
+	## user://savegame.json, so isolate the money state before every case.
+	globalvar.wallet = 0
+	globalvar.total_crypto_earned = 0
+	globalvar.ads_removed = false
+	globalvar.race_unlimited_cached = false
+	globalvar.granted_purchase_tokens.clear()
+
+
 # ==========================================================================
 #  AVAILABILITY
 # ==========================================================================
@@ -88,3 +98,50 @@ func test_remove_ads_purchase_grandfathers_unlimited_races() -> void:
 	IAPManager.apply_purchase(IAPManager.PRODUCT_REMOVE_ADS)
 	assert_bool(globalvar.ads_removed).is_true()
 	assert_bool(globalvar.race_unlimited_cached).is_true()
+
+
+# ==========================================================================
+#  REAL-MONEY GRANTS
+#  Everything below here credits money. It was almost entirely unasserted:
+#  the only prior apply_purchase() test covered the Remove Ads entitlement.
+# ==========================================================================
+
+func test_apply_purchase_credits_each_consumable_exactly_its_reward() -> void:
+	IAPManager.apply_purchase(IAPManager.PRODUCT_MOONROCKS_10K)
+	assert_int(globalvar.wallet).is_equal(10_000)
+	IAPManager.apply_purchase(IAPManager.PRODUCT_MOONROCKS_50K)
+	assert_int(globalvar.wallet).is_equal(60_000)
+
+func test_apply_purchase_ignores_an_unknown_product_id() -> void:
+	IAPManager.apply_purchase("com.suchsoftware.suchmoonlaunch.not_a_product")
+	assert_int(globalvar.wallet).is_equal(0)
+	assert_bool(globalvar.ads_removed).is_false()
+
+func test_apply_purchase_of_remove_ads_is_idempotent() -> void:
+	IAPManager.apply_purchase(IAPManager.PRODUCT_REMOVE_ADS)
+	IAPManager.apply_purchase(IAPManager.PRODUCT_REMOVE_ADS)
+	assert_bool(globalvar.ads_removed).is_true()
+	assert_int(globalvar.wallet).is_equal(0)
+
+func test_purchase_token_is_claimable_only_once() -> void:
+	assert_bool(globalvar.claim_purchase_token("tok-1")).is_true()
+	assert_bool(globalvar.claim_purchase_token("tok-1")).is_false()
+	assert_bool(globalvar.claim_purchase_token("tok-2")).is_true()
+
+func test_replayed_play_query_cannot_double_credit_a_consumable() -> void:
+	# Play returns an unconsumed purchase from query_purchases() on every launch
+	# and every Restore Purchases tap. Crediting per-replay would mint real money.
+	var token := "play-token-abc"
+	assert_bool(globalvar.claim_purchase_token(token)).is_true()
+	IAPManager.apply_purchase(IAPManager.PRODUCT_MOONROCKS_50K)
+	assert_int(globalvar.wallet).is_equal(50_000)
+	# Second sighting of the same token must not credit again.
+	if globalvar.claim_purchase_token(token):
+		IAPManager.apply_purchase(IAPManager.PRODUCT_MOONROCKS_50K)
+	assert_int(globalvar.wallet).is_equal(50_000)
+
+func test_granted_token_ledger_stays_bounded() -> void:
+	for i in range(globalvar.MAX_GRANTED_TOKENS + 20):
+		globalvar.claim_purchase_token("tok-%d" % i)
+	assert_int(globalvar.granted_purchase_tokens.size()) \
+		.is_less_equal(globalvar.MAX_GRANTED_TOKENS)
