@@ -65,6 +65,10 @@ const BOUNCE_SPEED := 220.0  # px/s away from crash body
 const BOUNCE_FUEL_PCT := 0.15  # max_fuel fraction restored on bounce
 const BOUNCE_INVULN_TIME := 1.2  # seconds of hazard-immunity after a hazard bounce
 var _bounce_invuln: float = 0.0  # counts down; while >0, hazards can't kill (post-bounce)
+# Waypoint-checkpoint restore, snapshotted in _ready before reset_level_stats()
+# clears the globalvar fields (see the capture there for why).
+var _restore_checkpoint_pending: bool = false
+var _checkpoint_snapshot: Dictionary = {}
 
 # Proximity beep state
 var _beep_cooldown: float = 0.0
@@ -159,6 +163,22 @@ func _ready():
 	add_to_group("rocket")
 	# Hide menu banner ad during gameplay
 	AdManager.hide_banner()
+	# Snapshot the waypoint-restore intent BEFORE resetting: reset_level_stats()
+	# clears checkpoint_position/velocity/fuel/planet_name and has_checkpoint, and
+	# the restore check further down this same _ready reads them ~90 lines later.
+	# Reading them after the reset always saw has_checkpoint == false, which made
+	# "Retry from <Planet>" silently dump the player at the level start instead.
+	_restore_checkpoint_pending = globalvar.restore_checkpoint and globalvar.has_checkpoint
+	if _restore_checkpoint_pending:
+		_checkpoint_snapshot = {
+			"position": globalvar.checkpoint_position,
+			"velocity": globalvar.checkpoint_velocity,
+			"fuel": globalvar.checkpoint_fuel,
+			"planet_name": globalvar.checkpoint_planet_name,
+		}
+	# Cleared unconditionally: the old code only cleared it inside a branch that
+	# never ran, so the flag stayed true for the rest of the session.
+	globalvar.restore_checkpoint = false
 	# Reset per-level stats
 	globalvar.reset_level_stats()
 	Telemetry.log_event(Telemetry.EVENT_LEVEL_START, {
@@ -255,9 +275,8 @@ func _ready():
 				_all_gravity_bodies.append(i)
 				break
 
-	# Restore from waypoint checkpoint if flagged
-	if globalvar.restore_checkpoint and globalvar.has_checkpoint:
-		globalvar.restore_checkpoint = false
+	# Restore from waypoint checkpoint if flagged (captured above, pre-reset)
+	if _restore_checkpoint_pending:
 		# Defer position/velocity restore to after physics init
 		call_deferred("_apply_checkpoint")
 
@@ -730,6 +749,12 @@ func _canonical_hazard(n: String) -> String:
 
 
 func death(crash_body: Node2D = null):
+	# Still inside the post-bounce grace window: the ship has not physically
+	# cleared the body yet, so swallow the repeat collision instead of spending
+	# another bounce (or dying) on it. Scoped to a real crash body so a
+	# deliberate self-destruct, which passes null, is never swallowed.
+	if _bounce_invuln > 0.0 and crash_body != null:
+		return
 	# Second-chance bounce: if the player is about to crash into a planet/moon/
 	# asteroid and they have a bounce left this attempt, kick them away instead of
 	# dying. Allowance is difficulty-scaled (Easy 2, Normal 1, Hard 0).
@@ -944,6 +969,13 @@ func _do_bounce_dir(dir: Vector2) -> void:
 		landattemptnow = false
 	linear_velocity = dir * BOUNCE_SPEED
 	angular_velocity *= 0.3
+	# Arm the same grace window the hazard path uses. Without it the bounce is
+	# useless against body crashes: _process re-reads the SAME ShipArea overlap
+	# on the very next render frame and calls death() again, which finds the
+	# allowance already spent and kills. Also clear the decaying high-water speed
+	# so the foot-crash check below can't re-kill on the pre-bounce peak.
+	_bounce_invuln = BOUNCE_INVULN_TIME
+	_recent_max_speed = 0.0
 	# Restore some fuel so the player can actually retry
 	fuel = minf(fuel + max_fuel * BOUNCE_FUEL_PCT, max_fuel)
 	# Subtle haptic + toast
@@ -1264,14 +1296,16 @@ func _spawn_slingshot_effect(_planet_pos: Vector2, speed_gain: float) -> void:
 
 func _apply_checkpoint() -> void:
 	## Restore rocket state from a saved waypoint checkpoint.
-	global_position = globalvar.checkpoint_position
-	linear_velocity = globalvar.checkpoint_velocity
-	fuel = globalvar.checkpoint_fuel
+	if _checkpoint_snapshot.is_empty():
+		return
+	global_position = _checkpoint_snapshot["position"]
+	linear_velocity = _checkpoint_snapshot["velocity"]
+	fuel = _checkpoint_snapshot["fuel"]
 	# Mark waypoints up to the checkpoint as already visited
 	for body in _waypoint_bodies:
 		if is_instance_valid(body):
 			_visited_waypoints[body.get_instance_id()] = true
-			if body.name == globalvar.checkpoint_planet_name:
+			if body.name == _checkpoint_snapshot["planet_name"]:
 				break
 
 
