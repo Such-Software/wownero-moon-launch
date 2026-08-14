@@ -12,7 +12,8 @@ const offers = [
     id: "race_unlimited_lifetime_v1",
     title: "Unlimited Races",
     price: "$1.99",
-    detail: "Lifetime unlock. The mobile version also removes ads.",
+    detail:
+      "Lifetime unlock on every platform. The free tier is one CPU race per day. The mobile version also removes ads.",
   },
   {
     id: "moonrocks_10k_v1",

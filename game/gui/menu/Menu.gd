@@ -3,6 +3,9 @@ extends Control
 const BS = preload("res://game/gui/ButtonStyles.gd")
 const MENU_FONT := preload("res://fonts/Computer Speak v0.3.ttf")
 const ExternalLinks = preload("res://game/net/ExternalLinks.gd")
+
+## Seconds the web/desktop race nag holds before "Continue Playing" unlocks.
+const RACE_NAG_SECONDS := 15
 const OpeningTransmissionScene = preload("res://game/gui/onboarding/OpeningTransmission.gd")
 
 var _level_select_visible := false
@@ -1690,7 +1693,10 @@ func _on_PlayButton_pressed():
 func _on_race_pressed():
 	# The native mobile free tier includes one race per UTC day. Rewarded access
 	# is always an explicit pre-race choice; no ad is forced after gameplay.
-	if _is_mobile_ui() and not IAPManager.has_unlimited_races():
+	# Channel-neutral: web and desktop used to skip this entirely, so they had
+	# unlimited free races while being shown a paid "Unlimited Races" offer that
+	# therefore bought nothing on those channels.
+	if not IAPManager.has_unlimited_races():
 		if not globalvar.consume_limited_race():
 			_show_race_access_popup()
 			return
@@ -1708,14 +1714,14 @@ func _refresh_race_button() -> void:
 	var race_btn := $VButtonArray.get_node_or_null("RaceButton") as Button
 	if race_btn == null:
 		return
-	if not _is_mobile_ui():
-		race_btn.text = "🏁 Race the CPU"
-	elif IAPManager.has_unlimited_races():
+	if IAPManager.has_unlimited_races():
 		race_btn.text = "🏁 Race the CPU — Unlimited"
 	elif globalvar.can_start_limited_race():
 		race_btn.text = "🏁 Race the CPU — Free Today"
-	else:
+	elif _is_mobile_ui():
 		race_btn.text = "🏁 Race the CPU — Watch Ad or Unlock"
+	else:
+		race_btn.text = "🏁 Race the CPU — Unlock"
 
 
 func _show_race_access_popup() -> void:
@@ -1751,8 +1757,11 @@ func _show_race_access_popup() -> void:
 	status.add_theme_color_override("font_color", Color(0.78, 0.86, 1.0))
 	vbox.add_child(status)
 
+	# Rewarded ads only exist on the mobile builds; AdManager treats macOS/Windows/
+	# Linux as ad-free and the web build has no ad unit.
 	var rewarded := Button.new()
 	rewarded.name = "RewardedRaceButton"
+	rewarded.visible = _is_mobile_ui()
 	rewarded.text = "Watch a Rewarded Ad for One Race"
 	rewarded.custom_minimum_size = Vector2(430, 44)
 	rewarded.disabled = not AdManager.is_rewarded_available()
@@ -1771,6 +1780,11 @@ func _show_race_access_popup() -> void:
 	]
 	unlock.custom_minimum_size = Vector2(430, 44)
 	BS.apply_space_style(unlock, Color(0.9, 0.3, 0.9))
+	# Off mobile the only purchase route is direct checkout, which is still sealed.
+	# Show it disabled with player-facing copy rather than internal release language.
+	if not _is_mobile_ui() and not IAPManager.is_direct_checkout_available():
+		unlock.disabled = true
+		unlock.tooltip_text = "Purchases aren't open here yet — get the app to unlock Unlimited Races."
 	unlock.pressed.connect(func() -> void:
 		status.text = "Opening the store…"
 		if not IAPManager.purchase_offer(IAPManager.OFFER_RACE_UNLIMITED):
@@ -1778,14 +1792,63 @@ func _show_race_access_popup() -> void:
 	)
 	vbox.add_child(unlock)
 
+	# Store-download call to action, web and desktop ONLY. The channel policy
+	# invariant keeps the official App Store / Play binaries free of any external
+	# purchase or alternate-distribution surface, so this must never render there.
+	if not _is_mobile_ui():
+		var get_app := Button.new()
+		get_app.text = "Get the App — iOS & Android"
+		get_app.custom_minimum_size = Vector2(430, 44)
+		BS.apply_space_style(get_app, Color(0.35, 0.8, 1.0))
+		get_app.pressed.connect(func() -> void:
+			OS.shell_open(ExternalLinks.APP_STORE_URL)
+		)
+		vbox.add_child(get_app)
+		var get_play := Button.new()
+		get_play.text = "Get it on Google Play"
+		get_play.custom_minimum_size = Vector2(430, 44)
+		BS.apply_space_style(get_play, Color(0.35, 0.8, 1.0))
+		get_play.pressed.connect(func() -> void:
+			OS.shell_open(ExternalLinks.PLAY_STORE_URL)
+		)
+		vbox.add_child(get_play)
+
 	var close := Button.new()
-	close.text = "Not Now"
-	close.custom_minimum_size = Vector2(160, 36)
+	close.custom_minimum_size = Vector2(200, 36)
 	BS.apply_space_style(close, Color(0.55, 0.65, 0.8))
-	close.pressed.connect(func() -> void:
-		popup.queue_free()
-		_race_access_popup = null
-	)
+	if _is_mobile_ui():
+		# Mobile keeps the free tier's existing behaviour: dismiss, no race.
+		close.text = "Not Now"
+		close.pressed.connect(func() -> void:
+			popup.queue_free()
+			_race_access_popup = null
+		)
+	else:
+		# Web/desktop nag: hold the player for RACE_NAG_SECONDS, then let them race
+		# anyway. This is deliberate friction, not enforcement — a plaintext save in
+		# an unencrypted PCK means a client-side cap is not something we can claim.
+		status.text = "Today's free CPU race has been used. Unlock Unlimited Races, grab the app, or wait a moment to keep playing."
+		close.disabled = true
+		var remaining := RACE_NAG_SECONDS
+		close.text = "Continue in %ds" % remaining
+		var tick := Timer.new()
+		tick.wait_time = 1.0
+		tick.autostart = true
+		popup.add_child(tick)
+		tick.timeout.connect(func() -> void:
+			remaining -= 1
+			if remaining > 0:
+				close.text = "Continue in %ds" % remaining
+				return
+			tick.stop()
+			close.disabled = false
+			close.text = "Continue Playing"
+		)
+		close.pressed.connect(func() -> void:
+			popup.queue_free()
+			_race_access_popup = null
+			_start_cpu_race()
+		)
 	var close_row := HBoxContainer.new()
 	close_row.alignment = BoxContainer.ALIGNMENT_CENTER
 	close_row.add_child(close)
