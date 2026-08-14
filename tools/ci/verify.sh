@@ -13,6 +13,7 @@ python3 tools/ci/check_nakama_runtime.py
 python3 tools/ci/check_nakama_godot_sdk.py
 python3 tools/ci/check_release_contract.py
 python3 tools/ci/check_android_release_contract.py
+python3 tools/ci/check_project_config.py
 python3 tools/ci/check_marketing_workspace.py
 python3 tools/ci/test_app_store_connect.py
 node website/scripts/validate.mjs
@@ -86,6 +87,13 @@ cleanup_transient_links() {
 trap cleanup_transient_links EXIT
 
 set -o pipefail
+# A cold-cache editor pass mints UIDs and re-serializes project.godot, rewriting
+# autoloads to uid:// and dropping every ';' comment. The pre-flight contract
+# checks above already ran against the pristine file, so without this the run
+# goes green over a corrupted tree and the damage only surfaces later as an
+# unrelated-looking "candidates require a clean checkout" abort from
+# tools/export_candidate.sh. Compare the file across the pass.
+PROJECT_GODOT_BEFORE="$(shasum -a 256 project.godot | awk '{print $1}')"
 "$GODOT_BIN" --headless --path . --editor --quit 2>&1 | tee "$LOG_ROOT/import.log"
 if grep -Eiq \
   '(^|[[:space:]])ERROR:|Unicode parsing error|^Error loading configuration|SCRIPT ERROR|PARSE ERROR|Error importing|Failed to (load|open).*(res://|resource)|Cannot open.*res://' \
@@ -93,6 +101,14 @@ if grep -Eiq \
   echo "FATAL: Godot import reported an engine, script, resource, or import error." >&2
   exit 1
 fi
+if [[ "$(shasum -a 256 project.godot | awk '{print $1}')" != "$PROJECT_GODOT_BEFORE" ]]; then
+  echo "FATAL: the Godot editor import pass rewrote project.godot." >&2
+  echo "       Restore it with 'git checkout project.godot' before building a candidate." >&2
+  python3 tools/ci/check_project_config.py >&2 || true
+  git --no-pager diff -- project.godot >&2 || true
+  exit 1
+fi
+python3 tools/ci/check_project_config.py
 
 SML_TEST_MODE=1 "$GODOT_BIN" --headless --path . \
   -s addons/gdUnit4/bin/GdUnitCmdTool.gd \
