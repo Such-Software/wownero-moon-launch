@@ -34,6 +34,20 @@ class AndroidExportPlugin extends EditorExportPlugin:
 		var suffix := "debug" if debug else "release"
 		return PackedStringArray(["%s/bin/%s/%s-%s.aar" % [_plugin_name, kind, _plugin_name, suffix]])
 
+	func _get_android_manifest_application_element_contents(
+			_platform: EditorExportPlatform, _debug: bool) -> String:
+		# Firebase/GoogleAppMeasurement default to collecting the Android Advertising ID
+		# and sending ad-personalization signals. That is a cross-app advertising
+		# identifier, which company policy forbids (docs engineering/app-analytics.md:
+		# "No PII, addresses, balances, seeds, IDFA, or cross-app ids") and which would
+		# make the privacy manifest's used_for_tracking=false untrue on Android.
+		# Analytics itself keeps working; only the advertising identifier and the
+		# ad-personalization signal are switched off.
+		return """
+		<meta-data android:name="google_analytics_adid_collection_enabled" android:value="false" />
+		<meta-data android:name="google_analytics_default_allow_ad_personalization_signals" android:value="false" />
+		"""
+
 	func _get_android_dependencies(_platform: EditorExportPlatform, _debug: bool) -> PackedStringArray:
 		# Godot's Android export hook passes plain Maven coordinates, so pin the Firebase modules explicitly
 		# instead of relying on Gradle platform()/BoM syntax.

@@ -370,8 +370,35 @@ func _initialize_mobile_ads_after_consent() -> void:
 		_dbg("refusing release ads initialization without consent resolution")
 		return
 	_mobile_ads_initialize_called = true
+	# Force non-personalized ads BEFORE initialize(). Without this the SDK uses
+	# AdmobConfig.PersonalizationState.DEFAULT, documented as "attempt to serve
+	# personalized ads based on the user's past behavior and interests" — which is
+	# tracking under Apple's definition and conflicts with the company rule against
+	# cross-app identifiers (docs engineering/app-analytics.md). It is also what makes
+	# privacy/tracking_enabled=false and used_for_tracking=false truthful declarations.
+	#
+	# AdManager talks to the raw native singleton rather than the Admob.gd wrapper, so
+	# this passes the same raw dictionary AdmobConfig.get_raw_data() would produce.
+	# Keys and values mirror addons/AdmobPlugin/model/AdmobConfig.gd.
+	_apply_non_personalized_request_config()
 	_dbg("calling initialize() after consent gate")
 	_admob.initialize()
+
+
+func _apply_non_personalized_request_config() -> void:
+	if _admob == null or not _admob.has_method("set_request_configuration"):
+		_dbg("set_request_configuration unavailable; cannot force NPA")
+		return
+	_admob.set_request_configuration({
+		"is_real": not _use_test_ads,
+		"personalization_state": 2,             # PersonalizationState.DISABLED — NPA only
+		"tag_for_child_directed_treatment": 0,  # FALSE — not a child-directed app
+		"tag_for_under_age_of_consent": -1,     # UNSPECIFIED — UMP resolves EEA handling
+		"first_party_id_enabled": false,        # no cross-app first-party id
+		"max_ad_content_rating": "T",
+		"test_device_ids": [],
+	})
+	_dbg("request configuration set: non-personalized ads only")
 	_dbg("initialize() returned, waiting for signal")
 	var watchdog := get_tree().create_timer(5.0)
 	watchdog.timeout.connect(func():
