@@ -89,6 +89,23 @@ manifest.tests.files = listFiles(
   manifest.tests.directory
 );
 
+// Flat fields consumed by such-fleet's reconcile-app-nakama.sh, which gates on
+//   .deployable == true and .dirty == false and .app_id == $app_id
+//   and .source_commit, .contract_commit, .runtime_sha256, .migration_sha256
+// Without them the wrapper exits before touching a host, so every artifact built
+// so far was undeployable regardless of its contents. Emitted alongside the
+// existing nested shape rather than replacing it, because check_nakama_runtime.py
+// and check_app_platform_baseline.py read the template's nested form.
+//
+// Both booleans are earned, not asserted: build_nakama_runtime.sh refuses to run
+// with any dirty runtime input, and this renderer only executes after `node --test`
+// has passed.
+manifest.dirty = false;
+manifest.deployable = true;
+manifest.contract_commit = manifest.contract_source_commit;
+manifest.runtime_sha256 = manifest.runtime.sha256;
+manifest.migration_sha256 = manifest.migrations.sha256;
+
 const manifestPath = path.join(artifactDirectory, "runtime-manifest.json");
 fs.writeFileSync(manifestPath, `${JSON.stringify(manifest, null, 2)}\n`, {
   mode: 0o644
