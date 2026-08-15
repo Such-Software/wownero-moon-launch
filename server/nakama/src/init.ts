@@ -15,6 +15,7 @@ function InitModule(
     moonRpcPrepareGuestClaim
   );
   initializer.registerRpc("app_platform_claim_guest", moonRpcClaimGuest);
+  initializer.registerRpc("app_platform_validate_iap", moonRpcValidateIap);
   initializer.registerRpc(
     "app_entitlement_projection",
     moonRpcEntitlementProjection

@@ -3,11 +3,11 @@ var MOON_APP_SLUG = "moon-launch";
 var PLATFORM_CONTRACT_VERSION = 1;
 var PLATFORM_CONTRACT_SOURCE_COMMIT =
   "90a11e5c21ff1fbe3cec2522c837edd3996a9bf2";
-var PLATFORM_SCHEMA_VERSION = 3;
+var PLATFORM_SCHEMA_VERSION = 4;
 var PLATFORM_MINIMUM_NAKAMA_VERSION = "3.40.0";
 var PLATFORM_ENTITLEMENT_MAX_SKEW_SECONDS = 300;
 var PLATFORM_CURRENCY_MAX_SKEW_SECONDS = 300;
-var PLATFORM_EXPECTED_MIGRATION = "003_currency_wallet";
+var PLATFORM_EXPECTED_MIGRATION = "004_native_purchase";
 
 type MoonJsonObject = {[key: string]: any};
 
@@ -1025,5 +1025,443 @@ function moonRpcClaimGuest(
   return JSON.stringify({
     outcome: rows[0].outcome.toLowerCase(),
     merge_result_hash: rows[0].merge_result_hash
+  });
+}
+
+// --- Native IAP validation (nakama_iap_validate_v1) ---
+//
+// The client submits a store receipt; Nakama core validates it against Apple or
+// Google (iap.apple / iap.google server credentials), the result is posted to
+// the entitlement ledger as a native provider event carrying the
+// nakama_iap_validate_v1 assertion, and the accepted event is recorded locally
+// in such_platform_native_purchase. The ledger stays the authority: nothing is
+// granted here, and the client learns the projection is pending rather than
+// receiving a fabricated grant (per the identity-and-entitlements contract).
+//
+// Moon Launch is the one app whose catalog includes consumables (Moonrocks),
+// so unlike the vegan-IQ/bauhaus/bloomword validators this port must accept
+// BOTH ledger response kinds. A currency response maps operations
+// GRANT->CREDIT / REVOKE->REVERSE / REINSTATE->REINSTATE, and its
+// source.line_id is the ledger's offer_id rather than the transaction id we
+// sent, so the binding check branches by kind instead of blindly comparing.
+
+interface MoonIapRequest {
+  provider: string;
+  product_id: string;
+  receipt: string;
+}
+
+function moonProductSet(value: string | undefined): {[id: string]: boolean} {
+  var products: {[id: string]: boolean} = {};
+  if (typeof value !== "string") {
+    return products;
+  }
+  var parts = value.split(",");
+  var index;
+  for (index = 0; index < parts.length; index += 1) {
+    var trimmed = parts[index].replace(/^\s+|\s+$/g, "");
+    if (trimmed !== "") {
+      products[trimmed] = true;
+    }
+  }
+  return products;
+}
+
+function moonParseIapRequest(
+  ctx: nkruntime.Context,
+  payload: string
+): MoonIapRequest {
+  if (!moonIsBoundedString(payload, 2, 262144 + 1024)) {
+    throw moonError(
+      "Purchase validation request is invalid.",
+      nkruntime.Codes.INVALID_ARGUMENT
+    );
+  }
+  var value = moonParseObject(payload, "Purchase validation request");
+  if (!moonHasExactKeys(value, ["provider", "product_id", "receipt"], []) ||
+      (value.provider !== "apple" && value.provider !== "google") ||
+      typeof value.product_id !== "string" ||
+      !/^[A-Za-z0-9_.-]{1,256}$/.test(value.product_id) ||
+      typeof value.receipt !== "string" ||
+      value.receipt.length < 8 ||
+      value.receipt.length > 262144) {
+    throw moonError(
+      "Purchase validation request is invalid.",
+      nkruntime.Codes.INVALID_ARGUMENT
+    );
+  }
+  var catalog = value.provider === "apple"
+    ? moonProductSet(ctx.env.SUCH_IAP_APPLE_PRODUCT_IDS)
+    : moonProductSet(ctx.env.SUCH_IAP_GOOGLE_PRODUCT_IDS);
+  if (catalog[value.product_id] !== true) {
+    throw moonError(
+      "Purchase product is not in the deployed catalog.",
+      nkruntime.Codes.FAILED_PRECONDITION
+    );
+  }
+  return {
+    provider: value.provider,
+    product_id: value.product_id,
+    receipt: value.receipt
+  };
+}
+
+function moonResolveSubject(ctx: nkruntime.Context, nk: nkruntime.Nakama): string {
+  var rows = nk.sqlQuery(
+    "SELECT subject_id FROM such_platform_identity WHERE nakama_user_id = $1::uuid",
+    [ctx.userId]
+  );
+  if (rows.length !== 1 || !moonIsOpaqueString(rows[0].subject_id, 8, 255)) {
+    throw moonError(
+      "Purchase validation requires a platform identity.",
+      nkruntime.Codes.FAILED_PRECONDITION
+    );
+  }
+  return rows[0].subject_id;
+}
+
+function moonProviderEnvironment(provider: string, value: string): string {
+  if (value === "SANDBOX") {
+    // The ledger catalog pins per-provider environments: Apple test purchases
+    // are "sandbox", Google test purchases are "test". Sending google+sandbox
+    // is a guaranteed catalog_rejected 422.
+    return provider === "google" ? "test" : "sandbox";
+  }
+  if (value === "PRODUCTION") {
+    return "production";
+  }
+  throw moonError(
+    "Purchase provider environment is unknown.",
+    nkruntime.Codes.FAILED_PRECONDITION
+  );
+}
+
+function moonEpochIso(value: number): string {
+  if (typeof value !== "number" || !isFinite(value) || value <= 0) {
+    throw moonError(
+      "Purchase provider returned an invalid timestamp.",
+      nkruntime.Codes.FAILED_PRECONDITION
+    );
+  }
+  var milliseconds = value > 100000000000 ? value : value * 1000;
+  var result = new Date(milliseconds);
+  if (!isFinite(result.getTime())) {
+    throw moonError(
+      "Purchase provider returned an invalid timestamp.",
+      nkruntime.Codes.FAILED_PRECONDITION
+    );
+  }
+  return result.toISOString();
+}
+
+function moonSelectValidatedPurchase(
+  response: nkruntime.ValidatePurchaseResponse,
+  request: MoonIapRequest,
+  userId: string
+): nkruntime.ValidatedPurchase {
+  var purchases = response.validatedPurchases || [];
+  var expectedStore = request.provider === "apple"
+    ? "APPLE_APP_STORE"
+    : "GOOGLE_PLAY_STORE";
+  var selected: nkruntime.ValidatedPurchase | null = null;
+  var index;
+  for (index = 0; index < purchases.length; index += 1) {
+    var purchase = purchases[index];
+    if (purchase.userId === userId &&
+        purchase.productId === request.product_id &&
+        String(purchase.store) === expectedStore &&
+        (!selected || purchase.updateTime > selected.updateTime)) {
+      selected = purchase;
+    }
+  }
+  if (!selected || !selected.transactionId) {
+    throw moonError(
+      "The store did not validate this product for the current account.",
+      nkruntime.Codes.FAILED_PRECONDITION
+    );
+  }
+  return selected;
+}
+
+function moonOperationForPurchase(
+  nk: nkruntime.Nakama,
+  provider: string,
+  purchase: nkruntime.ValidatedPurchase,
+  subject: string
+): string {
+  // Check the immutable local binding even for a refund before deriving the
+  // lifecycle operation. The ledger independently enforces the same binding;
+  // failing here keeps a replayed receipt from ever leaving this instance.
+  var rows = nk.sqlQuery(
+    "SELECT last_operation, subject_id, product_id " +
+      "FROM such_platform_native_purchase " +
+      "WHERE provider = $1 AND transaction_id = $2 AND line_id = $2",
+    [provider, purchase.transactionId]
+  );
+  if (rows.length > 1 ||
+      (rows.length === 1 &&
+        (rows[0].subject_id !== subject ||
+         rows[0].product_id !== purchase.productId))) {
+    throw moonError(
+      "Store transaction is already bound to another account or product.",
+      nkruntime.Codes.FAILED_PRECONDITION
+    );
+  }
+  if (purchase.refundTime > 0) {
+    return "REVOKE";
+  }
+  return rows.length === 1 && rows[0].last_operation === "REVOKE"
+    ? "REINSTATE"
+    : "GRANT";
+}
+
+// Ledger acceptance for a native event. Entitlement events echo our line_id
+// (the transaction id); currency events replace source.line_id with the
+// catalog offer_id, and their operation is the currency mapping of ours.
+function moonBindLedgerEvent(
+  eventValue: MoonJsonObject,
+  expected: {
+    subjectId: string;
+    operation: string;
+    provider: string;
+    productId: string;
+    transactionId: string;
+  }
+): {
+  sequence: number;
+  entitlementKey: string | null;
+  currencyKey: string | null;
+  amount: number | null;
+} {
+  var isCurrency = moonHasOwn(eventValue, "currency_key");
+  var parsed: MoonEntitlementEvent | MoonCurrencyEvent;
+  try {
+    parsed = isCurrency
+      ? moonParseCurrencyEvent(JSON.stringify(eventValue))
+      : moonParseEntitlementEvent(JSON.stringify(eventValue));
+  } catch (_error) {
+    throw moonError(
+      "Purchase validation service returned an invalid event.",
+      nkruntime.Codes.UNAVAILABLE
+    );
+  }
+  var expectedOperation = expected.operation;
+  if (isCurrency) {
+    expectedOperation = expected.operation === "GRANT"
+      ? "CREDIT"
+      : expected.operation === "REVOKE" ? "REVERSE" : "REINSTATE";
+  }
+  var metadata = parsed.metadata;
+  if (parsed.subject_id !== expected.subjectId ||
+      parsed.operation !== expectedOperation ||
+      parsed.source.provider !== expected.provider ||
+      parsed.source.transaction_id !== expected.transactionId ||
+      (!isCurrency && parsed.source.line_id !== expected.transactionId) ||
+      !metadata ||
+      metadata.product_id !== expected.productId) {
+    throw moonError(
+      "Purchase validation service response did not bind to this account.",
+      nkruntime.Codes.UNAVAILABLE
+    );
+  }
+  return {
+    sequence: parsed.sequence,
+    entitlementKey: isCurrency
+      ? null
+      : (parsed as MoonEntitlementEvent).entitlement_key,
+    currencyKey: isCurrency
+      ? (parsed as MoonCurrencyEvent).currency_key
+      : null,
+    amount: isCurrency ? (parsed as MoonCurrencyEvent).amount : null
+  };
+}
+
+function moonRpcValidateIap(
+  ctx: nkruntime.Context,
+  _logger: nkruntime.Logger,
+  nk: nkruntime.Nakama,
+  payload: string
+): string {
+  if (!ctx.userId) {
+    throw moonError("Authentication required.", nkruntime.Codes.UNAUTHENTICATED);
+  }
+  var request = moonParseIapRequest(ctx, payload);
+  var providerUrl = moonRequireEnv(ctx, "SUCH_ENTITLEMENT_PROVIDER_URL", 2048);
+  var providerToken = moonRequireEnv(
+    ctx,
+    "SUCH_ENTITLEMENT_PROVIDER_TOKEN",
+    4096
+  );
+  if (!moonIsPlatformServiceUrl(
+    providerUrl,
+    "/v1/provider-events/" + MOON_APP_ID
+  )) {
+    throw moonError(
+      "Purchase validation is temporarily unavailable.",
+      nkruntime.Codes.UNAVAILABLE
+    );
+  }
+  var subject = moonResolveSubject(ctx, nk);
+  var validation = request.provider === "apple"
+    ? nk.purchaseValidateApple(ctx.userId, request.receipt, true)
+    : nk.purchaseValidateGoogle(ctx.userId, request.receipt, true);
+  var purchase = moonSelectValidatedPurchase(validation, request, ctx.userId);
+  var environment = moonProviderEnvironment(request.provider, String(purchase.environment));
+  var operation = moonOperationForPurchase(nk, request.provider, purchase, subject);
+  var occurredAt = moonEpochIso(purchase.refundTime > 0
+    ? purchase.refundTime
+    : Math.max(purchase.updateTime, purchase.purchaseTime));
+  var verifiedAt = new Date().toISOString();
+  var eventBody = {
+    provider: request.provider,
+    product_id: purchase.productId,
+    transaction_id: purchase.transactionId,
+    line_id: purchase.transactionId,
+    operation: operation,
+    subject_id: subject,
+    occurred_at: occurredAt,
+    effective_at: occurredAt,
+    expires_at: null,
+    environment: environment,
+    validation: {
+      authority: "nakama_iap_validate_v1",
+      app_id: MOON_APP_ID,
+      provider: request.provider,
+      product_id: purchase.productId,
+      transaction_id: purchase.transactionId,
+      line_id: purchase.transactionId,
+      operation: operation,
+      environment: environment,
+      occurred_at: occurredAt,
+      effective_at: occurredAt,
+      expires_at: null,
+      verified_at: verifiedAt
+    }
+  };
+  var response: nkruntime.HttpResponse;
+  try {
+    response = nk.httpRequest(
+      providerUrl,
+      "post",
+      {
+        "Authorization": "Bearer " + providerToken,
+        "Content-Type": "application/json",
+        "Accept": "application/json"
+      },
+      JSON.stringify(eventBody),
+      5000,
+      false
+    );
+  } catch (_error) {
+    throw moonError(
+      "Purchase validation is temporarily unavailable.",
+      nkruntime.Codes.UNAVAILABLE
+    );
+  }
+  if (response.code !== 200 && response.code !== 201) {
+    if (response.code === 401 || response.code === 403) {
+      throw moonError(
+        "Purchase validation service authentication failed.",
+        nkruntime.Codes.UNAVAILABLE
+      );
+    }
+    if (response.code === 409 || response.code === 422) {
+      throw moonError(
+        "Purchase does not match the deployed entitlement catalog.",
+        nkruntime.Codes.FAILED_PRECONDITION
+      );
+    }
+    var errorCode = "";
+    try {
+      var errorBody = JSON.parse(response.body);
+      if (moonIsObject(errorBody) && typeof errorBody.error === "string") {
+        errorCode = errorBody.error;
+      }
+    } catch (_ignored) {
+      // Fall through to the generic retryable failure.
+    }
+    if (errorCode === "original_credit_unavailable") {
+      // A refund arrived for a consumable whose credit this ledger never saw.
+      // Retrying cannot succeed; surface a terminal state instead of looping.
+      throw moonError(
+        "Purchase was refunded before its credit was recorded.",
+        nkruntime.Codes.FAILED_PRECONDITION
+      );
+    }
+    throw moonError(
+      "Purchase validation is temporarily unavailable.",
+      nkruntime.Codes.UNAVAILABLE
+    );
+  }
+  var body: MoonJsonObject;
+  try {
+    body = moonParseObject(response.body, "Purchase validation response");
+  } catch (_error) {
+    throw moonError(
+      "Purchase validation service returned an invalid response.",
+      nkruntime.Codes.UNAVAILABLE
+    );
+  }
+  if (!moonHasExactKeys(
+    body,
+    ["ok", "duplicate", "applied", "ignored_reason", "event"],
+    []
+  ) ||
+      body.ok !== true ||
+      typeof body.duplicate !== "boolean" ||
+      typeof body.applied !== "boolean" ||
+      (body.ignored_reason !== null &&
+        !moonIsBoundedString(body.ignored_reason, 1, 128)) ||
+      (body.applied === true && body.ignored_reason !== null) ||
+      (body.applied === false && body.ignored_reason === null) ||
+      !moonIsObject(body.event)) {
+    throw moonError(
+      "Purchase validation service returned an invalid response.",
+      nkruntime.Codes.UNAVAILABLE
+    );
+  }
+  var accepted = moonBindLedgerEvent(body.event, {
+    subjectId: subject,
+    operation: operation,
+    provider: request.provider,
+    productId: purchase.productId,
+    transactionId: purchase.transactionId
+  });
+  if (body.applied === true) nk.sqlExec(
+    "INSERT INTO such_platform_native_purchase " +
+      "(provider, transaction_id, line_id, subject_id, product_id, " +
+      "last_operation, last_validated_at, last_event_sequence) " +
+      "VALUES ($1, $2, $2, $3, $4, $5, now(), $6) " +
+      "ON CONFLICT (provider, transaction_id, line_id) DO UPDATE SET " +
+      "subject_id = EXCLUDED.subject_id, " +
+      "product_id = EXCLUDED.product_id, " +
+      "last_operation = EXCLUDED.last_operation, " +
+      "last_validated_at = now(), " +
+      "last_event_sequence = EXCLUDED.last_event_sequence",
+    [
+      request.provider,
+      purchase.transactionId,
+      subject,
+      purchase.productId,
+      operation,
+      accepted.sequence
+    ]
+  );
+  return JSON.stringify({
+    verified: true,
+    provider: request.provider,
+    product_id: purchase.productId,
+    transaction_id: purchase.transactionId,
+    operation: operation,
+    seen_before: purchase.seenBefore === true,
+    duplicate: body.duplicate,
+    applied: body.applied,
+    ignored_reason: body.ignored_reason,
+    ledger_sequence: accepted.sequence,
+    entitlement_key: accepted.entitlementKey,
+    currency_key: accepted.currencyKey,
+    amount: accepted.amount,
+    projection_state: "pending",
+    retry_after_ms: 750
   });
 }

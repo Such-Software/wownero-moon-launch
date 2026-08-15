@@ -30,7 +30,7 @@ function completeContext(overrides = {}) {
   const context = {
     env: {
       SUCH_PLATFORM_APP_ID: "moon_launch",
-      SUCH_PLATFORM_SCHEMA_VERSION: "3",
+      SUCH_PLATFORM_SCHEMA_VERSION: "4",
       SUCH_PLATFORM_SOURCE_COMMIT: "a".repeat(40),
       SUCH_PLATFORM_RUNTIME_SHA256: "b".repeat(64),
       SUCH_PLATFORM_MIGRATION_SHA256: "c".repeat(64),
@@ -143,12 +143,47 @@ class FakeNakama {
     return {rowsAffected: this.options.execRowsAffected ?? 1};
   }
 
+  purchaseValidateApple(userId, receipt, persist) {
+    this.purchaseCalls = this.purchaseCalls || [];
+    this.purchaseCalls.push({provider: "apple", userId, receipt, persist});
+    if (this.options.purchaseError) {
+      throw new Error("simulated store validation failure");
+    }
+    return this.options.validatePurchase || {validatedPurchases: []};
+  }
+
+  purchaseValidateGoogle(userId, purchase, persist) {
+    this.purchaseCalls = this.purchaseCalls || [];
+    this.purchaseCalls.push({provider: "google", userId, receipt: purchase, persist});
+    if (this.options.purchaseError) {
+      throw new Error("simulated store validation failure");
+    }
+    return this.options.validatePurchase || {validatedPurchases: []};
+  }
+
   sqlQuery(query, args = []) {
     this.queryCalls.push({query, args});
     if (query.includes("such_platform_schema_migration")) {
       return this.options.migrationMissing
         ? []
-        : [{migration_id: "003_currency_wallet"}];
+        : [{migration_id: "004_native_purchase"}];
+    }
+    if (query.includes("SELECT subject_id FROM such_platform_identity")) {
+      return this.options.identityMissing
+        ? []
+        : [{subject_id: "usr_01MOONLAUNCHSUBJECT"}];
+    }
+    if (query.includes("FROM such_platform_native_purchase")) {
+      if (this.options.nativePurchaseRow) {
+        return [this.options.nativePurchaseRow];
+      }
+      return this.options.nativePurchaseLastOperation
+        ? [{
+            last_operation: this.options.nativePurchaseLastOperation,
+            subject_id: "usr_01MOONLAUNCHSUBJECT",
+            product_id: "com.suchsoftware.suchmoonlaunch.remove_ads"
+          }]
+        : [];
     }
     if (query.includes("FROM users WHERE custom_id")) {
       return [{user_id: "11111111-1111-4111-8111-111111111111"}];
@@ -552,6 +587,7 @@ test("registers the complete common App Platform surface", () => {
       "app_platform_health",
       "app_platform_prepare_guest_claim",
       "app_platform_readiness",
+      "app_platform_validate_iap",
       "moon_launch_room_close",
       "moon_launch_room_register",
       "moon_launch_room_resolve"
@@ -593,7 +629,7 @@ test("readiness and build info require exact pins and applied schema", () => {
     rpcs.get("app_platform_build_info")(context, logger, nk, "")
   );
   assert.equal(build.app_id, "moon_launch");
-  assert.equal(build.schema_version, 3);
+  assert.equal(build.schema_version, 4);
   assert.equal(build.source_commit, "a".repeat(40));
 
   const unpinned = completeContext();
@@ -1311,4 +1347,430 @@ test("migration bundle is ordered, transactional, additive, and repeatable", () 
     /\b(?:drop\s+table|truncate|delete\s+from)\b/
   );
   assert.equal(path.basename(migrationPath), "migrations.sql");
+});
+
+// --- app_platform_validate_iap -------------------------------------------
+
+function validatedApplePurchase(overrides = {}) {
+  return Object.assign({
+    userId: "11111111-1111-4111-8111-111111111111",
+    productId: "com.suchsoftware.suchmoonlaunch.remove_ads",
+    transactionId: "2000000123456789",
+    store: "APPLE_APP_STORE",
+    purchaseTime: 1767200000000,
+    createTime: 1767200000000,
+    updateTime: 1767200001000,
+    refundTime: 0,
+    providerResponse: "{}",
+    environment: "PRODUCTION",
+    seenBefore: false
+  }, overrides);
+}
+
+function ledgerEntitlementEvent(overrides = {}) {
+  return Object.assign({
+    $schema: "https://such.software/contracts/app-platform/v1/entitlement-event.schema.json",
+    contract_version: 1,
+    event_id: "01MOONLAUNCHIAPEVENT0001",
+    sequence: 41,
+    operation: "GRANT",
+    app_id: "moon_launch",
+    subject_id: "usr_01MOONLAUNCHSUBJECT",
+    entitlement_key: "race_unlimited",
+    idempotency_key:
+      "apple:2000000123456789:2000000123456789:GRANT:moon_launch:race_unlimited",
+    effective_at: "2026-08-15T12:00:00.000Z",
+    expires_at: null,
+    source: {
+      provider: "apple",
+      transaction_id: "2000000123456789",
+      line_id: "2000000123456789",
+      occurred_at: "2026-08-15T11:59:58.000Z"
+    },
+    metadata: {
+      product_id: "com.suchsoftware.suchmoonlaunch.remove_ads",
+      offer_id: "race_unlimited_lifetime_v1",
+      catalog_version: "portfolio-v1-test",
+      environment: "production",
+      provider_line_id: "2000000123456789",
+      validation_authority: "nakama_iap_validate_v1",
+      validation_verified_at: "2026-08-15T12:00:00.000Z"
+    }
+  }, overrides);
+}
+
+function ledgerCurrencyEvent(overrides = {}) {
+  return Object.assign({
+    $schema: "https://such.software/contracts/app-platform/v1/currency-event.schema.json",
+    contract_version: 1,
+    event_id: "01MOONLAUNCHIAPCURR0001",
+    sequence: 7,
+    operation: "CREDIT",
+    app_id: "moon_launch",
+    subject_id: "usr_01MOONLAUNCHSUBJECT",
+    currency_key: "moonrocks",
+    amount: 10000,
+    original_event_id: null,
+    idempotency_key:
+      "apple:2000000123456790:2000000123456790:CREDIT:moon_launch:moonrocks",
+    effective_at: "2026-08-15T12:00:00.000Z",
+    // The ledger sets a currency event's source.line_id to the catalog
+    // offer_id, NOT the transaction id Nakama submitted as line_id. The
+    // binding check must tolerate exactly this and nothing else.
+    source: {
+      provider: "apple",
+      transaction_id: "2000000123456790",
+      line_id: "moonrocks_10k_v1",
+      occurred_at: "2026-08-15T11:59:58.000Z"
+    },
+    metadata: {
+      product_id: "com.suchsoftware.suchmoonlaunch.moonrocks_10k",
+      offer_id: "moonrocks_10k_v1",
+      catalog_version: "portfolio-v1-test",
+      environment: "production",
+      provider_line_id: "2000000123456790",
+      validation_authority: "nakama_iap_validate_v1",
+      validation_verified_at: "2026-08-15T12:00:00.000Z"
+    }
+  }, overrides);
+}
+
+function ledgerAccepted(event) {
+  return {ok: true, duplicate: false, applied: true, ignored_reason: null, event};
+}
+
+function iapContext(overrides = {}) {
+  return completeContext(Object.assign({
+    userId: "11111111-1111-4111-8111-111111111111",
+    env: Object.assign({}, completeContext().env, {
+      SUCH_IAP_APPLE_PRODUCT_IDS:
+        "com.suchsoftware.suchmoonlaunch.remove_ads," +
+        "com.suchsoftware.suchmoonlaunch.moonrocks_10k," +
+        "com.suchsoftware.suchmoonlaunch.moonrocks_50k",
+      SUCH_IAP_GOOGLE_PRODUCT_IDS: "com.suchsoftware.suchmoonlaunch.remove_ads"
+    })
+  }, overrides));
+}
+
+function iapRequest(overrides = {}) {
+  return JSON.stringify(Object.assign({
+    provider: "apple",
+    product_id: "com.suchsoftware.suchmoonlaunch.remove_ads",
+    receipt: "r".repeat(64)
+  }, overrides));
+}
+
+test("validate_iap requires authentication", () => {
+  const nk = new FakeNakama();
+  const {rpcs, logger} = initialize(nk);
+  const rpc = rpcs.get("app_platform_validate_iap");
+  assert.equal(typeof rpc, "function");
+  assert.throws(
+    () => rpc(iapContext({userId: ""}), logger, nk, iapRequest()),
+    (error) => /Authentication required/.test(String(error && error.message))
+  );
+});
+
+test("validate_iap rejects malformed and off-catalog requests", () => {
+  const nk = new FakeNakama();
+  const {rpcs, logger} = initialize(nk);
+  const rpc = rpcs.get("app_platform_validate_iap");
+  for (const bad of [
+    "",
+    "not json",
+    JSON.stringify({provider: "apple", product_id: "x"}),
+    iapRequest({extra: 1}),
+    iapRequest({provider: "amazon"}),
+    iapRequest({receipt: "short"})
+  ]) {
+    assert.throws(() => rpc(iapContext(), logger, nk, bad),
+      (error) => /Purchase validation request is|Purchase product is not/.test(String(error && error.message)));
+  }
+  // In catalog form but not deployed for this provider.
+  assert.throws(
+    () => rpc(iapContext(), logger, nk,
+      iapRequest({provider: "google",
+        product_id: "com.suchsoftware.suchmoonlaunch.moonrocks_10k"})),
+    (error) => /Purchase product is not in the deployed catalog/.test(String(error && error.message))
+  );
+});
+
+test("validate_iap grants a lifetime product end to end", () => {
+  const nk = new FakeNakama({
+    validatePurchase: {validatedPurchases: [validatedApplePurchase()]},
+    httpCode: 201,
+    httpResponse: ledgerAccepted(ledgerEntitlementEvent())
+  });
+  const {rpcs, logger} = initialize(nk);
+  const result = JSON.parse(
+    rpcs.get("app_platform_validate_iap")(iapContext(), logger, nk, iapRequest())
+  );
+  assert.equal(result.verified, true);
+  assert.equal(result.operation, "GRANT");
+  assert.equal(result.entitlement_key, "race_unlimited");
+  assert.equal(result.currency_key, null);
+  assert.equal(result.ledger_sequence, 41);
+  assert.equal(result.projection_state, "pending");
+  // The store was asked to validate for the calling user, with persist on.
+  assert.deepEqual(nk.purchaseCalls[0], {
+    provider: "apple",
+    userId: "11111111-1111-4111-8111-111111111111",
+    receipt: "r".repeat(64),
+    persist: true
+  });
+  // The ledger call carried the bearer token and an exact-mirror assertion.
+  const call = nk.httpCalls.at(-1);
+  assert.match(call.url, /\/v1\/provider-events\/moon_launch$/);
+  assert.equal(call.headers.Authorization, "Bearer " + "p".repeat(32));
+  const sent = JSON.parse(call.body);
+  assert.equal(sent.validation.authority, "nakama_iap_validate_v1");
+  for (const key of ["provider", "product_id", "transaction_id", "line_id",
+    "operation", "environment", "occurred_at", "effective_at", "expires_at"]) {
+    assert.deepEqual(sent.validation[key], sent[key],
+      `assertion field ${key} must mirror the event body`);
+  }
+  assert.match(sent.validation.verified_at,
+    /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/);
+  // The accepted sequence was recorded locally.
+  const insert = nk.execCalls.find((c) =>
+    c.query.includes("INSERT INTO such_platform_native_purchase"));
+  assert.ok(insert, "native purchase upsert must run");
+  assert.deepEqual([...insert.args], [
+    "apple", "2000000123456789", "usr_01MOONLAUNCHSUBJECT",
+    "com.suchsoftware.suchmoonlaunch.remove_ads", "GRANT", 41
+  ]);
+});
+
+test("validate_iap accepts a currency response for a consumable", () => {
+  const nk = new FakeNakama({
+    validatePurchase: {validatedPurchases: [validatedApplePurchase({
+      productId: "com.suchsoftware.suchmoonlaunch.moonrocks_10k",
+      transactionId: "2000000123456790"
+    })]},
+    httpCode: 201,
+    httpResponse: ledgerAccepted(ledgerCurrencyEvent())
+  });
+  const {rpcs, logger} = initialize(nk);
+  const result = JSON.parse(rpcs.get("app_platform_validate_iap")(
+    iapContext(), logger, nk,
+    iapRequest({product_id: "com.suchsoftware.suchmoonlaunch.moonrocks_10k"})
+  ));
+  assert.equal(result.verified, true);
+  assert.equal(result.entitlement_key, null);
+  assert.equal(result.currency_key, "moonrocks");
+  assert.equal(result.amount, 10000);
+  assert.equal(result.ledger_sequence, 7);
+});
+
+test("validate_iap maps a refund to REVOKE and a revoked replay to REINSTATE", () => {
+  const refunded = new FakeNakama({
+    validatePurchase: {validatedPurchases: [validatedApplePurchase({
+      refundTime: 1767200002000
+    })]},
+    httpCode: 201,
+    httpResponse: ledgerAccepted(ledgerEntitlementEvent({operation: "REVOKE"}))
+  });
+  const one = initialize(refunded);
+  const revoked = JSON.parse(one.rpcs.get("app_platform_validate_iap")(
+    iapContext(), one.logger, refunded, iapRequest()));
+  assert.equal(revoked.operation, "REVOKE");
+
+  const reinstated = new FakeNakama({
+    validatePurchase: {validatedPurchases: [validatedApplePurchase()]},
+    nativePurchaseLastOperation: "REVOKE",
+    httpCode: 201,
+    httpResponse: ledgerAccepted(ledgerEntitlementEvent({operation: "REINSTATE"}))
+  });
+  const two = initialize(reinstated);
+  const result = JSON.parse(two.rpcs.get("app_platform_validate_iap")(
+    iapContext(), two.logger, reinstated, iapRequest()));
+  assert.equal(result.operation, "REINSTATE");
+});
+
+test("validate_iap refuses a receipt the store bound to another account", () => {
+  const nk = new FakeNakama({
+    validatePurchase: {validatedPurchases: [validatedApplePurchase({
+      userId: "22222222-2222-4222-8222-222222222222"
+    })]}
+  });
+  const {rpcs, logger} = initialize(nk);
+  assert.throws(
+    () => rpcs.get("app_platform_validate_iap")(
+      iapContext(), logger, nk, iapRequest()),
+    (error) => /did not validate this product for the current account/.test(String(error && error.message))
+  );
+});
+
+test("validate_iap surfaces ledger rejection and outage distinctly", () => {
+  for (const [code, pattern] of [
+    [422, /does not match the deployed entitlement catalog/],
+    [503, /temporarily unavailable/],
+    [401, /authentication failed/]
+  ]) {
+    const nk = new FakeNakama({
+      validatePurchase: {validatedPurchases: [validatedApplePurchase()]},
+      httpCode: code,
+      httpResponse: {error: "x"}
+    });
+    const {rpcs, logger} = initialize(nk);
+    assert.throws(
+      () => rpcs.get("app_platform_validate_iap")(
+        iapContext(), logger, nk, iapRequest()),
+      (error) => pattern.test(String(error && error.message))
+    );
+  }
+});
+
+test("validate_iap rejects a ledger event that does not bind to the caller", () => {
+  const cases = [
+    // Ledger answered for a different subject.
+    ledgerEntitlementEvent({subject_id: "usr_01SOMEBODYELSE0000000"}),
+    // Ledger answered about a different transaction.
+    ledgerEntitlementEvent({source: Object.assign(
+      {}, ledgerEntitlementEvent().source, {transaction_id: "other-txn-0001"})}),
+    // Ledger answered about a different product.
+    ledgerEntitlementEvent({metadata: Object.assign(
+      {}, ledgerEntitlementEvent().metadata,
+      {product_id: "com.suchsoftware.suchmoonlaunch.moonrocks_50k"})}),
+    // Currency response whose operation does not map from ours
+    // (we sent GRANT, so only CREDIT binds).
+    ledgerCurrencyEvent({operation: "REVERSE",
+      original_event_id: "01MOONLAUNCHIAPCURR0000"})
+  ];
+  for (const event of cases) {
+    const isCurrency = Object.prototype.hasOwnProperty.call(event, "currency_key");
+    const requestProduct = isCurrency
+      ? "com.suchsoftware.suchmoonlaunch.moonrocks_10k"
+      : "com.suchsoftware.suchmoonlaunch.remove_ads";
+    const transaction = isCurrency ? "2000000123456790" : "2000000123456789";
+    const nk = new FakeNakama({
+      validatePurchase: {validatedPurchases: [validatedApplePurchase({
+        productId: requestProduct,
+        transactionId: transaction
+      })]},
+      httpCode: 201,
+      httpResponse: ledgerAccepted(event)
+    });
+    const {rpcs, logger} = initialize(nk);
+    assert.throws(
+      () => rpcs.get("app_platform_validate_iap")(
+        iapContext(), logger, nk, iapRequest({product_id: requestProduct})),
+      (error) => /did not bind to this account|is invalid/
+        .test(String(error && error.message))
+    );
+    // Nothing may be recorded locally when binding fails.
+    assert.equal(nk.execCalls.some((c) =>
+      c.query.includes("such_platform_native_purchase")), false);
+  }
+});
+
+test("validate_iap requires a platform identity row", () => {
+  const nk = new FakeNakama({
+    identityMissing: true,
+    validatePurchase: {validatedPurchases: [validatedApplePurchase()]}
+  });
+  const {rpcs, logger} = initialize(nk);
+  assert.throws(
+    () => rpcs.get("app_platform_validate_iap")(
+      iapContext(), logger, nk, iapRequest()),
+    (error) => /requires a platform identity/.test(String(error && error.message))
+  );
+});
+
+
+test("validate_iap uses environment 'test' for Google sandbox purchases", () => {
+  const nk = new FakeNakama({
+    validatePurchase: {validatedPurchases: [validatedApplePurchase({
+      store: "GOOGLE_PLAY_STORE",
+      environment: "SANDBOX"
+    })]},
+    httpCode: 201,
+    httpResponse: ledgerAccepted(ledgerEntitlementEvent({
+      source: Object.assign({}, ledgerEntitlementEvent().source,
+        {provider: "google"}),
+      metadata: Object.assign({}, ledgerEntitlementEvent().metadata,
+        {environment: "test"})
+    }))
+  });
+  const {rpcs, logger} = initialize(nk);
+  JSON.parse(rpcs.get("app_platform_validate_iap")(
+    iapContext(), logger, nk, iapRequest({provider: "google"})));
+  const sent = JSON.parse(nk.httpCalls.at(-1).body);
+  assert.equal(sent.environment, "test");
+  assert.equal(sent.validation.environment, "test");
+});
+
+test("validate_iap rejects prototype-chain product ids", () => {
+  const nk = new FakeNakama();
+  const {rpcs, logger} = initialize(nk);
+  for (const productId of ["constructor", "toString", "hasOwnProperty"]) {
+    assert.throws(
+      () => rpcs.get("app_platform_validate_iap")(
+        iapContext(), logger, nk, iapRequest({product_id: productId})),
+      (error) => /Purchase product is not in the deployed catalog/
+        .test(String(error && error.message))
+    );
+  }
+});
+
+test("validate_iap refuses a transaction already bound to another account", () => {
+  const nk = new FakeNakama({
+    validatePurchase: {validatedPurchases: [validatedApplePurchase()]},
+    nativePurchaseRow: {
+      last_operation: "GRANT",
+      subject_id: "usr_01SOMEBODYELSE0000000",
+      product_id: "com.suchsoftware.suchmoonlaunch.remove_ads"
+    }
+  });
+  const {rpcs, logger} = initialize(nk);
+  assert.throws(
+    () => rpcs.get("app_platform_validate_iap")(
+      iapContext(), logger, nk, iapRequest()),
+    (error) => /already bound to another account or product/
+      .test(String(error && error.message))
+  );
+  assert.equal(nk.httpCalls.length, 0,
+    "a rebound transaction must never reach the ledger");
+});
+
+test("validate_iap does not record locally what the ledger ignored", () => {
+  const nk = new FakeNakama({
+    validatePurchase: {validatedPurchases: [validatedApplePurchase()]},
+    httpCode: 200,
+    httpResponse: {
+      ok: true,
+      duplicate: true,
+      applied: false,
+      ignored_reason: "stale_sequence",
+      event: ledgerEntitlementEvent()
+    }
+  });
+  const {rpcs, logger} = initialize(nk);
+  const result = JSON.parse(rpcs.get("app_platform_validate_iap")(
+    iapContext(), logger, nk, iapRequest()));
+  assert.equal(result.applied, false);
+  assert.equal(result.ignored_reason, "stale_sequence");
+  assert.equal(nk.execCalls.some((c) =>
+    c.query.includes("such_platform_native_purchase")), false);
+});
+
+test("validate_iap treats a refund without its credit as terminal", () => {
+  const nk = new FakeNakama({
+    validatePurchase: {validatedPurchases: [validatedApplePurchase({
+      productId: "com.suchsoftware.suchmoonlaunch.moonrocks_10k",
+      transactionId: "2000000123456790",
+      refundTime: 1767200002000
+    })]},
+    httpCode: 503,
+    httpResponse: {error: "original_credit_unavailable"}
+  });
+  const {rpcs, logger} = initialize(nk);
+  assert.throws(
+    () => rpcs.get("app_platform_validate_iap")(
+      iapContext(), logger, nk,
+      iapRequest({product_id: "com.suchsoftware.suchmoonlaunch.moonrocks_10k"})),
+    (error) => error.code === 9 &&
+      /refunded before its credit was recorded/
+        .test(String(error && error.message))
+  );
 });

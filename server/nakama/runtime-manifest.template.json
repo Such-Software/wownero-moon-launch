@@ -1,5 +1,5 @@
 {
-  "schema_version": 3,
+  "schema_version": 4,
   "app_id": "moon_launch",
   "contract_version": 1,
   "contract_source_commit": "90a11e5c21ff1fbe3cec2522c837edd3996a9bf2",
@@ -21,7 +21,7 @@
   },
   "migrations": {
     "file": "migrations.sql",
-    "schema_version": 3,
+    "schema_version": 4,
     "sha256": null
   },
   "tests": {

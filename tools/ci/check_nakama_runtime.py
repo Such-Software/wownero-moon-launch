@@ -35,6 +35,7 @@ REQUIRED_TABLES = {
     "such_platform_currency_event",
     "such_platform_migration_operation",
     "such_moon_launch_friendly_room",
+    "such_platform_native_purchase",
 }
 
 
@@ -93,8 +94,8 @@ def main() -> None:
     if manifest.get("minimum_nakama_version") != "3.40.0":
         fail("runtime manifest Nakama floor drift")
     if (
-        manifest.get("schema_version") != 3
-        or manifest.get("migrations", {}).get("schema_version") != 3
+        manifest.get("schema_version") != 4
+        or manifest.get("migrations", {}).get("schema_version") != 4
     ):
         fail("runtime manifest schema version drift")
     if manifest.get("runtime", {}).get("sha256") is not None:
