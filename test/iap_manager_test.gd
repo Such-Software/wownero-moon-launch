@@ -140,6 +140,34 @@ func test_replayed_play_query_cannot_double_credit_a_consumable() -> void:
 		IAPManager.apply_purchase(IAPManager.PRODUCT_MOONROCKS_50K)
 	assert_int(globalvar.wallet).is_equal(50_000)
 
+# ==========================================================================
+#  PHASE-2 SERVER RECONCILIATION SEAM — behavior-frozen while
+#  AppPlatformFeatures.ENTITLEMENTS_ENABLED stays false.
+# ==========================================================================
+
+func test_entitlements_flag_is_closed() -> void:
+	assert_bool(AppPlatformFeatures.ENTITLEMENTS_ENABLED).is_false()
+
+
+func test_grant_validated_purchase_stays_local_while_flag_closed() -> void:
+	# The routing seam must be exactly apply_purchase(): synchronous local
+	# credit, no platform session, regardless of provider or receipt.
+	IAPManager.grant_validated_purchase(
+		"google", IAPManager.PRODUCT_MOONROCKS_10K, "play-receipt-blob"
+	)
+	assert_int(globalvar.wallet).is_equal(10_000)
+	assert_object(IAPManager._platform_session).is_null()
+
+
+func test_grant_validated_purchase_remove_ads_stays_local_while_flag_closed() -> void:
+	# Even a missing receipt must not matter on the local path — the server
+	# leg is never consulted while the flag is closed.
+	IAPManager.grant_validated_purchase("apple", IAPManager.PRODUCT_REMOVE_ADS, "")
+	assert_bool(globalvar.ads_removed).is_true()
+	assert_bool(globalvar.race_unlimited_cached).is_true()
+	assert_object(IAPManager._platform_session).is_null()
+
+
 func test_granted_token_ledger_stays_bounded() -> void:
 	for i in range(globalvar.MAX_GRANTED_TOKENS + 20):
 		globalvar.claim_purchase_token("tok-%d" % i)

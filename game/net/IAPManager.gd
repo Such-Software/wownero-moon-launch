@@ -73,6 +73,12 @@ var _ios_storekit  # GDScriptStoreKit2 wrapper (iOS only)
 
 var _initialized: bool = false
 
+# Phase-2 server reconciliation (dormant while
+# AppPlatformFeatures.ENTITLEMENTS_ENABLED stays false). Created lazily on the
+# first server-validated purchase, never during _ready(), so the closed-flag
+# build keeps zero platform-session surface.
+var _platform_session: PlatformSession = null
+
 # Single source of truth for IAP-purchase concurrency. Lives here (not in
 # UI code) so EVERY caller — UpgradeShop, Menu's Store popup, future entry
 # points — gets the same protection automatically. Apple Store Connect
@@ -254,6 +260,65 @@ func get_price(product_id: String) -> String:
 	return PRODUCT_FALLBACK_PRICES.get(product_id, "")
 
 
+## Route a store-validated purchase to its grant path. While
+## AppPlatformFeatures.ENTITLEMENTS_ENABLED stays false — the live default —
+## this IS apply_purchase(): the local grant, byte-for-byte unchanged. When the
+## flag opens, the grant is instead reconciled from the server's
+## app_platform_validate_iap response (EntitlementClient), and the local grant
+## only happens for the effects the ledger confirmed.
+## Public so test harnesses can drive it.
+func grant_validated_purchase(provider: String, product_id: String, receipt: String) -> void:
+	if not AppPlatformFeatures.ENTITLEMENTS_ENABLED:
+		apply_purchase(product_id)
+		return
+	# Fire-and-forget coroutine; completion signals were already emitted by the
+	# native path, reconciliation converges the durable state afterwards.
+	_reconcile_purchase_with_server(provider, product_id, receipt)
+
+
+func _reconcile_purchase_with_server(provider: String, product_id: String, receipt: String) -> void:
+	if _platform_session == null:
+		_platform_session = PlatformSession.new()
+		_platform_session.name = "PlatformSession"
+		add_child(_platform_session)
+	var client := EntitlementClient.new()
+	client.configure(_platform_session)
+	var outcome: Dictionary = await client.validate_iap(provider, product_id, receipt)
+	if not outcome.get("ok", false):
+		Telemetry.record_error(
+			"IAPManager entitlement reconcile failed: %s"
+			% str(outcome.get("reason", &"unknown"))
+		)
+		return
+	_apply_reconcile_actions(outcome.get("response", {}))
+
+
+## Converge local durable state from a validated server response. Replaces
+## apply_purchase()'s unconditional local grant when the flag is open: only
+## ledger-confirmed effects are applied, and currency is credited exactly once
+## (duplicates never re-credit).
+func _apply_reconcile_actions(response: Dictionary) -> void:
+	var actions := EntitlementClient.reconcile_actions(response)
+	if actions.is_empty():
+		return
+	var is_remove_ads: bool = str(actions["product_id"]) == PRODUCT_REMOVE_ADS
+	if str(actions["grant_entitlement"]) != "" and is_remove_ads:
+		globalvar.ads_removed = true
+		globalvar.race_unlimited_cached = true
+		globalvar.save_game()
+		AdManager.hide_banner()
+	elif str(actions["revoke_entitlement"]) != "" and is_remove_ads:
+		globalvar.ads_removed = false
+		globalvar.race_unlimited_cached = false
+		globalvar.save_game()
+	if (
+		int(actions["credit_amount"]) > 0
+		and str(actions["currency_key"]) == EntitlementClient.CURRENCY_KEY_MOONROCKS
+	):
+		globalvar.add_crypto(int(actions["credit_amount"]))
+		globalvar.save_game()
+
+
 ## Apply a successful purchase's effect. Public so test harnesses can drive it.
 func apply_purchase(product_id: String) -> void:
 	match product_id:
@@ -274,6 +339,30 @@ func apply_purchase(product_id: String) -> void:
 			if amount > 0:
 				globalvar.add_crypto(amount)
 				globalvar.save_game()
+
+
+## Server-validation payload for a Play purchase. Nakama's Google validator
+## needs the provider's original JSON receipt; fail closed to "" (which the
+## EntitlementClient request builder rejects) when the plugin response does
+## not carry it. Dormant while ENTITLEMENTS_ENABLED is false.
+func _android_receipt_for(purchase: Dictionary) -> String:
+	var original: Variant = purchase.get("original_json", "")
+	if original is String:
+		return original
+	return ""
+
+
+## StoreKit2 signed-transaction payload for server validation. The vendored
+## wrapper's TransactionData does not expose the JWS yet; fail closed to ""
+## (rejected by the request builder) until the plugin surfaces it. Dormant
+## while ENTITLEMENTS_ENABLED is false.
+func _ios_receipt_for(transaction) -> String:
+	if transaction == null:
+		return ""
+	var jws: Variant = transaction.get("jws_representation")
+	if jws is String:
+		return jws
+	return ""
 
 
 # ============================================================================
@@ -375,7 +464,7 @@ func _handle_android_purchase(purchase: Dictionary, _is_query: bool) -> void:
 		# every launch. Non-consumables stay unconditional: apply_purchase() is
 		# idempotent for them, and a restore MUST re-grant an owned entitlement.
 		if pid not in CONSUMABLE_PRODUCTS or globalvar.claim_purchase_token(token):
-			apply_purchase(pid)
+			grant_validated_purchase("google", pid, _android_receipt_for(purchase))
 		if pid in CONSUMABLE_PRODUCTS:
 			# Consume so the player can re-buy.
 			if token != "":
@@ -443,7 +532,7 @@ func _on_ios_transaction(transaction) -> void:
 	var purchased_or_restored: bool = state == int(_ios_storekit.TransactionState.PURCHASED) \
 			or state == int(_ios_storekit.TransactionState.RESTORED)
 	if purchased_or_restored:
-		apply_purchase(pid)
+		grant_validated_purchase("apple", pid, _ios_receipt_for(transaction))
 		_finish_in_flight()
 		purchase_completed.emit(pid, true)
 		Telemetry.log_event(Telemetry.EVENT_IAP_COMPLETED, {
