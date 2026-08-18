@@ -437,10 +437,17 @@ jobs:
 
       - name: Build signed release AAB
         env:
+          SUCH_APP_IDP_TICKET_URL: ${{ vars.SUCH_APP_IDP_TICKET_URL }}
+          SUCH_APP_NAKAMA_ENDPOINT: ${{ vars.SUCH_APP_NAKAMA_ENDPOINT }}
+          SUCH_APP_NAKAMA_SERVER_KEY: ${{ vars.SUCH_APP_NAKAMA_SERVER_KEY }}
           ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
           ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
         run: |
           set -euo pipefail
+          for NAME in SUCH_APP_IDP_TICKET_URL SUCH_APP_NAKAMA_ENDPOINT \
+                      SUCH_APP_NAKAMA_SERVER_KEY; do
+            [ -n "${!NAME}" ] || { echo "FATAL: repository variable $NAME is empty."; exit 1; }
+          done
           export GODOT_ANDROID_KEYSTORE_RELEASE_PATH="$CI_ANDROID_KEYSTORE"
           export GODOT_ANDROID_KEYSTORE_RELEASE_USER="$ANDROID_KEY_ALIAS"
           export GODOT_ANDROID_KEYSTORE_RELEASE_PASSWORD="$ANDROID_KEYSTORE_PASSWORD"

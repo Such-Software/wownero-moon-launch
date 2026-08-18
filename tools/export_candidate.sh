@@ -56,6 +56,13 @@ PROJECT_CACHE="${SML_PROJECT_CACHE:-$BUILD_ROOT/cache/godot-project/$RUN_ID}"
 OWNS_PROJECT_CACHE_LINK=0
 
 cleanup_transient_build_state() {
+  # Restore project.godot before anything else. The platform config written
+  # for the export includes the Nakama client key, and an interrupted build
+  # must never leave it behind in the working tree.
+  if [[ -n "${PLATFORM_CONFIG_BACKUP:-}" && -f "$PLATFORM_CONFIG_BACKUP" ]]; then
+    mv -f -- "$PLATFORM_CONFIG_BACKUP" "$ROOT/project.godot"
+    PLATFORM_CONFIG_BACKUP=""
+  fi
   case "${SML_FIREBASE_STAGE_DIR:-}" in
     "${TMPDIR:-/tmp}"/sml-firebase-aar.*) rm -rf -- "$SML_FIREBASE_STAGE_DIR" ;;
     "") ;;
@@ -173,6 +180,21 @@ if [[ "$PRESET" == "Web" ]]; then
   OUTPUT="$PRODUCT_DIR/web/$ARTIFACT"
 else
   OUTPUT="$PRODUCT_DIR/$ARTIFACT"
+fi
+
+# The client reads ProjectSettings("such/app_platform/*") and falls back to the
+# environment, which does not exist on a device. Write those settings for the
+# duration of the export and restore the file afterwards, so a shipped build can
+# reach its runtime while the checked-in project never carries a key.
+#
+# Deliberately after the dirty-worktree gate: this modification is ours and
+# temporary, and the gate is there to catch a developer's uncommitted work.
+if [[ -n "${SUCH_APP_NAKAMA_ENDPOINT:-}" ]]; then
+  PLATFORM_CONFIG_BACKUP="$(mktemp "${TMPDIR:-/tmp}/sml-project-godot.XXXXXX")"
+  cp -- "$ROOT/project.godot" "$PLATFORM_CONFIG_BACKUP"
+  python3 tools/ci/inject_platform_config.py --project "$ROOT/project.godot" --release
+else
+  echo "WARNING: no platform configuration supplied; this build cannot reach a runtime." >&2
 fi
 
 "$GODOT_BIN" --headless --path . --export-release "$PRESET" "$OUTPUT" \

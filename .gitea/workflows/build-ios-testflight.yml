@@ -467,10 +467,27 @@ jobs:
         run: bash tools/ci/verify.sh
 
       - name: Build signed release IPA
+        env:
+          SUCH_APP_IDP_TICKET_URL: ${{ vars.SUCH_APP_IDP_TICKET_URL }}
+          SUCH_APP_NAKAMA_ENDPOINT: ${{ vars.SUCH_APP_NAKAMA_ENDPOINT }}
+          SUCH_APP_NAKAMA_SERVER_KEY: ${{ vars.SUCH_APP_NAKAMA_SERVER_KEY }}
         run: |
           set -euo pipefail
+          for NAME in SUCH_APP_IDP_TICKET_URL SUCH_APP_NAKAMA_ENDPOINT \
+                      SUCH_APP_NAKAMA_SERVER_KEY; do
+            [ -n "${!NAME}" ] || { echo "FATAL: repository variable $NAME is empty."; exit 1; }
+          done
           OUT="$SML_PRODUCT_DIR/SuchMoonLaunch.ipa"
           mkdir -p "$(dirname "$OUT")"
+          # The client reads ProjectSettings("such/app_platform/*") and falls back
+          # to the environment, which does not exist on a device. Write those
+          # settings for the export only, and restore on any exit so the key is
+          # never left behind in a cached checkout.
+          PROJECT_BACKUP="$(mktemp "${TMPDIR:-/tmp}/sml-project-godot.XXXXXX")"
+          cp -- project.godot "$PROJECT_BACKUP"
+          restore_project() { mv -f -- "$PROJECT_BACKUP" project.godot; }
+          trap restore_project EXIT
+          python3 tools/ci/inject_platform_config.py --project project.godot --release
           "$GODOT_BIN" --headless --path . --export-release "iOS" "$OUT" \
             2>&1 | tee "$SML_LOG_DIR/godot-ios-export.log"
           [ -f "$OUT" ] || { echo "FATAL: Godot did not produce the expected IPA."; exit 1; }
