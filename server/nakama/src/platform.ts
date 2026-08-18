@@ -811,7 +811,7 @@ function moonRpcEntitlements(
   var rows = nk.sqlQuery(
     "SELECT entitlement_key, operation, " +
       "CASE WHEN expires_at IS NULL THEN NULL ELSE expires_at::text END AS expires_at, " +
-      "last_sequence::text AS last_sequence " +
+      "last_event_sequence::text AS last_sequence " +
       "FROM such_platform_entitlement e " +
       "JOIN such_platform_identity i ON i.subject_id = e.subject_id " +
       "WHERE i.nakama_user_id = $1::uuid " +
@@ -982,7 +982,7 @@ function moonRpcPrepareGuestClaim(
   var tokenHash = nk.sha256Hash(token).toLowerCase();
   var result = nk.sqlExec(
     "INSERT INTO such_platform_guest_claim_token " +
-      "(token_hash, guest_user_id, expires_at) " +
+      "(claim_token_digest, guest_user_id, expires_at) " +
       "VALUES ($1, $2::uuid, now() + interval '10 minutes')",
     [tokenHash, ctx.userId]
   );
