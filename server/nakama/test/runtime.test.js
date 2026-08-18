@@ -78,6 +78,13 @@ class FakeNakama {
     this.current = new Map();
     this.currencyEvents = [];
     this.currencyCurrent = new Map();
+    this.leaderboards = [];
+  }
+
+  leaderboardCreate(id, authoritative, sortOrder, operator, resetSchedule, metadata) {
+    this.leaderboards.push({
+      id, authoritative, sortOrder, operator, resetSchedule, metadata
+    });
   }
 
   sha256Hash(value) {
@@ -490,6 +497,12 @@ function initialize(nk = new FakeNakama()) {
   };
   const logger = makeLogger();
   sandbox.InitModule(completeContext(), logger, nk, initializer);
+  // Init declares the leaderboards, which issues real writes. Tests index the
+  // recorded calls from zero, so drop the initialisation prefix here instead of
+  // teaching every assertion to skip it. What init declared stays available on
+  // nk.leaderboards for the tests that care.
+  nk.execCalls.length = 0;
+  nk.queryCalls.length = 0;
   return {rpcs, hooks, logger, nk};
 }
 
@@ -588,9 +601,11 @@ test("registers the complete common App Platform surface", () => {
       "app_platform_prepare_guest_claim",
       "app_platform_readiness",
       "app_platform_validate_iap",
+      "moon_launch_leaderboard",
       "moon_launch_room_close",
       "moon_launch_room_register",
-      "moon_launch_room_resolve"
+      "moon_launch_room_resolve",
+      "moon_launch_submit_score"
     ].sort()
   );
   assert.equal(typeof hooks.beforeAuthenticateCustom, "function");

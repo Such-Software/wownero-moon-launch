@@ -6,6 +6,11 @@ function InitModule(
 ): void {
   initializer.registerBeforeAuthenticateCustom(moonBeforeAuthenticateCustom);
   initializer.registerAfterAuthenticateCustom(moonAfterAuthenticateCustom);
+  // Boards are declared once at init so a restart converges them, and so
+  // such_platform_leaderboard always reflects what Nakama actually has.
+  ensureLeaderboards(_nk, _logger);
+  initializer.registerRpc("moon_launch_submit_score", moonRpcSubmitScore);
+  initializer.registerRpc("moon_launch_leaderboard", moonRpcLeaderboard);
   initializer.registerRpc("app_platform_health", moonRpcHealth);
   initializer.registerRpc("app_platform_readiness", moonRpcReadiness);
   initializer.registerRpc("app_platform_build_info", moonRpcBuildInfo);

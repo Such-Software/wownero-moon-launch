@@ -18,6 +18,7 @@
   "files": [
     "src/platform.ts",
     "src/rooms.ts",
+    "src/leaderboards.ts",
     "src/init.ts"
   ]
 }
