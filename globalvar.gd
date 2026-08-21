@@ -103,6 +103,17 @@ func apply_orientation() -> void:
 	else:
 		DisplayServer.screen_set_orientation(DisplayServer.SCREEN_SENSOR_LANDSCAPE)
 
+
+## A full-screen ad, an IAP sheet, a Play Games or Game Center overlay and a
+## share sheet are all separate native activities. Coming back from one can land
+## us in whatever orientation that activity allowed, and nothing was putting the
+## lock back, so the screen could flip to landscape mid-run in a portrait game.
+## Reported from real portrait testing, and the lock in apply_orientation() was
+## never the problem: it just was not being re-applied after we lost the window.
+func _notification(what: int) -> void:
+	if what == NOTIFICATION_APPLICATION_RESUMED:
+		apply_orientation()
+
 # --- Desktop control preference ---
 # On desktop BOTH keyboard and gamepad inputs stay live at once. This setting
 # only chooses which control HINTS/glyphs to show (tutorial text, Help, coach

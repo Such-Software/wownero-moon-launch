@@ -481,6 +481,11 @@ func _on_native_rewarded_dismissed(_ad_data: Dictionary, _error_data = null) -> 
 	# rejected on).
 	_rewarded_ad_id = ""
 	_native_load_rewarded()
+	# The ad ran as its own activity and may have left the device in an
+	# orientation we do not want. RESUMED covers this too, but a rewarded ad is
+	# the one overlay a player watches mid-run, so put the lock back here rather
+	# than waiting for a notification whose delivery we do not control.
+	globalvar.apply_orientation()
 
 
 # --- Banner ---
