@@ -9,6 +9,20 @@
 
 ## 🚀 Launch v1 — TO SHIP
 
+> Platform status, checked 2026-08-28. `AppPlatformFeatures.ENTITLEMENTS_ENABLED`
+> and `SHARED_IDENTITY_ENABLED` are both false, so purchases grant locally and
+> never reach the shared entitlement ledger. That is why the ledger holds no rows
+> for `moon_launch`; it is the intended state, not a fault, and it means none of
+> the ledger's failure modes can affect v1.
+>
+> Before that flag opens, one thing needs fixing. `grant_validated_purchase`
+> starts `_reconcile_purchase_with_server` fire-and-forget, and the caller
+> consumes the Play token immediately afterwards. A failed validation only logs
+> and returns. Non-consumables survive, because Play keeps returning owned
+> purchases from `query_purchases()` on every launch. A consumable does not: the
+> token is consumed, the local claim is recorded, and the receipt is gone, so a
+> player who paid gets nothing and no retry exists.
+
 Top-of-line items remaining before public release on Web (itch.io) + Android (Play
 Store) + iOS (App Store). Code scaffolding for ads/IAP/share/rate is already in
 place — most items below are user-side store/console work.
@@ -42,8 +56,8 @@ After recreating apps above, swap the new IDs into:
 - [ ] Add dev Google account as License Tester (Play Console → License testing) and Sandbox Tester (App Store Connect → Sandbox testers).
 
 ### Build configuration
-- [ ] **Android** (`export_presets.cfg`): set `gradle_build/export_format=1` (AAB), `gradle_build/min_sdk=24`, `target_sdk=34`. Set launcher icons (`launcher_icons/main_192x192` + adaptive 432×432 from `art/branding/AppIcon_Cartoon-Astronaut.png`). Bump `version/code` and `version/name`.
-- [ ] **iOS** (`export_presets.cfg`): bundle id `com.suchsoftware.suchmoonlaunch`, team id, code-sign identity, provisioning profile, ALL icon sizes (use makeappicon.com from a 1024×1024 source). Enable In-App Purchase capability in the App ID at developer.apple.com.
+- [x] **Android** (`export_presets.cfg`): AAB export, `min_sdk=24`, `target_sdk=36`. Done; the target is 36 rather than the 34 this line used to ask for, which is current and above Play's floor. Set launcher icons (`launcher_icons/main_192x192` + adaptive 432×432 from `art/branding/AppIcon_Cartoon-Astronaut.png`). Bump `version/code` and `version/name`.
+- [x] **iOS** (`export_presets.cfg`): bundle `com.suchsoftware.suchmoonlaunch`, team `D8PL9F7X33`, release identity `Apple Distribution: Such Software LLC`, profile `SuchMoonLaunch_AppStore`. Done.
 - [x] **CI code foundation**: portable push/PR verification plus an artifact-first,
   fail-closed private-Mac iOS candidate/TestFlight workflow. External mirror,
   seed, secrets, branch normalization, and first proof run remain in
