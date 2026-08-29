@@ -732,13 +732,28 @@ func _show_options_popup() -> void:
 		ctrl_hbox.add_child(ctrl_btn)
 		vbox.add_child(ctrl_hbox)
 
+		# Describes the scheme you are on, not all three at once, and updates as the
+		# button cycles. Sized and coloured like the rest of the panel: this used to
+		# be the smallest, dimmest text in the dialog while carrying the only
+		# explanation of what the controls actually do.
 		var ctrl_hint := Label.new()
-		ctrl_hint.text = "Tilt: roll to turn, button to thrust.  Joystick: on-screen stick.  Full Tilt: portrait — roll to turn, pitch to thrust, no buttons."
-		ctrl_hint.add_theme_font_size_override("font_size", 11)
-		ctrl_hint.add_theme_color_override("font_color", Color(0.55, 0.65, 0.78))
+		ctrl_hint.text = globalvar.control_scheme_hint()
+		ctrl_hint.add_theme_font_size_override("font_size", 13)
+		ctrl_hint.add_theme_color_override("font_color", Color(0.78, 0.84, 0.9))
 		ctrl_hint.autowrap_mode = TextServer.AUTOWRAP_WORD
 		ctrl_hint.custom_minimum_size = Vector2(340, 0)
 		vbox.add_child(ctrl_hint)
+
+		# Only shown while Full Tilt is selected, because it is the only scheme that
+		# changes the device orientation out from under the player.
+		var orient_note := Label.new()
+		orient_note.text = globalvar.FULL_TILT_ORIENTATION_NOTE
+		orient_note.add_theme_font_size_override("font_size", 12)
+		orient_note.add_theme_color_override("font_color", Color(1.0, 0.75, 0.4))
+		orient_note.autowrap_mode = TextServer.AUTOWRAP_WORD
+		orient_note.custom_minimum_size = Vector2(340, 0)
+		orient_note.visible = (globalvar.control_scheme == globalvar.ControlScheme.FULL_TILT)
+		vbox.add_child(orient_note)
 
 		# Orientation — portrait is first-class + independent of the control scheme.
 		var orient_hbox := HBoxContainer.new()
@@ -803,7 +818,11 @@ func _show_options_popup() -> void:
 			globalvar.set_control_scheme((globalvar.control_scheme + 1) % 3)
 			globalvar.save_game()
 			ctrl_value.text = globalvar.CONTROL_SCHEME_NAMES.get(globalvar.control_scheme, "Tilt")
+			ctrl_hint.text = globalvar.control_scheme_hint()
 			tilt_row.visible = (globalvar.control_scheme == globalvar.ControlScheme.TILT)
+			# Full Tilt rotates the device. Coming from a button that otherwise just
+			# cycles a word, that is worth saying rather than letting it happen.
+			orient_note.visible = (globalvar.control_scheme == globalvar.ControlScheme.FULL_TILT)
 		)
 
 	# --- Desktop control glyphs (desktop + gamepad connected) — WP-A3 ---

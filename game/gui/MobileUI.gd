@@ -25,6 +25,7 @@ var _fuel_bar: Control = null
 var _wallet_hud: Control = null
 var _debug_overlay: Control = null
 var _target_arrow: Control = null
+var _pause_controls_hint: Label = null
 var _pause_controls_btn: Button = null
 var _highlight_tweens: Dictionary = {}
 
@@ -313,6 +314,19 @@ func _setup_pause_controls_row() -> void:
 		return
 	BS.apply_space_style(_pause_controls_btn, Color(0.5, 0.8, 1.0))
 	_pause_controls_btn.pressed.connect(_on_pause_controls_pressed)
+	# A visible line under the button, not only a tooltip. A tooltip needs a
+	# long-press on a phone, so on the one screen where a player changes scheme
+	# mid-session almost nobody would ever see the explanation.
+	if is_mobile and _pause_controls_hint == null:
+		_pause_controls_hint = Label.new()
+		_pause_controls_hint.name = "ControlsHint"
+		_pause_controls_hint.add_theme_font_size_override("font_size", 11)
+		_pause_controls_hint.add_theme_color_override("font_color", Color(0.68, 0.78, 0.88))
+		_pause_controls_hint.autowrap_mode = TextServer.AUTOWRAP_WORD
+		_pause_controls_hint.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		var popup := _pause_controls_btn.get_parent()
+		popup.add_child(_pause_controls_hint)
+		popup.move_child(_pause_controls_hint, _pause_controls_btn.get_index() + 1)
 	_refresh_pause_controls_row()
 
 
@@ -320,9 +334,20 @@ func _refresh_pause_controls_row() -> void:
 	if _pause_controls_btn == null or not is_instance_valid(_pause_controls_btn):
 		return
 	if is_mobile:
-		# Mobile always cycles Tilt / Joystick.
+		# Mobile cycles Tilt / Joystick / Full Tilt.
+		#
+		# The button used to read "Controls: Tilt" and nothing else, which is the
+		# one place a player actually changes scheme mid-session and the one place
+		# no description existed. The tooltip carries what the scheme does, and the
+		# fact that Full Tilt will rotate the device.
 		_pause_controls_btn.visible = true
 		_pause_controls_btn.text = "Controls: %s" % globalvar.CONTROL_SCHEME_NAMES.get(globalvar.control_scheme, "Tilt")
+		var tip := globalvar.control_scheme_hint()
+		if globalvar.control_scheme == globalvar.ControlScheme.FULL_TILT:
+			tip += "  %s" % globalvar.FULL_TILT_ORIENTATION_NOTE
+		_pause_controls_btn.tooltip_text = tip
+		if _pause_controls_hint != null and is_instance_valid(_pause_controls_hint):
+			_pause_controls_hint.text = tip
 	else:
 		# Desktop: only meaningful (and only shown) when a controller is connected.
 		_pause_controls_btn.visible = Input.get_connected_joypads().size() > 0

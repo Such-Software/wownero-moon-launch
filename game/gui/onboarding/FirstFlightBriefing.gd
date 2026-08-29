@@ -158,6 +158,32 @@ func _build_interface() -> void:
 	spacer.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	objective_stack.add_child(spacer)
 
+	# Which scheme the player is about to fly with, and that it is a choice.
+	#
+	# Nothing in the intro said this. The opening transmission is story, and the
+	# level-1 tutorial teaches whichever scheme happens to be active as though it
+	# were the only one, so a player learned "the" controls and never found out
+	# that tilt, joystick and full-tilt existed or that orientation was settable.
+	if OS.get_name() == "Android" or OS.get_name() == "iOS":
+		var controls_row := Label.new()
+		controls_row.text = "CONTROLS:  %s.  %s" % [
+			globalvar.CONTROL_SCHEME_NAMES.get(globalvar.control_scheme, "Tilt"),
+			globalvar.control_scheme_hint(),
+		]
+		controls_row.add_theme_font_size_override("font_size", 12)
+		controls_row.add_theme_color_override("font_color", Color(0.72, 0.82, 0.92))
+		controls_row.autowrap_mode = TextServer.AUTOWRAP_WORD
+		controls_row.custom_minimum_size = Vector2(360, 0)
+		objective_stack.add_child(controls_row)
+
+		var change_row := Label.new()
+		change_row.text = "Change controls or orientation any time: Settings, or Controls in the pause menu."
+		change_row.add_theme_font_size_override("font_size", 11)
+		change_row.add_theme_color_override("font_color", Color(0.58, 0.68, 0.8))
+		change_row.autowrap_mode = TextServer.AUTOWRAP_WORD
+		change_row.custom_minimum_size = Vector2(360, 0)
+		objective_stack.add_child(change_row)
+
 	var launch := Button.new()
 	launch.name = "BeginFlightButton"
 	launch.text = "BEGIN FLIGHT  ›"

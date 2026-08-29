@@ -77,6 +77,26 @@ enum ControlScheme { TILT, JOYSTICK, FULL_TILT }
 var control_scheme: int = ControlScheme.TILT
 const CONTROL_SCHEME_NAMES := { 0: "Tilt", 1: "Joystick", 2: "Full Tilt" }
 
+## One line per scheme, describing only the scheme it names. The settings panel
+## used to print all three in a single run-on sentence at the smallest font in
+## the dialog, which told a player who wanted to know what they were currently
+## using to read three descriptions and work it out. The pause popup, which is
+## where a scheme actually gets changed mid-session, described nothing at all.
+const CONTROL_SCHEME_HINTS := {
+	0: "Roll the phone left and right to turn. Buttons for thrust and reverse.",
+	1: "On-screen stick to turn. Buttons for thrust and reverse.",
+	2: "Portrait. Roll to turn, pitch forward to thrust, back to brake. No buttons.",
+}
+
+## Said out loud because the scheme change also rotates the device, which is a
+## surprise coming from a button that otherwise just cycles a word.
+const FULL_TILT_ORIENTATION_NOTE := "Full Tilt switches the game to portrait."
+
+## Description of one scheme; the active one by default.
+func control_scheme_hint(scheme: int = -1) -> String:
+	var s: int = control_scheme if scheme < 0 else scheme
+	return CONTROL_SCHEME_HINTS.get(s, "")
+
 ## Full-tilt (portrait) tuning. Pitch (device forward/back tilt) drives thrust:
 ## deadzone below which no thrust, then linear up to full. Turn reuses the tilt
 ## roll axis. ALL of the axis/polarity choices below are DEVICE-CALIBRATION values
