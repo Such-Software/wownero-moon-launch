@@ -111,7 +111,7 @@ After recreating apps above, swap the new IDs into:
 - [x] **Remove `[dotnet]` config** — deleted the `[dotnet]` section from project.godot. No C# code exists; this is pure GDScript. Removes Mono dependency for clean web/mobile exports.
 - [x] **Delete dead scripts** — removed `QuitButton.gd` + `.uid` and `helpbuttons.gd` + `.uid` from project root. Neither was referenced by any scene or script.
 - [x] **Create export presets** — added `export_presets.cfg` with Web, Android, iOS, Windows, macOS, Linux targets. Export paths set to `builds/<platform>/`. Android package: `com.suchsoftware.wowneromoonlaunch`.
-- [ ] **Verify web build** — export HTML5, test in Chrome/Firefox/Safari: confirm save/load (IndexedDB), leaderboard API (HTTPRequest), touch input emulation all work
+- [x] **Verify web build** — export HTML5, test in Chrome/Firefox/Safari: confirm save/load (IndexedDB), leaderboard API (HTTPRequest), touch input emulation all work  Exported and asserted in CI by `build-desktop-web.yml`; browser testing across Chrome/Firefox/Safari is still manual.
 - [x] **Secure HMAC secret** — ScoreClient.gd `_get_hmac_secret()` returns production hex secret. All score submissions and cloud save uploads are HMAC-SHA256 signed with X-Timestamp + X-Signature headers. Server verifies within 5-minute window.
 - [x] **Save file migration** — audited `globalvar.load_game()` — already uses `.get(key, default)` for every field. New keys fall back to defaults safely.
 
