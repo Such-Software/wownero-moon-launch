@@ -112,7 +112,8 @@ def render_solo(speaker, cues, total, cache_root):
                SG3D_DUR=f"{total:.3f}", SG3D_RES=f"{res[0]}x{res[1]}")
     env.pop("SG3D_CLOSEUP", None)                   # full body, not a face close-up
     print(f"  [{speaker}] rendering {int(total * FPS)} frames…")
-    subprocess.run([BLENDER, "--background", "--python", str(script), "--", "alpha"],
+    subprocess.run([BLENDER, "--background", "--python-exit-code", "1",
+                    "--python", str(script), "--", "alpha"],
                    env=env, check=True, stdout=subprocess.DEVNULL)
     (out / "done.txt").write_text("ok")
     return sorted(out.glob("f_*.png"))
