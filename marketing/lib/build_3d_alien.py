@@ -11,9 +11,9 @@ with small glints, two antennae with little bulb tips, and DOWN-ANGLED brows for
 the smug/skeptical look.
 
 Run:
-  Blender --background --python build_3d_alien.py -- still
-  Blender --background --python build_3d_alien.py -- portrait
-  Blender --background --python build_3d_alien.py -- talk|alpha   (needs SG3D_CUES)
+  Blender --background --python-exit-code 1 --python build_3d_alien.py -- still
+  Blender --background --python-exit-code 1 --python build_3d_alien.py -- portrait
+  Blender --background --python-exit-code 1 --python build_3d_alien.py -- talk|alpha   (needs SG3D_CUES)
 """
 import json
 import math
@@ -87,11 +87,21 @@ def mat(name, rgb, rough=0.5, sub=0.0):
     b = m.node_tree.nodes["Principled BSDF"]
     b.inputs["Base Color"].default_value = (*rgb, 1)
     b.inputs["Roughness"].default_value = rough
-    if sub > 0 and "Subsurface" in b.inputs:
-        b.inputs["Subsurface"].default_value = sub
-        if "Subsurface Color" in b.inputs:
-            b.inputs["Subsurface Color"].default_value = (
-                rgb[0] * 0.85 + 0.02, rgb[1] * 0.62, rgb[2] * 0.34, 1)
+    if sub > 0:
+        ss_rgb = (rgb[0] * 0.85 + 0.02, rgb[1] * 0.62, rgb[2] * 0.34)
+        if "Subsurface Weight" in b.inputs:
+            # 4.0 dropped Subsurface Color: the old amount blended Base Color
+            # toward it and scaled the scatter radius. EEVEE Next scatters much
+            # further than legacy EEVEE at the same radius, so the radius is
+            # cut to a tenth, which matched the Blender 3.1 renders.
+            b.inputs["Base Color"].default_value = (
+                *(c + (s - c) * sub for c, s in zip(rgb, ss_rgb)), 1)
+            b.inputs["Subsurface Weight"].default_value = 1.0
+            b.inputs["Subsurface Scale"].default_value = sub * 0.1
+        elif "Subsurface" in b.inputs:
+            b.inputs["Subsurface"].default_value = sub
+            if "Subsurface Color" in b.inputs:
+                b.inputs["Subsurface Color"].default_value = (*ss_rgb, 1)
     return m
 
 
@@ -248,6 +258,16 @@ def lights_and_cam():
             "BLENDER_EEVEE" if bpy.app.version >= (5, 0, 0)
             else "BLENDER_EEVEE_NEXT"
         )
+        # The legacy look below, in EEVEE Next terms (checked against the
+        # Blender 3.1 renders): GTAO with a 0.5 reach -> horizon-scan AO with
+        # the same reach, SSR -> screen-space ray tracing, soft shadows ->
+        # per-light shadow jitter.
+        ev = sc.eevee
+        ev.use_raytracing = True
+        ev.fast_gi_method = "AMBIENT_OCCLUSION_ONLY"
+        ev.fast_gi_distance = 0.5
+        for light in (k, f, r):
+            light.data.use_shadow_jitter = True
     else:
         sc.render.engine = "BLENDER_EEVEE"
         ev = sc.eevee
@@ -260,6 +280,9 @@ def lights_and_cam():
             ev.shadow_cube_size = "2048"
         if hasattr(ev, "use_ssr"):
             ev.use_ssr = True
+    # 4.0 made AgX the default view transform; the cast was lit and coloured
+    # under Filmic, the 3.x default.
+    sc.view_settings.view_transform = "Filmic"
     if MODE in ("alpha", "portrait"):
         res = os.environ.get("SG3D_RES", "620x820").split("x")
         sc.render.resolution_x, sc.render.resolution_y = int(res[0]), int(res[1])

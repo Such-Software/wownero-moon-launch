@@ -98,7 +98,8 @@ def render_actor(speaker, events, total, cache_root):
     env = dict(os.environ, SG3D_CUES=str(cues_path), SG3D_OUT=str(out),
                SG3D_DUR=f"{total:.3f}", SG3D_RES=f"{res[0]}x{res[1]}")
     print(f"  [{speaker}] rendering {int(total * FPS)} frames…")
-    subprocess.run([BLENDER, "--background", "--python", str(script), "--", "alpha"],
+    subprocess.run([BLENDER, "--background", "--python-exit-code", "1",
+                    "--python", str(script), "--", "alpha"],
                    env=env, check=True, stdout=subprocess.DEVNULL)
     (out / "done.txt").write_text("ok")
     return sorted(out.glob("f_*.png"))
